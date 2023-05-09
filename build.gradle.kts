@@ -4,6 +4,8 @@ val descriptionValue = "JFrog Gradle plugin for Build Info extraction and Artifa
 plugins {
     `java-gradle-plugin`
     `maven-publish`
+    // version 5.0+ only supported in Gradle v7.0+
+    id("com.github.spotbugs") version "4.8.0"
 }
 
 repositories {
@@ -56,6 +58,14 @@ publishing {
             from(components["java"])
         }
     }
+}
+
+spotbugs {
+    ignoreFailures.set(false)
+    showProgress.set(true)
+    showStackTraces.set(true)
+    effort.set(com.github.spotbugs.snom.Effort.MAX)
+    reportsDir.set(file("$buildDir/reports/spotbugs"))
 }
 
 tasks.compileJava {
