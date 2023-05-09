@@ -6,7 +6,6 @@
 
 </div>
 
-
 | Branch |                                                                                                    Test Status                                                                                                    |                                                                                                                             Scan Status                                                                                                                             |
 |:------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
 |  main  | [![Test](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml?query=branch%3Amain) | [![Frogbot scan](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/frogbot-scan-pull-request.yml/badge.svg?branch=main)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/frogbot-scan-pull-request.yml?query=branch%3Amain) |

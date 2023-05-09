@@ -19,6 +19,14 @@ jobs:
           distribution: "temurin"
           java-version: "11"
 
+      - name: Setup Artifactory
+        run: |
+          go install github.com/jfrog/jfrog-testing-infra/local-rt-setup@latest
+          ~/go/bin/local-rt-setup
+        env:
+          RTLIC: ${{secrets.RTLIC}}
+          GOPROXY: direct
+
       # Run tests
       - name: Tests on macOS, Linux
         run: ./gradlew clean check
