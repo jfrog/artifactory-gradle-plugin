@@ -1,9 +1,14 @@
 name: Test
 
-on: [ push, pull_request ]
+on:
+  push:
+  # Triggers the workflow on labeled PRs only.
+  pull_request_target:
+    types: [ labeled ]
 
 jobs:
   test:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'safe to test'))
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -20,12 +25,12 @@ jobs:
           java-version: "11"
 
       - name: Setup Artifactory
+        env:
+          RTLIC: ${{ secrets.RTLIC }}
+          GOPROXY: direct
         run: |
           go install github.com/jfrog/jfrog-testing-infra/local-rt-setup@latest
           ~/go/bin/local-rt-setup
-        env:
-          RTLIC: ${{secrets.RTLIC}}
-          GOPROXY: direct
 
       # Run tests
       - name: Tests on macOS, Linux

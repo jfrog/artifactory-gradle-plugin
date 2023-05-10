@@ -1,0 +1,8 @@
+plugins {
+    id 'com.jfrog.artifactory' apply false
+    id 'java'
+}
+
+allprojects {
+    apply plugin: 'com.jfrog.artifactory'
+}

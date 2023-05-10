@@ -1,5 +1,7 @@
 group = "org.jfrog.buildinfo"
-val descriptionValue = "JFrog Gradle plugin for Build Info extraction and Artifactory publishing."
+
+val pluginDescription = "JFrog Gradle plugin for Build Info extraction and Artifactory publishing."
+val functionalTest by sourceSets.creating
 
 plugins {
     `java-gradle-plugin`
@@ -11,8 +13,9 @@ repositories {
 }
 
 dependencies {
-    implementation(gradleApi())
     testImplementation("org.testng:testng:7.7.1")
+    "functionalTestImplementation"("org.testng:testng:7.7.1")
+//    "functionalTestImplementation"(project)
 }
 
 gradlePlugin {
@@ -21,16 +24,46 @@ gradlePlugin {
         create("artifactoryGradlePlugin") {
             displayName = "JFrog Artifactory Gradle Plugin"
             id = "com.jfrog.artifactory"
-            description = descriptionValue
+            description = pluginDescription
             implementationClass = "org.jfrog.buildinfo.ArtifactoryPlugin"
         }
     }
+    testSourceSets(functionalTest)
 }
 
-tasks {
-    test {
-        useTestNG()
+tasks.compileJava {
+    sourceCompatibility = "1.8"
+    targetCompatibility = "1.8"
+}
+
+// Tests configurations
+tasks.withType<Test>().configureEach {
+    useTestNG {
+        useDefaultListeners(true)
     }
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        events("started", "passed", "skipped", "failed", "standardOut", "standardError")
+        minGranularity = 0
+    }
+}
+
+val functionalTestTask = tasks.register<Test>("functionalTest") {
+    description = "Runs the functional tests."
+    group = "verification"
+    testClassesDirs = functionalTest.output.classesDirs
+    classpath = functionalTest.runtimeClasspath
+    mustRunAfter(tasks.test)
+}
+
+tasks.check {
+    dependsOn(functionalTestTask)
+}
+
+// Publish configurations
+java {
+    withJavadocJar()
+    withSourcesJar()
 }
 
 publishing {
@@ -38,7 +71,7 @@ publishing {
         create<MavenPublication>("mavenJava") {
             pom {
                 name.set(rootProject.name)
-                description.set(descriptionValue)
+                description.set(pluginDescription)
 
                 licenses {
                     license {
@@ -56,14 +89,4 @@ publishing {
             from(components["java"])
         }
     }
-}
-
-tasks.compileJava {
-    sourceCompatibility = "1.8"
-    targetCompatibility = "1.8"
-}
-
-java {
-    withJavadocJar()
-    withSourcesJar()
 }
