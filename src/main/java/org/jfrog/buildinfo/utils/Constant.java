@@ -8,10 +8,10 @@ public class Constant {
     public static final String MIN_GRADLE_VERSION = "6.9";
 
     // Plugin tasks names
-    public static final String ARTIFACTORY_PUBLISH_TASK_NAME = "artifactoryPublish";
+    public static final String COLLECT_PUBLISH_INFO_TASK_NAME = "collectPublishInfo";
     public static final String EXTRACT_MODULE_TASK_NAME = "extractModuleInfo";
     public static final String EXTRACT_BUILD_INFO_TASK_NAME = "extractBuildInfo";
-    public static final String DEPLOY_TASK_NAME = "artifactoryDeploy";
+    public static final String DEPLOY_TASK_NAME = "artifactoryPublish";
 
     // Plugin generated file names (intermediate)
     public static final String MODULE_INFO_FILE_NAME = "moduleInfo.json";

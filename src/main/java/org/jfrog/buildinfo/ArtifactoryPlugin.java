@@ -27,33 +27,33 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         }
         // Add an Artifactory plugin convention to the project module
         ArtifactoryPluginConvention convention = ConventionUtils.getOrCreateArtifactoryConvention(project);
-        // Then add the collect deploy details task to collect publishing information on the module
+        // Add the collect publish/deploy details and extract module-info tasks to the project module
         CollectDeployDetailsTask collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
         TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask);
+        // Add the extract build-info and deploy tasks to the project module to also allow to publish/deploy only on submodules
+        ExtractBuildInfoTask extractBuildInfoTask = TaskUtils.addExtractBuildInfoTask(project);
+        TaskUtils.addDeploymentTask(extractBuildInfoTask);
 
         if (ProjectUtils.isRootProject(project)) {
-            // Build-info, Deploy and Distribute tasks are added once for the root to finalize all modules tasks that prepare the needed information
-            ExtractBuildInfoTask extractBuildInfoTask = TaskUtils.addExtractBuildInfoTask(project);
-            TaskUtils.addDeploymentTask(extractBuildInfoTask);
             // Add a DependencyResolutionListener, to populate the dependency hierarchy map.
             project.getGradle().addListener(resolutionListener);
         } else {
             // Makes sure the plugin is applied in the root project
             project.getRootProject().getPluginManager().apply(ArtifactoryPlugin.class);
         }
+        // Add project evaluation listener to allow aggregation from module to one build-info and deploy
+        // Also allow config on demand (lazy)
+        project.getGradle().addProjectEvaluationListener(new ProjectsEvaluatedBuildListener());
 
         // TODO: Remove
         project.getTasks().maybeCreate(HelloWorldTask.TASK_NAME, HelloWorldTask.class);
 
+        // Set build started if not set = TODO: check why
+//        String buildStarted = convention.getClientConfig().info.getBuildStarted();
+//        if (buildStarted == null || buildStarted.isEmpty()) {
+//            convention.getClientConfig().info.setBuildStarted(System.currentTimeMillis());
+//        }
 
-        // Set build started if not set
-        // TODO: check why
-        String buildStarted = convention.getClientConfig().info.getBuildStarted();
-        if (buildStarted == null || buildStarted.isEmpty()) {
-            convention.getClientConfig().info.setBuildStarted(System.currentTimeMillis());
-        }
-
-        project.getGradle().addProjectEvaluationListener(new ProjectsEvaluatedBuildListener());
         log.debug("Using Artifactory Plugin for " + project.getPath());
     }
 

@@ -9,9 +9,7 @@ import org.gradle.api.publish.ivy.IvyPublication;
 import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.TaskAction;
-import org.jfrog.buildinfo.config.ArtifactoryPluginConvention;
 import org.jfrog.buildinfo.utils.Constant;
-import org.jfrog.buildinfo.utils.ConventionUtils;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -32,24 +30,12 @@ public class CollectDeployDetailsTask extends DefaultTask {
         log.debug("<ASSAF> Task '{}' activated", getPath());
     }
 
-    /**
-     * Set the project root ExtractBuildInfoTask task to run after this task is done
-     */
-    public void finalizeByExtractTask() {
-        Task deployTask = getProject().getRootProject().getTasks().findByName(Constant.EXTRACT_BUILD_INFO_TASK_NAME);
-        if (deployTask == null) {
-            throw new IllegalStateException(String.format("Could not find %s in the root project", Constant.EXTRACT_BUILD_INFO_TASK_NAME));
-        }
-        finalizedBy(deployTask);
-    }
-
     public void taskEvaluated() {
         Project project = getProject();
 
-        ArtifactoryPluginConvention convention = ConventionUtils.getPublisherConvention(project);
-
+        // Depends on Information Collection from all the subprojects
         for (Project sub : project.getSubprojects()) {
-            Task subCollectInfoTask = sub.getTasks().findByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME);
+            Task subCollectInfoTask = sub.getTasks().findByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME);
             if (subCollectInfoTask != null) {
                 dependsOn(subCollectInfoTask);
             }

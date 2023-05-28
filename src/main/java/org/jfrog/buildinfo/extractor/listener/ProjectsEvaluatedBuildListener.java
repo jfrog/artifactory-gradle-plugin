@@ -37,13 +37,20 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
      */
     private void evaluate(CollectDeployDetailsTask collectDeployDetailsTask) {
         log.debug("Evaluating CollectDeployDetailsTask {}", collectDeployDetailsTask);
-        ArtifactoryPluginConvention convention = ConventionUtils.getArtifactoryConvention(collectDeployDetailsTask.getProject());
+        Project project = collectDeployDetailsTask.getProject();
+        ArtifactoryPluginConvention convention = ConventionUtils.getArtifactoryConvention(project);
         if (convention == null) {
             return;
         }
-
         ArtifactoryClientConfiguration clientConfiguration = convention.getClientConfig();
+        if (clientConfiguration == null) {
+            return;
+        }
+        // Fill-in the client config with current user/system properties for the given project
+//        ConventionUtils.updateConfig(clientConfiguration, project);
 
+
+        collectDeployDetailsTask.taskEvaluated();
     }
 
     /**
@@ -55,13 +62,12 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
      */
     @Override
     public void afterEvaluate(Project project, ProjectState state) {
-        Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
+        Set<Task> tasks = project.getTasksByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME, false);
         StartParameter startParameter = project.getGradle().getStartParameter();
         tasks.forEach(task -> {
             if (task instanceof CollectDeployDetailsTask) {
                 CollectDeployDetailsTask collectDeployDetailsTask = (CollectDeployDetailsTask) task;
                 detailsCollectingTasks.add(collectDeployDetailsTask);
-                collectDeployDetailsTask.finalizeByExtractTask();
                 if (startParameter.isConfigureOnDemand()) {
                     evaluate(collectDeployDetailsTask);
                 }
@@ -76,13 +82,12 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
      */
     @Override
     public void projectsEvaluated(Gradle gradle) {
-        Set<Task> tasks = gradle.getRootProject().getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
+        Set<Task> tasks = gradle.getRootProject().getTasksByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME, false);
         detailsCollectingTasks.addAll(tasks);
         detailsCollectingTasks.forEach(task -> {
             if ((task instanceof CollectDeployDetailsTask) && !((CollectDeployDetailsTask) task).isEvaluated()) {
                 CollectDeployDetailsTask collectDeployDetailsTask = (CollectDeployDetailsTask) task;
                 evaluate(collectDeployDetailsTask);
-                collectDeployDetailsTask.finalizeByExtractTask();
             }
         });
     }
