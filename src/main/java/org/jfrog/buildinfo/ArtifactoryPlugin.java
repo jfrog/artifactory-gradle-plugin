@@ -2,47 +2,66 @@ package org.jfrog.buildinfo;
 
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
+import org.jfrog.buildinfo.config.ArtifactoryPluginConvention;
+import org.jfrog.buildinfo.extractor.listener.ArtifactoryDependencyResolutionListener;
+import org.jfrog.buildinfo.extractor.listener.ProjectsEvaluatedBuildListener;
+import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
+import org.jfrog.buildinfo.tasks.ExtractBuildInfoTask;
 import org.jfrog.buildinfo.tasks.HelloWorldTask;
+import org.jfrog.buildinfo.utils.Constant;
+import org.jfrog.buildinfo.utils.ConventionUtils;
+import org.jfrog.buildinfo.utils.ProjectUtils;
+import org.jfrog.buildinfo.utils.TaskUtils;
 
 public class ArtifactoryPlugin implements Plugin<Project> {
+    private static final Logger log = Logging.getLogger(ArtifactoryPlugin.class);
+    private final ArtifactoryDependencyResolutionListener resolutionListener = new ArtifactoryDependencyResolutionListener();
 
     @Override
     public void apply(Project project) {
         if (isGradleVersionNotSupported(project)) {
-            System.out.println("Can't apply on Gradle version " + project.getGradle().getGradleVersion());
+            log.error("Can't apply Artifactory Plugin on Gradle version " + project.getGradle().getGradleVersion());
             return;
         }
+        // Add an Artifactory plugin convention to the project module
+        ArtifactoryPluginConvention convention = ConventionUtils.getOrCreateArtifactoryConvention(project);
+        // Add the collect publish/deploy details and extract module-info tasks to the project module
+        CollectDeployDetailsTask collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
+        TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask);
+        // Add the extract build-info and deploy tasks to the project module to also allow to publish/deploy only on submodules
+        ExtractBuildInfoTask extractBuildInfoTask = TaskUtils.addExtractBuildInfoTask(project);
+        TaskUtils.addDeploymentTask(extractBuildInfoTask);
 
-        for (Project proj : project.getAllprojects()) {
-            addPluginTasks(proj);
+        if (ProjectUtils.isRootProject(project)) {
+            // Add a DependencyResolutionListener, to populate the dependency hierarchy map.
+            project.getGradle().addListener(resolutionListener);
+        } else {
+            // Makes sure the plugin is applied in the root project
+            project.getRootProject().getPluginManager().apply(ArtifactoryPlugin.class);
         }
-    }
+        // Add project evaluation listener to allow aggregation from module to one build-info and deploy
+        // Also allow config on demand (lazy)
+        project.getGradle().addProjectEvaluationListener(new ProjectsEvaluatedBuildListener());
 
-    private void addPluginTasks(Project project) {
+        // TODO: Remove
         project.getTasks().maybeCreate(HelloWorldTask.TASK_NAME, HelloWorldTask.class);
+
+        // Set build started if not set = TODO: check why
+//        String buildStarted = convention.getClientConfig().info.getBuildStarted();
+//        if (buildStarted == null || buildStarted.isEmpty()) {
+//            convention.getClientConfig().info.setBuildStarted(System.currentTimeMillis());
+//        }
+
+        log.debug("Using Artifactory Plugin for " + project.getPath());
     }
 
     public boolean isGradleVersionNotSupported(Project project) {
-        return compareVersions(Constant.MIN_GRADLE_VERSION, project.getGradle().getGradleVersion()) > 0;
+        return Constant.MIN_GRADLE_VERSION.compareTo(project.getGradle().getGradleVersion()) > 0;
     }
 
-    private  int compareVersions(String version1, String version2) {
-        String[] segments1 = version1.split("\\.");
-        String[] segments2 = version2.split("\\.");
-
-        int length = Math.max(segments1.length, segments2.length);
-
-        for (int i = 0; i < length; i++) {
-            int segment1 = i < segments1.length ? Integer.parseInt(segments1[i]) : 0;
-            int segment2 = i < segments2.length ? Integer.parseInt(segments2[i]) : 0;
-
-            if (segment1 < segment2) {
-                return -1;
-            } else if (segment1 > segment2) {
-                return 1;
-            }
-        }
-
-        return 0; // Versions are equal
+    public ArtifactoryDependencyResolutionListener getResolutionListener() {
+        return resolutionListener;
     }
 }
