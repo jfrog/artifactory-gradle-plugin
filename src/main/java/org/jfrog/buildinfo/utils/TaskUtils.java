@@ -3,6 +3,7 @@ package org.jfrog.buildinfo.utils;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.file.FileCollection;
+import org.jfrog.buildinfo.Constant;
 import org.jfrog.buildinfo.extractor.ModuleInfoFileProducer;
 import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
 import org.jfrog.buildinfo.tasks.DeployTask;
@@ -15,6 +16,25 @@ public class TaskUtils {
     private static final Logger log = LoggerFactory.getLogger(TaskUtils.class);
 
     /**
+     * Create a task in a given project
+     * @param taskName        - the name (ID) of the task
+     * @param taskClass       - the task class to be created
+     * @param taskDescription - the task description
+     * @param project         - the project to create the task inside
+     * @param publishGroup    - if true this task will be added to publish, else will be added to 'other'
+     * @return the task that was created in the project
+     */
+    private static <T extends Task> T createTaskInProject(String taskName, Class<T> taskClass, String taskDescription, Project project, boolean publishGroup) {
+        log.debug("Configuring {} task for project (is root: {}) {}", taskName, ProjectUtils.isRootProject(project), project.getPath());
+        T task = project.getTasks().create(taskName, taskClass);
+        task.setDescription(taskDescription);
+        if (publishGroup) {
+            task.setGroup(Constant.PUBLISH_TASK_GROUP);
+        }
+        return task;
+    }
+
+    /**
      * Adds to a given project a task to collect all the publications and information to be deployed.
      * @param project - the module to collect information from
      * @return - task that was created for the given module
@@ -24,12 +44,7 @@ public class TaskUtils {
         if (task instanceof CollectDeployDetailsTask) {
             return (CollectDeployDetailsTask) task;
         }
-        log.debug("Configuring {} task for project (is root: {}) {}", Constant.COLLECT_PUBLISH_INFO_TASK_NAME, ProjectUtils.isRootProject(project), project.getPath());
-
-        CollectDeployDetailsTask collectDeployDetailsTask = project.getTasks().create(Constant.COLLECT_PUBLISH_INFO_TASK_NAME, CollectDeployDetailsTask.class);
-        collectDeployDetailsTask.setDescription("Collect artifacts to be later used to generate build-info and deploy.");
-
-        return collectDeployDetailsTask;
+        return createTaskInProject(Constant.COLLECT_PUBLISH_INFO_TASK_NAME, CollectDeployDetailsTask.class, Constant.COLLECT_PUBLISH_INFO_TASK_DESCRIPTION, project, true);
     }
 
     /**
@@ -41,62 +56,35 @@ public class TaskUtils {
         Project project = collectDeployDetailsTask.getProject();
         Task task = project.getTasks().findByName(Constant.EXTRACT_MODULE_TASK_NAME);
         if (!(task instanceof ExtractModuleTask)) {
-            log.info("Configuring {} task for project (is root: {}) {}", Constant.EXTRACT_MODULE_TASK_NAME, ProjectUtils.isRootProject(project), project.getPath());
-            task = project.getTasks().create(Constant.EXTRACT_MODULE_TASK_NAME, ExtractModuleTask.class);
-            task.setDescription("Extracts module information to an intermediate file.");
-            task.setGroup(Constant.PUBLISH_TASK_GROUP);
+            task = createTaskInProject(Constant.EXTRACT_MODULE_TASK_NAME, ExtractModuleTask.class, Constant.EXTRACT_MODULE_TASK_DESCRIPTION, project, false);
         }
         ExtractModuleTask extractModuleTask = (ExtractModuleTask) task;
 
         extractModuleTask.getOutputs().upToDateWhen(reuseOutputs -> false);
         extractModuleTask.getModuleFile().set(project.getLayout().getBuildDirectory().file(Constant.MODULE_INFO_FILE_NAME));
-
         extractModuleTask.mustRunAfter(project.getTasks().withType(CollectDeployDetailsTask.class));
-        extractModuleTask.dependsOn(collectDeployDetailsTask);
 
         project.getTasks().withType(ExtractBuildInfoTask.class).configureEach(extractBuildInfoTask ->
         {
-            log.info("{} Registered info producer from {} + {}", extractBuildInfoTask.getPath(), collectDeployDetailsTask.getPath(), extractModuleTask.getPath());
+            log.info("{} Registered info producer from ({} , {})", extractBuildInfoTask.getPath(), collectDeployDetailsTask.getPath(), extractModuleTask.getPath());
             extractBuildInfoTask.registerModuleInfoProducer(new DefaultModuleInfoFileProducer(collectDeployDetailsTask, extractModuleTask));
         });
     }
 
-    public static ExtractBuildInfoTask addExtractBuildInfoTask(Project project) {
+    public static void addExtractBuildInfoTask(Project project) {
         Task task = project.getTasks().findByName(Constant.EXTRACT_BUILD_INFO_TASK_NAME);
         if (task instanceof ExtractBuildInfoTask) {
-            return (ExtractBuildInfoTask) task;
+            return;
         }
-        log.info("Configuring {} task for project (is root: {}) {}", Constant.EXTRACT_BUILD_INFO_TASK_NAME, ProjectUtils.isRootProject(project), project.getPath());
-
-        ExtractBuildInfoTask extractBuildInfoTask = project.getTasks().create(Constant.EXTRACT_BUILD_INFO_TASK_NAME, ExtractBuildInfoTask.class);
-        extractBuildInfoTask.setDescription("Extracts build-info to a file.");
-        extractBuildInfoTask.setGroup(Constant.PUBLISH_TASK_GROUP);
-        extractBuildInfoTask.getOutputs().upToDateWhen(reuseOutputs -> false);
-
-        extractBuildInfoTask.mustRunAfter(project.getTasks().withType(ExtractModuleTask.class));
-        for (Project sub : project.getAllprojects()) {
-            Task extractModuleTask = sub.getTasks().findByName(Constant.EXTRACT_MODULE_TASK_NAME);
-            if (extractModuleTask instanceof ExtractModuleTask) {
-                extractBuildInfoTask.dependsOn(extractModuleTask);
-                log.info("{} depend on {}", extractBuildInfoTask.getPath(), extractModuleTask.getPath());
-            }
-        }
-
-        return extractBuildInfoTask;
+        createTaskInProject(Constant.EXTRACT_BUILD_INFO_TASK_NAME, ExtractBuildInfoTask.class, Constant.EXTRACT_BUILD_INFO_TASK_DESCRIPTION, project, false);
     }
 
-    public static void addDeploymentTask(ExtractBuildInfoTask extractBuildInfoTask) {
-        Project project = extractBuildInfoTask.getProject();
+    public static void addDeploymentTask(Project project) {
         Task task = project.getTasks().findByName(Constant.DEPLOY_TASK_NAME);
         if (task instanceof DeployTask) {
             return;
         }
-        log.info("Configuring {} task for project (is root: {}) {}", Constant.DEPLOY_TASK_NAME, ProjectUtils.isRootProject(project), project.getPath());
-        DeployTask deployTask = project.getTasks().create(Constant.DEPLOY_TASK_NAME, DeployTask.class);
-        deployTask.setDescription("Deploys artifacts and build-info to Artifactory.");
-        deployTask.setGroup(Constant.PUBLISH_TASK_GROUP);
-
-        deployTask.dependsOn(extractBuildInfoTask);
+        createTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
     }
 
     /**
@@ -114,7 +102,7 @@ public class TaskUtils {
         @Override
         public boolean hasModules() {
             if (collectDeployDetailsTask != null && collectDeployDetailsTask.getProject().getState().getExecuted()) {
-                return collectDeployDetailsTask.hasModules();
+                return collectDeployDetailsTask.hasPublications();
             }
             return false;
         }
