@@ -186,8 +186,15 @@ artifactoryPublish {
             // If this plguin constant string is specified the plugin will try to apply all the known publications
             'ALL_PUBLICATIONS'
     )
+  
     // (default: false) Skip this task for the project (don't include its artifacts when publishing) 
     skip = true
+    // (default: true) Publish generated artifacts to Artifactory, can be specified as boolean/string
+    publishArtifacts = false
+    // (default: true) Publish generated POM files to Artifactory, can be specified as boolean/string
+    publishPom = false
+    // (default: true) Publish generated Ivy descriptor files to Artifactory, can be specified as boolean/string
+    publishIvy = false
 }
 ```
 #### Defaults - Global task Configurations to apply to all the projects

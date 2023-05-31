@@ -28,6 +28,11 @@ public class Constant {
     public static final String MAVEN_WEB = "mavenWeb";
     public static final String IVY_JAVA = "ivyJava";
 
+    // COLLECT_PUBLISH_INFO_TASK_NAME optional flag names (can be defined as String/boolean)
+    public static final String PUBLISH_ARTIFACTS = "publishArtifacts";
+    public static final String PUBLISH_IVY = "publishIvy";
+    public static final String PUBLISH_POM = "publishPom";
+
     // Plugin generated file names (intermediate)
     public static final String MODULE_INFO_FILE_NAME = "moduleInfo.json";
     public static final String BUILD_INFO_FILE_NAME = "build-info.json";

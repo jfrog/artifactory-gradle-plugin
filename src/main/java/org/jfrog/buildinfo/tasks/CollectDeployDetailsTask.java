@@ -24,10 +24,8 @@ import org.jfrog.buildinfo.extractor.details.GradleDeployDetails;
 import org.jfrog.buildinfo.utils.ConventionUtils;
 import org.jfrog.buildinfo.utils.PublicationUtils;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.TreeSet;
+import javax.annotation.Nullable;
+import java.util.*;
 
 public class CollectDeployDetailsTask extends DefaultTask {
     private static final Logger log = Logging.getLogger(CollectDeployDetailsTask.class);
@@ -41,7 +39,8 @@ public class CollectDeployDetailsTask extends DefaultTask {
     private boolean publishPublicationsSpecified = false;
     // This project task has been evaluated
     private boolean evaluated = false;
-
+    // Optional flags and attributes with default values
+    private final Map<String, Boolean> flags = new HashMap<>();
     @Input
     private boolean skip = false;
 
@@ -99,10 +98,10 @@ public class CollectDeployDetailsTask extends DefaultTask {
     }
 
     /**
-     * Make sure this task dependsOn the specified publications tasks
+     * Extract the publications arguments for the task and make sure this task dependsOn the specified publications tasks.
      */
     private void checkDependsOnArtifactsToPublish() {
-        updatePublications();
+        extractPublications();
         if (!hasPublications()) {
             if (publishPublicationsSpecified) {
                 // some publication were declared but not found
@@ -113,34 +112,21 @@ public class CollectDeployDetailsTask extends DefaultTask {
             }
             return;
         }
-        validateDependsOnIvyPublications();
-        validateDependsOnMavenPublications();
+        createDependencyOnIvyPublications();
+        createDependencyOnMavenPublications();
     }
 
     /**
      * Extract the given publications arguments, process each entry, validate the argument and fetch its matching Publication
      */
-    private void updatePublications() {
+    private void extractPublications() {
         if (this.publications.isEmpty()) {
             return;
         }
         for (Object publication : publications) {
             if (publication instanceof CharSequence) {
-                PublicationContainer container = getProject().getExtensions()
-                        .getByType(PublishingExtension.class)
-                        .getPublications();
-                if (publication.toString().equals(Constant.ALL_PUBLICATIONS)) {
-                    // Specified Constant special string, try to apply all known Publications
-                    container.forEach(this::addPublication);
-                } else {
-                    // Specified by String, try to match and get the Publication
-                    Publication publicationObj = container.findByName(publication.toString());
-                    if (publicationObj != null) {
-                        addPublication(publicationObj);
-                    } else {
-                        log.debug("Publication named '{}' does not exist for project '{}' in task '{}'.", publication, getProject().getPath(), getPath());
-                    }
-                }
+                // Specified by String
+                addPublication((CharSequence) publication);
             } else if (publication instanceof Publication) {
                 // Specified by Publication object
                 addPublication((Publication) publication);
@@ -152,9 +138,46 @@ public class CollectDeployDetailsTask extends DefaultTask {
     }
 
     /**
+     * Add a Publication to the task by String ID.
+     * @param publication - the ID of the publication or 'ALL_PUBLICATIONS' to add all the known publications
+     */
+    private void addPublication(CharSequence publication) {
+        PublicationContainer container = getProject().getExtensions()
+                .getByType(PublishingExtension.class)
+                .getPublications();
+        if (publication.toString().equals(Constant.ALL_PUBLICATIONS)) {
+            // Specified Constant special string, try to apply all known Publications
+            container.forEach(this::addPublication);
+        } else {
+            // Specified by String, try to match and get the Publication
+            Publication publicationObj = container.findByName(publication.toString());
+            if (publicationObj != null) {
+                addPublication(publicationObj);
+            } else {
+                log.debug("Publication named '{}' does not exist for project '{}' in task '{}'.", publication, getProject().getPath(), getPath());
+            }
+        }
+    }
+
+    /**
+     * Add a IvyPublication/MavenPublication to be included in this task
+     * @param publicationObj - publication object to collect information from
+     */
+    private void addPublication(Publication publicationObj) {
+        if (publicationObj instanceof IvyPublication) {
+            ivyPublications.add((IvyPublication) publicationObj);
+        } else if (publicationObj instanceof MavenPublication) {
+            mavenPublications.add((MavenPublication) publicationObj);
+        } else {
+            log.warn("Publication named '{}' in project '{}' is of unknown type '{}'",
+                    publicationObj.getName(), getProject().getPath(), publicationObj.getClass());
+        }
+    }
+
+    /**
      * Make sure task dependsOn any IvyPublication tasks and the task of the descriptor files for the published artifacts
      */
-    private void validateDependsOnIvyPublications() {
+    private void createDependencyOnIvyPublications() {
         for (IvyPublication ivyPublication : ivyPublications) {
             // TODO: Check why still need to be internal
             if (!(ivyPublication instanceof IvyPublicationInternal)) {
@@ -174,7 +197,7 @@ public class CollectDeployDetailsTask extends DefaultTask {
     /**
      * Make sure task dependsOn any IvyPublication tasks and the task of the pom file for the published artifacts
      */
-    private void validateDependsOnMavenPublications() {
+    private void createDependencyOnMavenPublications() {
         for (MavenPublication mavenPublication : mavenPublications) {
             if (!(mavenPublication instanceof MavenPublicationInternal)) {
                 log.warn("Maven publication name '{}' is of unsupported type '{}'!",
@@ -188,21 +211,6 @@ public class CollectDeployDetailsTask extends DefaultTask {
                     mavenPublication.getName().substring(1);
             dependsOn(String.format("%s:generatePomFileFor%sPublication",
                     getProject().getPath(), capitalizedPublicationName));
-        }
-    }
-
-    /**
-     * Add a IvyPublication/MavenPublication to be included in this task
-     * @param publicationObj - publication object to collect information from
-     */
-    private void addPublication(Publication publicationObj) {
-        if (publicationObj instanceof IvyPublication) {
-            ivyPublications.add((IvyPublication) publicationObj);
-        } else if (publicationObj instanceof MavenPublication) {
-            mavenPublications.add((MavenPublication) publicationObj);
-        } else {
-            log.warn("Publication named '{}' in project '{}' is of unknown type '{}'",
-                    publicationObj.getName(), getProject().getPath(), publicationObj.getClass());
         }
     }
 
@@ -233,22 +241,20 @@ public class CollectDeployDetailsTask extends DefaultTask {
                         publicationName, ivyPublication.getClass());
                 continue;
             }
-
-            PublicationUtils.extractIvyDeployDetails((IvyPublicationInternal) ivyPublication, deployDetails);
+            PublicationUtils.extractIvyDeployDetails((IvyPublicationInternal) ivyPublication, this);
         }
     }
 
     private void collectDetailsFromMavenPublications() {
         for (MavenPublication mavenPublication : mavenPublications) {
             String publicationName = mavenPublication.getName();
-
             if (!(mavenPublication instanceof MavenPublicationInternal)) {
                 // TODO: Check how the descriptor file can be extracted without using asNormalisedPublication
                 log.warn("Maven publication name '{}' is of unsupported type '{}'!",
                         publicationName, mavenPublication.getClass());
                 continue;
             }
-            PublicationUtils.extractMavenDeployDetails((MavenPublicationInternal) mavenPublication, deployDetails);
+            PublicationUtils.extractMavenDeployDetails((MavenPublicationInternal) mavenPublication, this);
         }
     }
 
@@ -266,6 +272,23 @@ public class CollectDeployDetailsTask extends DefaultTask {
         return publications;
     }
 
+    @Input
+    @Optional
+    @Nullable
+    public Boolean getPublishArtifacts() { return getFlag(Constant.PUBLISH_ARTIFACTS); }
+
+    @Input
+    @Optional
+    @Nullable
+    public Boolean getPublishIvy() { return getFlag(Constant.PUBLISH_IVY); }
+
+    @Input
+    @Optional
+    @Nullable
+    public Boolean getPublishPom() {
+        return getFlag(Constant.PUBLISH_POM);
+    }
+
     public boolean isSkip() {
         return skip;
     }
@@ -274,9 +297,27 @@ public class CollectDeployDetailsTask extends DefaultTask {
         this.skip = skip;
     }
 
+    public void setPublishArtifacts(Object publishArtifacts) {
+        setFlag(Constant.PUBLISH_ARTIFACTS, toBoolean(publishArtifacts));
+    }
+
+
+
     @Internal
     public boolean isEvaluated() {
         return evaluated;
     }
 
+    private Boolean toBoolean(Object o) {
+        return Boolean.valueOf(o.toString());
+    }
+
+    @Nullable
+    private Boolean getFlag(String flagName) {
+        return flags.get(flagName);
+    }
+
+    private void setFlag(String flagName, Boolean newValue) {
+        flags.put(flagName, newValue);
+    }
 }

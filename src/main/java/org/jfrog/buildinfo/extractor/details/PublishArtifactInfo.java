@@ -1,9 +1,12 @@
 package org.jfrog.buildinfo.extractor.details;
 
+import org.apache.commons.lang3.StringUtils;
+import org.gradle.api.GradleException;
 import org.gradle.api.artifacts.PublishArtifact;
 
 import javax.xml.namespace.QName;
 import java.io.File;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -59,6 +62,24 @@ public class PublishArtifactInfo  implements Comparable<PublishArtifactInfo> {
 
     public Map<QName, String> getExtraInfo() {
         return extraInfo;
+    }
+
+    public Map<String, String> getExtraTokens() {
+        Map<String, String> extraTokens = new HashMap<>();
+        if (StringUtils.isNotBlank(getClassifier())) {
+            extraTokens.put("classifier", getClassifier());
+        }
+        Map<QName, String> extraInfo = getExtraInfo();
+        if (extraInfo != null) {
+            for (Map.Entry<QName, String> extraToken : extraInfo.entrySet()) {
+                String key = extraToken.getKey().getLocalPart();
+                if (extraTokens.containsKey(key)) {
+                    throw new GradleException("Duplicated extra info '" + key + "'.");
+                }
+                extraTokens.put(key, extraToken.getValue());
+            }
+        }
+        return extraTokens;
     }
 
     public File getFile() {

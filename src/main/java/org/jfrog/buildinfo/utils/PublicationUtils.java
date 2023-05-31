@@ -1,12 +1,22 @@
 package org.jfrog.buildinfo.utils;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.ivy.core.IvyPatternHelper;
 import org.gradle.api.GradleException;
+import org.gradle.api.Project;
+import org.gradle.api.publish.ivy.IvyArtifact;
 import org.gradle.api.publish.ivy.internal.publication.IvyPublicationInternal;
+import org.gradle.api.publish.ivy.internal.publisher.IvyNormalizedPublication;
+import org.gradle.api.publish.ivy.internal.publisher.IvyPublicationIdentity;
 import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal;
 import org.jfrog.build.api.util.FileChecksumCalculator;
+import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.buildinfo.extractor.details.GradleDeployDetails;
+import org.jfrog.buildinfo.extractor.details.PublishArtifactInfo;
+import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
 
+import javax.xml.namespace.QName;
 import java.io.File;
 import java.util.Map;
 import java.util.Set;
@@ -15,39 +25,98 @@ import static org.jfrog.build.api.util.FileChecksumCalculator.*;
 
 public class PublicationUtils {
 
-    public static void extractIvyDeployDetails(IvyPublicationInternal ivyPublicationInternal, Set<GradleDeployDetails> destination) {
-//        String publicationName = ivyPublicationInternal.getName();
-//        IvyNormalizedPublication ivyNormalizedPublication = ivyPublicationInternal.asNormalisedPublication();
-//        IvyPublicationIdentity projectIdentity = ivyNormalizedPublication.getProjectIdentity();
-//        Map<QName, String> extraInfo = ivyPublicationInternal.getDescriptor().getExtraInfo().asMap();
-//
-//        // First adding the Ivy descriptor (if the build is configured to add it):
-//        File ivyFile = ivyNormalizedPublication.getIvyDescriptorFile();
-//        if (isPublishIvy()) {
-//            DeployDetails.Builder builder = createArtifactBuilder(ivyFile, publicationName);
-//            if (builder != null) {
-//                PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
-//                        projectIdentity.getModule(), "xml", "ivy", null, extraInfo, ivyFile);
-//                addIvyArtifactToDeployDetails(destination, publicationName, projectIdentity, builder, artifactInfo);
-//            }
-//        }
-//
-//        // Second adding all artifacts, skipping the ivy file
-//        Set<IvyArtifact> artifacts = ivyNormalizedPublication.getAllArtifacts();
-//        for (IvyArtifact artifact : artifacts) {
-//            File file = artifact.getFile();
-//            // Skip the ivy file
-//            if (file.equals(ivyFile)) continue;
-//            DeployDetails.Builder builder = createArtifactBuilder(file, publicationName);
-//            if (builder == null) continue;
-//            PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
-//                    artifact.getName(), artifact.getExtension(), artifact.getType(), artifact.getClassifier(),
-//                    extraInfo, file);
-//            addIvyArtifactToDeployDetails(destination, publicationName, projectIdentity, builder, artifactInfo);
-//        }
+    public static void extractIvyDeployDetails(IvyPublicationInternal ivyPublicationInternal, CollectDeployDetailsTask destination) {
+        // Prepare needed attributes to extract
+        String publicationName = ivyPublicationInternal.getName();
+        IvyNormalizedPublication ivyNormalizedPublication = ivyPublicationInternal.asNormalisedPublication();
+        IvyPublicationIdentity projectIdentity = ivyNormalizedPublication.getProjectIdentity();
+        Map<QName, String> extraInfo = ivyPublicationInternal.getDescriptor().getExtraInfo().asMap();
+
+        // First adding the Ivy descriptor (if the build is configured to add it):
+        extractIvyDescriptor(destination, publicationName, ivyNormalizedPublication, projectIdentity, extraInfo);
+
+        // Second adding all artifacts, skipping the ivy file
+        extractIvyArtifacts(destination, publicationName, ivyNormalizedPublication, projectIdentity, extraInfo);
     }
 
-    public static void extractMavenDeployDetails(MavenPublicationInternal mavenPublicationInternal, Set<GradleDeployDetails> destination) {
+    private static void extractIvyDescriptor(CollectDeployDetailsTask destination, String publicationName, IvyNormalizedPublication ivyNormalizedPublication, IvyPublicationIdentity projectIdentity, Map<QName, String> extraInfo) {
+        File ivyFile = ivyNormalizedPublication.getIvyDescriptorFile();
+        if (isPublishIvy(destination)) {
+            DeployDetails.Builder builder = createArtifactBuilder(ivyFile, publicationName);
+            if (builder != null) {
+                PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
+                        projectIdentity.getModule(), "xml", "ivy", null, extraInfo, ivyFile);
+                addIvyArtifactToDeployDetails(destination, publicationName, projectIdentity, builder, artifactInfo);
+            }
+        }
+    }
+
+    private static void extractIvyArtifacts(CollectDeployDetailsTask destination, String publicationName, IvyNormalizedPublication ivyNormalizedPublication, IvyPublicationIdentity projectIdentity, Map<QName, String> extraInfo) {
+        File ivyFile = ivyNormalizedPublication.getIvyDescriptorFile();
+        Set<IvyArtifact> artifacts = ivyNormalizedPublication.getAllArtifacts();
+        for (IvyArtifact artifact : artifacts) {
+            File file = artifact.getFile();
+            // Skip the ivy file
+            if (file.equals(ivyFile)) {
+                continue;
+            }
+            DeployDetails.Builder builder = createArtifactBuilder(file, publicationName);
+            if (builder == null) {
+                continue;
+            }
+            PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
+                    artifact.getName(), artifact.getExtension(), artifact.getType(), artifact.getClassifier(),
+                    extraInfo, file);
+            addIvyArtifactToDeployDetails(destination, publicationName, projectIdentity, builder, artifactInfo);
+        }
+    }
+
+    private static void addIvyArtifactToDeployDetails(CollectDeployDetailsTask destination, String publicationName,
+                                               IvyPublicationIdentity projectIdentity, DeployDetails.Builder builder,
+                                               PublishArtifactInfo artifactInfo) {
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(destination.getProject());
+        if (publisher == null) {
+            return;
+        }
+
+        String pattern;
+        if ("ivy".equals(artifactInfo.getType())) {
+            pattern = publisher.getIvyPattern();
+        } else {
+            pattern = publisher.getIvyArtifactPattern();
+        }
+        String gid = projectIdentity.getOrganisation();
+        if (publisher.isM2Compatible()) {
+            gid = gid.replace(".", "/");
+        }
+
+        // TODO: Gradle should support multi params
+        Map<String, String> extraTokens = artifactInfo.getExtraTokens();
+        String artifactPath = IvyPatternHelper.substitute(
+                pattern, gid, projectIdentity.getModule(),
+                projectIdentity.getRevision(), artifactInfo.getName(), artifactInfo.getType(),
+                artifactInfo.getExtension(), publicationName,
+                extraTokens, null);
+        builder.artifactPath(artifactPath);
+        addArtifactInfoToDeployDetails(destination, publicationName, builder, artifactInfo, artifactPath);
+    }
+
+    private static boolean isPublishIvy(CollectDeployDetailsTask task) {
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(task.getProject());
+        if (publisher == null) {
+            return false;
+        }
+        // Get the value from the client publisher configuration (in case a CI plugin configuration is used):
+        Boolean publishIvy = publisher.isIvy();
+        // It the value is null, it means that there's no CI Server Artifactory plugin configuration,
+        // so the value should be taken from the artifactory DSL inside the gradle script:
+        if (publishIvy == null) {
+            publishIvy = task.getPublishIvy();
+        }
+        return publishIvy != null ? publishIvy : true;
+    }
+
+    public static void extractMavenDeployDetails(MavenPublicationInternal mavenPublicationInternal, CollectDeployDetailsTask destination) {
 //        String publicationName = mavenPublicationInternal.getName();
 //        mavenPublicationInternal.asNormalisedPublication().getPomArtifact().getFile();
 //        MavenNormalizedPublication mavenNormalizedPublication = mavenPublicationInternal.asNormalisedPublication();
@@ -90,6 +159,35 @@ public class PublicationUtils {
 //            }
 //            createPublishArtifactInfoAndAddToDeployDetails(artifact, destination, mavenPublication, publicationName);
 //        }
+    }
+
+    private static void addArtifactInfoToDeployDetails(CollectDeployDetailsTask destination, String publicationName,
+                                                       DeployDetails.Builder builder, PublishArtifactInfo artifactInfo, String artifactPath) {
+        Project project = destination.getProject();
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(project);
+        if (publisher != null) {
+            builder.targetRepository(getTargetRepository(artifactPath, publisher));
+//            Map<String, String> propsToAdd = getPropsToAdd(artifactInfo, publicationName);
+//            builder.addProperties(propsToAdd);
+            destination.deployDetails.add(new GradleDeployDetails(artifactInfo, builder.build(), project));
+        }
+    }
+
+    /**
+     * @param deployPath the full path string to deploy the artifact.
+     * @return Target deployment repository.
+     * If snapshot repository is defined and artifact's version is snapshot, deploy to snapshot repository.
+     * Otherwise, return the corresponding release repository.
+     */
+    protected static String getTargetRepository(String deployPath, ArtifactoryClientConfiguration.PublisherHandler publisher) {
+        String snapshotsRepository = publisher.getSnapshotRepoKey();
+        if (snapshotsRepository != null && deployPath.contains("-SNAPSHOT")) {
+            return snapshotsRepository;
+        }
+        if (StringUtils.isNotEmpty(publisher.getReleaseRepoKey())) {
+            return publisher.getReleaseRepoKey();
+        }
+        return publisher.getRepoKey();
     }
 
     /**

@@ -13,9 +13,13 @@ repositories {
 }
 
 dependencies {
-    implementation ("org.jfrog.buildinfo:build-info-extractor:2+")
-    implementation ("org.jfrog.buildinfo:build-info-api:2+")
-    implementation("org.jfrog.filespecs:file-specs-java:1+")
+    implementation ("org.jfrog.buildinfo","build-info-extractor","2+")
+    implementation ("org.jfrog.buildinfo","build-info-api","2+")
+    implementation("org.jfrog.filespecs","file-specs-java","1+")
+
+    implementation("org.apache.commons", "commons-lang3","3.12.0")
+    implementation("org.apache.ivy", "ivy","2.5.1")
+
     testImplementation("org.testng:testng:7.7.1")
     "functionalTestImplementation"("org.testng:testng:7.7.1")
 }
