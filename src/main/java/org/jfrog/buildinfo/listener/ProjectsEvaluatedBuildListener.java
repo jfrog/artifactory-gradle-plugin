@@ -36,14 +36,16 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
      * @param collectDeployDetailsTask
      */
     private void evaluate(CollectDeployDetailsTask collectDeployDetailsTask) {
-        log.debug("Evaluating {}", collectDeployDetailsTask.getPath());
+        log.info("<ASSAF> Try Evaluating {}", collectDeployDetailsTask);
         Project project = collectDeployDetailsTask.getProject();
         ArtifactoryPluginConvention convention = ConventionUtils.getArtifactoryConvention(project);
         if (convention == null) {
+            log.info("<ASSAF> No convention {}", collectDeployDetailsTask);
             return;
         }
         ArtifactoryClientConfiguration clientConfiguration = convention.getClientConfig();
         if (clientConfiguration == null) {
+            log.info("<ASSAF> No client config {}", collectDeployDetailsTask);
             return;
         }
         // Fill-in the client config with current user/system properties for the given project

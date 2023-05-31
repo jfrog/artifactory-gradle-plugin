@@ -1,5 +1,6 @@
 package org.jfrog.buildinfo.tasks;
 
+import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
@@ -17,7 +18,10 @@ import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.TaskAction;
 import org.jfrog.buildinfo.Constant;
+import org.jfrog.buildinfo.config.ArtifactoryPluginConvention;
+import org.jfrog.buildinfo.config.PublisherConfig;
 import org.jfrog.buildinfo.extractor.details.GradleDeployDetails;
+import org.jfrog.buildinfo.utils.ConventionUtils;
 import org.jfrog.buildinfo.utils.PublicationUtils;
 
 import java.util.Arrays;
@@ -38,21 +42,46 @@ public class CollectDeployDetailsTask extends DefaultTask {
     // This project task has been evaluated
     private boolean evaluated = false;
 
+    @Input
+    private boolean skip = false;
+
     // Container to hold all the details that were collected
     public final Set<GradleDeployDetails> deployDetails = new TreeSet<>();
 
     /**
-     * Make sure this task Depends on Information Collection from all the subprojects
+     * Make sure this task Depends on Information Collection from all the subprojects.
+     * If defaults task is configured for the project
      */
     public void evaluateTask() {
+        log.info("<ASSAF> Evaluating {}", getPath());
+        evaluated = true;
         Project project = getProject();
+        if (isSkip()) {
+            log.info("{} task '{}' skipped for project '{}'.",
+                    Constant.COLLECT_PUBLISH_INFO_TASK_NAME, this.getPath(), project.getName());
+            return;
+        }
+        // Depends on Information Collection tasks from all the subprojects
         for (Project sub : project.getSubprojects()) {
             Task subCollectInfoTask = sub.getTasks().findByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME);
             if (subCollectInfoTask != null) {
                 dependsOn(subCollectInfoTask);
             }
         }
-        evaluated = true;
+
+        ArtifactoryPluginConvention convention = ConventionUtils.getConventionWithPublisher(project);
+        if (convention == null) {
+            log.info("<ASSAF> No convention configured for {}", getPath());
+            return;
+        }
+        log.info("<ASSAF> Found convention with publisher configured for {}", getPath());
+        // Configure the task using the "defaults" action (delegate to the task)
+        PublisherConfig config = convention.getPublisherConfig();
+        Action<CollectDeployDetailsTask> defaultsAction = config.getDefaultsAction();
+        if (defaultsAction != null) {
+            log.info("<ASSAF> Delegating {} to defaults", getPath());
+            defaultsAction.execute(this);
+        }
     }
 
     /**
@@ -235,6 +264,14 @@ public class CollectDeployDetailsTask extends DefaultTask {
         publications.addAll(ivyPublications);
         publications.addAll(mavenPublications);
         return publications;
+    }
+
+    public boolean isSkip() {
+        return skip;
+    }
+
+    public void setSkip(boolean skip) {
+        this.skip = skip;
     }
 
     @Internal

@@ -20,6 +20,14 @@ public class ArtifactoryPluginConvention {
         clientConfig = new ArtifactoryClientConfiguration(new GradleClientLogger(project.getLogger()));
     }
 
+    public void publish(Closure<PublisherConfig> closure) {
+        publish(ConfigureUtil.configureUsing(closure));
+    }
+
+    public void publish(Action<PublisherConfig> publishAction) {
+        publisherConfig = new PublisherConfig(this);
+        publishAction.execute(publisherConfig);
+    }
 
     public Project getProject() {
         return project;
@@ -29,11 +37,7 @@ public class ArtifactoryPluginConvention {
         return clientConfig;
     }
 
-    public void publish(Closure closure) {
-        publish(ConfigureUtil.configureUsing(closure));
-    }
-
-    public void publish(Action<? extends PublisherConfig> publishAction) {
-        publisherConfig = new PublisherConfig(this);
+    public PublisherConfig getPublisherConfig() {
+        return publisherConfig;
     }
 }

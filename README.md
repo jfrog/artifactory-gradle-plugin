@@ -7,24 +7,23 @@
 </div>
 
 ---
-
 | Branch |                                                                                                       Main                                                                                                        |                                                                                                       Dev                                                                                                       |
 |:------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
 | Status | [![Test](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml?query=branch%3Amain) | [![Test](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml/badge.svg?branch=dev)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml?query=branch%3Adev) |
-
 ---
 
 # Table of Contents
-
 - [Overview](#overview)
 - [🖥️ Download and Installation](#-download-and-installation)
-- [Configurations](#configurations)
-  - [Dependencies Resolution](#dependencies-resolution)
-  - [Artifactory Publication](#artifactory-publication)
-    - [Publication Configuration](#publication-configuration)
-    - [Client Configurations](#client-configurations-optionally)
-- [🚥 Using the Gradle Artifactory plugin](#-using-gradle-artifactory-plugin)
+- [Dependencies Resolution](#dependencies-resolution)
+- [Artifactory Publication](#artifactory-publication)
+  - [Artifactory Configuration](#artifactory-configuration)
+  - [Task Configurations](#task-configurations)
+  - [Client Configurations](#client-configurations)
+- [Examples](#examples)
 - [💻 Contribution](#-contributions)
+
+---
 
 ## Overview
 ```The minimum supported Gradle version to use this plugin is v6.6```
@@ -33,10 +32,11 @@ The Gradle Artifactory Plugin provides tight integration with Gradle. All that i
 ```build.gradle```
 script file with a few configuration parameters and you can:
 1. Resolve your build dependencies from Artifactory
-2. deploy your build artifacts and build information to Artifactory
+2. Deploy your build artifacts and build information to Artifactory
 
 Integration Benefits: [JFrog Artifactory and Gradle Repositories](https://jfrog.com/integration/gradle-repository/)
 
+---
 
 ## 🖥️ Download and Installation
 Add the following snippet to your ```build.gradle.kts```
@@ -56,9 +56,9 @@ plugins {
 ```
 </details>
 
-## Configurations
+---
 
-### Dependencies Resolution
+## Dependencies Resolution
 
 Define the project to preform dependency resolution resolve dependencies from the default dependency resolution from Artifactory:
 ```kotlin
@@ -114,15 +114,37 @@ repositories {
 
 Follow this [documentation](https://docs.gradle.org/current/userguide/userguide.html) for different ways to configure your repositories.
 
-### Artifactory Publication
+---
 
-Configure the plugin once in the project root ```build.gradle.kts``` the Artifactory information needed to upload the project artifacts into Artifactory
+## Artifactory Publication
+
+To Generate buildInfo and deploy the artifacts to artifactory run the following task. 
+It will be created for each project at the 'publishing' group
+```text
+gradle artifactoryPublish
+```
+* Getting debug information from Gradle
+We highly recommend running Gradle with the ``` -d ```
+option to get useful and readable information if something goes wrong with your build.
+
+### Artifactory Configuration
+
+To use the ```artifactoryPublish``` task you need to define, required at the root project ```build.gradle.kts```, the Artifactory convention.
+This configuration will define the information needed to access the Artifactory instance that the artifacts will be published to from the task. 
 
 ```kotlin
 artifactory {
     publish {
+        // Define the Artifactory URL to publish the artifacts
+        contextUrl = 'http://127.0.0.1:8081/artifactory'
+        // Define the project repository that the artifacts will be published to
         repository {
-            
+          // The Artifactory repository key
+          repoKey = 'libs-snapshot-local'
+          // The publisher username
+          username = "${artifactory_user}"
+          // The publisher password
+          password = "${artifactory_password}"
         }
     }
 }
@@ -134,18 +156,27 @@ artifactory {
 ```groovy
 artifactory {
     publish {
-  
+      contextUrl = 'http://127.0.0.1:8081/artifactory'
+      repository {
+        repoKey = 'libs-snapshot-local'
+        username = "${artifactory_user}"
+        password = "${artifactory_password}"
+      }
     }
 }
 ```
 </details>
 
-#### Publication Configuration
+* In addition to the required configuration above, you are required to configure what publications will be included in the ```artifactoryPublish``` task for each project.
 
-You can configure the plugin task and choose what publications/artifacts will be included in the publications to artifactory by specifying the following object content:
+### Task Configurations
+
+You can configure your root project or/and under its submodules (projects) to control the task operation for specific project.
+
+Configure the task attributes (or only part of them) for each project in the following way:
 
 ```kotlin
-{
+artifactoryPublish {
     // Specify what publications to include when collecting artifacts to publish to Artifactory
     publifications(
             // Publication can be specified as Object
@@ -155,36 +186,39 @@ You can configure the plugin task and choose what publications/artifacts will be
             // If this plguin constant string is specified the plugin will try to apply all the known publications
             'ALL_PUBLICATIONS'
     )
+    // (default: false) Skip this task for the project (don't include its artifacts when publishing) 
+    skip = true
 }
 ```
-* specifying the object as ```artifactoryPublish``` at a specific project object - will apply only to the project it was specify in.
-```kotlin
-project('example') {
-    artifactoryPublish {
-        // content..
-    }
-}
-```
-* specifying the object as ```defaults``` object under ```publish``` in the main ```artifactory``` convention - will apply to all the projects.
+#### Defaults - Global task Configurations to apply to all the projects
+You can specify the configurations of ```artifactoryPublish``` task as ```defaults``` under ```publish``` in the main ```artifactory``` convention. 
 ```kotlin
 artifactory {
     publish {
+        repository {
+            // Repository information...
+        }
         defaults {
-            // content..
+            // artifactoryPublish task attributes...
         }
     }
 }
 ```
 
-#### Client Configurations (Optionally)
+This task configurations will be added to the specific tasks configurations and apply to all the projects, allowing you to configure global configurations at one place that are the same for all the projects instead of configuring them for each project.
+### Client Configurations
 
-Redefine basic properties of the build info object can be applied using the ```clientConfig``` object
+Redefine basic properties of the build info object can be applied using the ```clientConfig``` object under the main ```artifactory``` convention.
 
 ```kotlin
 import java.util.*
 
 artifactory {
-  // Set to true to include environment variables while running the tasks (default: false)
+  // (default: 300 seconds) Artifactory's connection timeout (in seconds).
+  clientConfig.timeout = 600
+  // (default: false) Set to true to skip TLS certificates verification.
+  clientConfig.setInsecureTls(false)
+  // (default: false) Set to true to include environment variables while running the tasks
   clientConfig.setIncludeEnvVars(true)
   // Set patterns of environment variables to include/exclude while running the tasks
   clientConfig.setEnvVarsExcludePatterns('*password*,*secret*')
@@ -195,10 +229,6 @@ artifactory {
   clientConfig.info.setBuildName('new-strange-name')
   clientConfig.info.setBuildNumber('' + Random(System.currentTimeMillis()).nextInt(20000))
   clientConfig.info.setProject('project-key')
-  // Artifactory's connection timeout (in seconds). (default: 300 seconds).
-  clientConfig.timeout = 600
-  // Set to true to skip TLS certificates verification (false: default).
-  clientConfig.setInsecureTls(false)  
 }
 ```
 
@@ -222,19 +252,9 @@ artifactory {
 
 ---
 
+## Examples
+
 We highly recommend also using our [examples](https://github.com/JFrog/project-examples/tree/master/gradle-examples?_gl=1*pgsvlz*_ga*MTc3OTI0ODE4NS4xNjYyMjgxMjI1*_ga_SQ1NR9VTFJ*MTY4NTM2OTcwMC4yNi4wLjE2ODUzNjk3MDAuNjAuMC4w) as a reference when configuring the DSL in your build scripts.
-
----
-
-## 🚥 Using Gradle Artifactory plugin
-
-To Generate buildInfo and deploy the information on artifactory run the following task
-```text
-gradle artifactoryPublish
-```
-Getting debug information from Gradle
-We highly recommend running Gradle with the ``` -d ```
-option to get useful and readable information if something goes wrong with your build.
 
 ---
 
