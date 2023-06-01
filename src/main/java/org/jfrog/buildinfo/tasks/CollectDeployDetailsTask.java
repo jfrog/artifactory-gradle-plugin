@@ -230,6 +230,10 @@ public class CollectDeployDetailsTask extends DefaultTask {
         }
         collectDetailsFromIvyPublications();
         collectDetailsFromMavenPublications();
+        log.info("<ASSAF> {} collected {} artifacts:", getPath(), deployDetails.size());
+        for (GradleDeployDetails details : deployDetails) {
+            log.info("<ASSAF> {} artifact: {}.{}", details.getPublishArtifact().getType(), details.getPublishArtifact().getName(), details.getPublishArtifact().getExtension());
+        }
     }
 
     private void collectDetailsFromIvyPublications() {
@@ -301,7 +305,13 @@ public class CollectDeployDetailsTask extends DefaultTask {
         setFlag(Constant.PUBLISH_ARTIFACTS, toBoolean(publishArtifacts));
     }
 
+    public void setPublishPom(Object publishPom) {
+        setFlag(Constant.PUBLISH_POM, toBoolean(publishPom));
+    }
 
+    public void setPublishIvy(Object publishIvy) {
+        setFlag(Constant.PUBLISH_IVY, toBoolean(publishIvy));
+    }
 
     @Internal
     public boolean isEvaluated() {

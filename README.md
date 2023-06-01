@@ -118,18 +118,21 @@ Follow this [documentation](https://docs.gradle.org/current/userguide/userguide.
 
 ## Artifactory Publication
 
-To Generate buildInfo and deploy the artifacts to artifactory run the following task. 
-It will be created for each project at the 'publishing' group
+The plugin adds the following task for each project at the 'publishing' group and can be run with:
 ```text
 gradle artifactoryPublish
 ```
 * Getting debug information from Gradle
-We highly recommend running Gradle with the ``` -d ```
-option to get useful and readable information if something goes wrong with your build.
+  We highly recommend running Gradle with the ``` -d ```
+  option to get useful and readable information if something goes wrong with your build.
+
+The task does the following to the project and its submodules:
+1. Collects all the publication artifacts as configured.
+
 
 ### Artifactory Configuration
 
-To use the ```artifactoryPublish``` task you need to define, required at the root project ```build.gradle.kts```, the Artifactory convention.
+To use the ```artifactoryPublish``` task you need to define,  at the root project ```build.gradle.kts```, the Artifactory convention.
 This configuration will define the information needed to access the Artifactory instance that the artifacts will be published to from the task. 
 
 ```kotlin
@@ -203,7 +206,7 @@ You can specify the configurations of ```artifactoryPublish``` task as ```defaul
 artifactory {
     publish {
         repository {
-            // Repository information...
+            // Required repository information...
         }
         defaults {
             // artifactoryPublish task attributes...
@@ -221,21 +224,25 @@ Redefine basic properties of the build info object can be applied using the ```c
 import java.util.*
 
 artifactory {
-  // (default: 300 seconds) Artifactory's connection timeout (in seconds).
-  clientConfig.timeout = 600
-  // (default: false) Set to true to skip TLS certificates verification.
-  clientConfig.setInsecureTls(false)
-  // (default: false) Set to true to include environment variables while running the tasks
-  clientConfig.setIncludeEnvVars(true)
-  // Set patterns of environment variables to include/exclude while running the tasks
-  clientConfig.setEnvVarsExcludePatterns('*password*,*secret*')
-  clientConfig.setEnvVarsIncludePatterns('*not-secret*')
-  // Add a dynamic environment variable for the tasks
-  clientConfig.info.addEnvironmentProperty('test.adding.dynVar',Date().toString())
-  // Set specific build and project information for the build-info
-  clientConfig.info.setBuildName('new-strange-name')
-  clientConfig.info.setBuildNumber('' + Random(System.currentTimeMillis()).nextInt(20000))
-  clientConfig.info.setProject('project-key')
+    publish {
+        // Required publish information...
+    }
+    
+    // (default: 300 seconds) Artifactory's connection timeout (in seconds).
+    clientConfig.timeout = 600
+    // (default: false) Set to true to skip TLS certificates verification.
+    clientConfig.setInsecureTls(false)
+    // (default: false) Set to true to include environment variables while running the tasks
+    clientConfig.setIncludeEnvVars(true)
+    // Set patterns of environment variables to include/exclude while running the tasks
+    clientConfig.setEnvVarsExcludePatterns('*password*,*secret*')
+    clientConfig.setEnvVarsIncludePatterns('*not-secret*')
+    // Add a dynamic environment variable for the tasks
+    clientConfig.info.addEnvironmentProperty('test.adding.dynVar',Date().toString())
+    // Set specific build and project information for the build-info
+    clientConfig.info.setBuildName('new-strange-name')
+    clientConfig.info.setBuildNumber('' + Random(System.currentTimeMillis()).nextInt(20000))
+    clientConfig.info.setProject('project-key')
 }
 ```
 
