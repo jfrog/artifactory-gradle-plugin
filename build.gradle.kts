@@ -19,6 +19,7 @@ dependencies {
 
     implementation("org.apache.commons", "commons-lang3","3.12.0")
     implementation("org.apache.ivy", "ivy","2.5.1")
+    implementation("com.google.guava", "guava","31.1-jre")
 
     testImplementation("org.testng:testng:7.7.1")
     "functionalTestImplementation"("org.testng:testng:7.7.1")

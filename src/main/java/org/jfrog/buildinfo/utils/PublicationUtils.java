@@ -1,5 +1,6 @@
 package org.jfrog.buildinfo.utils;
 
+import com.google.common.collect.Multimap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ivy.core.IvyPatternHelper;
 import org.gradle.api.GradleException;
@@ -24,6 +25,7 @@ import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
 
 import javax.xml.namespace.QName;
 import java.io.File;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -253,8 +255,8 @@ public class PublicationUtils {
         ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(project);
         if (publisher != null) {
             builder.targetRepository(getTargetRepository(artifactPath, publisher));
-//            Map<String, String> propsToAdd = getPropsToAdd(artifactInfo, publicationName);
-//            builder.addProperties(propsToAdd);
+            Map<String, String> propsToAdd = getPropsToAdd(destination, artifactInfo, publicationName);
+            builder.addProperties(propsToAdd);
             destination.deployDetails.add(new GradleDeployDetails(artifactInfo, builder.build(), project));
         }
     }
@@ -276,20 +278,11 @@ public class PublicationUtils {
         return publisher.getRepoKey();
     }
 
-//    private static Map<String, String> getPropsToAdd(CollectDeployDetailsTask destination, PublishArtifactInfo artifact, String publicationName) {
+    private static Map<String, String> getPropsToAdd(CollectDeployDetailsTask destination, PublishArtifactInfo artifact, String publicationName) {
 //        Project project = destination.getProject();
-//        if (defaultProps == null) {
-//            defaultProps = new HashMap<>();
-//            addProps(defaultProps, destination.getProperties());
-//            // Add the publisher properties
-//            ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(project.getRootProject());
-//            if (publisher != null) {
-//                defaultProps.putAll(publisher.getMatrixParams());
-//            }
-//        }
-//
-//        Map<String, String> propsToAdd = new HashMap<>(defaultProps);
-//        //Apply artifact-specific props from the artifact specs
+        Map<String, String> propsToAdd = new HashMap<>(destination.getDefaultProps());
+        // TODO: check how to define artifactSpecs
+        //Apply artifact-specific props from the artifact specs
 //        ArtifactSpec spec =
 //                ArtifactSpec.builder().configuration(publicationName)
 //                        .group(project.getGroup().toString())
@@ -298,23 +291,23 @@ public class PublicationUtils {
 //                        .type(artifact.getType()).build();
 //        Multimap<String, CharSequence> artifactSpecsProperties = destination.artifactSpecs.getProperties(spec);
 //        addProps(propsToAdd, artifactSpecsProperties);
-//        return propsToAdd;
-//    }
-//
-//    private static void addProps(Map<String, String> target, Multimap<String, CharSequence> props) {
-//        for (Map.Entry<String, CharSequence> entry : props.entries()) {
-//            // Make sure all GString are now Java Strings
-//            String key = entry.getKey();
-//            String value = entry.getValue().toString();
-//            //Accumulate multi-value props
-//            if (!target.containsKey(key)) {
-//                target.put(key, value);
-//            } else {
-//                value = target.get(key) + ", " + value;
-//                target.put(key, value);
-//            }
-//        }
-//    }
+        return propsToAdd;
+    }
+
+    public static void addProps(Map<String, String> target, Multimap<String, CharSequence> props) {
+        for (Map.Entry<String, CharSequence> entry : props.entries()) {
+            // Make sure all GString are now Java Strings
+            String key = entry.getKey();
+            String value = entry.getValue().toString();
+            //Accumulate multi-value props
+            if (!target.containsKey(key)) {
+                target.put(key, value);
+            } else {
+                value = target.get(key) + ", " + value;
+                target.put(key, value);
+            }
+        }
+    }
 
     /**
      * Creates a DeployDetails.Builder configured for a given Gradle artifact

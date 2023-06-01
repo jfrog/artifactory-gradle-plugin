@@ -1,5 +1,8 @@
 package org.jfrog.buildinfo.tasks;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
@@ -17,6 +20,7 @@ import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.TaskAction;
+import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.buildinfo.Constant;
 import org.jfrog.buildinfo.config.ArtifactoryPluginConvention;
 import org.jfrog.buildinfo.config.PublisherConfig;
@@ -43,6 +47,11 @@ public class CollectDeployDetailsTask extends DefaultTask {
     private final Map<String, Boolean> flags = new HashMap<>();
     @Input
     private boolean skip = false;
+
+    private final Multimap<String, CharSequence> properties = ArrayListMultimap.create();
+
+    @Internal
+    private Map<String, String> defaultProps;
 
     // Container to hold all the details that were collected
     public final Set<GradleDeployDetails> deployDetails = new TreeSet<>();
@@ -277,6 +286,11 @@ public class CollectDeployDetailsTask extends DefaultTask {
     }
 
     @Input
+    public Multimap<String, CharSequence> getProperties() {
+        return properties;
+    }
+
+    @Input
     @Optional
     @Nullable
     public Boolean getPublishArtifacts() { return getFlag(Constant.PUBLISH_ARTIFACTS); }
@@ -297,8 +311,41 @@ public class CollectDeployDetailsTask extends DefaultTask {
         return skip;
     }
 
+    public Map<String, String> getDefaultProps() {
+        if (defaultProps == null) {
+            defaultProps = new HashMap<>();
+            PublicationUtils.addProps(defaultProps, getProperties());
+            // Add the publisher properties
+            ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(getProject().getRootProject());
+            if (publisher != null) {
+                defaultProps.putAll(publisher.getMatrixParams());
+            }
+        }
+        return defaultProps;
+    }
+
     public void setSkip(boolean skip) {
         this.skip = skip;
+    }
+
+    public void setProperties(Map<String, CharSequence> props) {
+        if (props == null || props.isEmpty()) {
+            return;
+        }
+        properties.clear();
+        for (Map.Entry<String, CharSequence> entry : props.entrySet()) {
+            // The key cannot be lazy eval, but we keep the value as GString as long as possible
+            String key = entry.getKey();
+            if (StringUtils.isNotBlank(key)) {
+                CharSequence value = entry.getValue();
+                if (value != null) {
+                    // Make sure all GString are now Java Strings for key,
+                    // and don't call toString for value (keep lazy eval as long as possible)
+                    // So, don't use HashMultimap this will call equals on the GString
+                    this.properties.put(key, value);
+                }
+            }
+        }
     }
 
     public void setPublishArtifacts(Object publishArtifacts) {
