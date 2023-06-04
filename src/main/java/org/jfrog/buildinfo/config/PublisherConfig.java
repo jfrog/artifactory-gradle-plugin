@@ -52,8 +52,11 @@ public class PublisherConfig {
 
     public static class Repository {
         private final ArtifactoryClientConfiguration.PublisherHandler publisher;
+        private final IvyPublishInfo ivyPublishInfo;
+
         public Repository(ArtifactoryClientConfiguration.PublisherHandler publisher) {
             this.publisher = publisher;
+            this.ivyPublishInfo = new IvyPublishInfo(publisher);
         }
 
         public String getRepoKey() {
@@ -79,5 +82,50 @@ public class PublisherConfig {
         public void setPassword(String password) {
             this.publisher.setPassword(password);
         }
+
+        public void ivy(Closure<IvyPublishInfo> closure) {
+            ivy(ConfigureUtil.configureUsing(closure));
+        }
+
+        public void ivy(Action<IvyPublishInfo> ivyAction) {
+            ivyAction.execute(ivyPublishInfo);
+        }
+
+        public IvyPublishInfo getIvy() {
+            return ivyPublishInfo;
+        }
     }
+
+    public static class IvyPublishInfo {
+        private final ArtifactoryClientConfiguration.PublisherHandler publisher;
+        public IvyPublishInfo(ArtifactoryClientConfiguration.PublisherHandler publisher) {
+            this.publisher = publisher;
+        }
+
+        public void setIvyLayout(String ivyLayout) {
+            publisher.setIvy(true);
+            publisher.setIvyPattern(ivyLayout);
+        }
+
+        public String getIvyLayout() {
+            return publisher.getIvyPattern();
+        }
+
+        public void setArtifactLayout(String artifactLayout) {
+            publisher.setIvyArtifactPattern(artifactLayout);
+        }
+
+        public String getArtifactLayout() {
+            return publisher.getIvyArtifactPattern();
+        }
+
+        public boolean getMavenCompatible() {
+            return publisher.isM2Compatible();
+        }
+
+        public void setMavenCompatible(boolean mavenCompatible) {
+            this.publisher.setM2Compatible(mavenCompatible);
+        }
+    }
+
 }

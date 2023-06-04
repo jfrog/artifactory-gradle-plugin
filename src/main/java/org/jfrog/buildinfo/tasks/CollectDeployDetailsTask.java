@@ -2,6 +2,7 @@ package org.jfrog.buildinfo.tasks;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
+import groovy.lang.Closure;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
@@ -20,9 +21,12 @@ import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.util.ConfigureUtil;
+import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.buildinfo.Constant;
 import org.jfrog.buildinfo.config.ArtifactoryPluginConvention;
+import org.jfrog.buildinfo.config.PropertiesConfig;
 import org.jfrog.buildinfo.config.PublisherConfig;
 import org.jfrog.buildinfo.extractor.details.GradleDeployDetails;
 import org.jfrog.buildinfo.utils.ConventionUtils;
@@ -49,6 +53,9 @@ public class CollectDeployDetailsTask extends DefaultTask {
     private boolean skip = false;
 
     private final Multimap<String, CharSequence> properties = ArrayListMultimap.create();
+
+    @Input
+    public final ArtifactSpecs artifactSpecs = new ArtifactSpecs();
 
     @Internal
     private Map<String, String> defaultProps;
@@ -83,6 +90,11 @@ public class CollectDeployDetailsTask extends DefaultTask {
             return;
         }
         log.info("<ASSAF> Found convention with publisher configured for {}", getPath());
+
+        // Add global properties to the specs
+        artifactSpecs.clear();
+        artifactSpecs.addAll(convention.getClientConfig().publisher.getArtifactSpecs());
+
         // Configure the task using the "defaults" action (delegate to the task)
         PublisherConfig config = convention.getPublisherConfig();
         Action<CollectDeployDetailsTask> defaultsAction = config.getDefaultsAction();
@@ -227,6 +239,17 @@ public class CollectDeployDetailsTask extends DefaultTask {
         return !ivyPublications.isEmpty() || !mavenPublications.isEmpty();
     }
 
+    public void properties(Closure closure) {
+        properties(ConfigureUtil.configureUsing(closure));
+    }
+
+    public void properties(Action<PropertiesConfig> propertiesAction) {
+        PropertiesConfig propertiesConfig = new PropertiesConfig(getProject());
+        propertiesAction.execute(propertiesConfig);
+        artifactSpecs.clear();
+        artifactSpecs.addAll(propertiesConfig.getArtifactSpecs());
+    }
+
     /**
      * Collect all the deployment details for this project
      */
@@ -305,6 +328,10 @@ public class CollectDeployDetailsTask extends DefaultTask {
     @Nullable
     public Boolean getPublishPom() {
         return getFlag(Constant.PUBLISH_POM);
+    }
+
+    public ArtifactSpecs getArtifactSpecs() {
+        return artifactSpecs;
     }
 
     public boolean isSkip() {

@@ -148,6 +148,14 @@ artifactory {
           username = "${artifactory_user}"
           // The publisher password
           password = "${artifactory_password}"
+
+          // This is an optional section (relevant only when publishIvy = true) for configuring Ivy publication.
+          ivy { 
+              ivyLayout = '[organization]/[module]/ivy-[revision].xml'
+              artifactLayout = '[organization]/[module]/[revision]/[module]-[revision](-[classifier]).[ext]'
+              //Convert any dots in an [organization] layout value to path separators, similar to Maven's groupId-to-path conversion. True if not specified
+              mavenCompatible = true
+          }
         }
     }
 }
@@ -189,6 +197,13 @@ artifactoryPublish {
             // If this plguin constant string is specified the plugin will try to apply all the known publications
             'ALL_PUBLICATIONS'
     )
+
+    // Properties to be attached to the published artifacts.
+    properties = ['qa.level': 'basic', 'dev.team' : 'core']
+    // Properties can be also defined with closure in the format: configName artifactSpec, key1:val1, key2:val2
+    properties { 
+        simpleFile '**:**:**:*@*', simpleFile: 'only on settings file'
+    }
   
     // (default: false) Skip this task for the project (don't include its artifacts when publishing) 
     skip = true
