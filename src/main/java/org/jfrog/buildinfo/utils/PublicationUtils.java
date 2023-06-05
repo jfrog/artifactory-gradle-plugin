@@ -260,7 +260,7 @@ public class PublicationUtils {
             builder.targetRepository(getTargetRepository(artifactPath, publisher));
             Map<String, String> propsToAdd = getPropsToAdd(destination, artifactInfo, publicationName);
             builder.addProperties(propsToAdd);
-            destination.deployDetails.add(new GradleDeployDetails(artifactInfo, builder.build(), project));
+            destination.getDeployDetails().add(new GradleDeployDetails(artifactInfo, builder.build(), project));
         }
     }
 

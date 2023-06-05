@@ -28,12 +28,10 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         // Add the collect publications for deploy details and extract module-info tasks to the project module
         CollectDeployDetailsTask collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
         TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask);
-        // Add the extract build-info task to the project module
-        TaskUtils.addExtractBuildInfoTask(project);
 
         if (ProjectUtils.isRootProject(project)) {
-            // Add deploy task for the root to only deploy once and not for each submodule
-            TaskUtils.addDeploymentTask(project);
+            // Add extract build-info and deploy task for the root to only deploy once for each submodule
+            TaskUtils.addDeploymentTask(TaskUtils.addExtractBuildInfoTask(project));
             // Add a DependencyResolutionListener, to populate the dependency hierarchy map.
             project.getGradle().addListener(resolutionListener);
         } else {
@@ -41,7 +39,6 @@ public class ArtifactoryPlugin implements Plugin<Project> {
             project.getRootProject().getPluginManager().apply(ArtifactoryPlugin.class);
         }
         // Add project evaluation listener to allow aggregation from module to one build-info and deploy
-        // Also allow config on demand (lazy)
         project.getGradle().addProjectEvaluationListener(new ProjectsEvaluatedBuildListener());
 
         // TODO: Remove

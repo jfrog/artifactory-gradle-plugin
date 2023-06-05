@@ -12,6 +12,8 @@ import org.jfrog.buildinfo.tasks.ExtractModuleTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Set;
+
 public class TaskUtils {
     private static final Logger log = LoggerFactory.getLogger(TaskUtils.class);
 
@@ -48,6 +50,20 @@ public class TaskUtils {
     }
 
     /**
+     * Find a CollectDeployDetailsTask of a given project that finished to execute or null if not exists.
+     * @param project - a project to search for a finished task
+     * @return - finished collection task or null if not exists in project
+     */
+    public static CollectDeployDetailsTask findExecutedCollectionTask(Project project) {
+        Set<Task> tasks = project.getTasksByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME, false);
+        if (tasks.isEmpty()) {
+            return null;
+        }
+        CollectDeployDetailsTask artifactoryTask = (CollectDeployDetailsTask)tasks.iterator().next();
+        return artifactoryTask.getState().getDidWork() ? artifactoryTask : null;
+    }
+
+    /**
      * Adds a task that will run after the given collectDeployDetailsTask task and will extract module info file from the information collected.
      * An ExtractModuleTask task will be added (if not exists) to the given task's project.
      * @param collectDeployDetailsTask - the task that will provide the information to produce the module info file
@@ -63,28 +79,31 @@ public class TaskUtils {
         extractModuleTask.getOutputs().upToDateWhen(reuseOutputs -> false);
         extractModuleTask.getModuleFile().set(project.getLayout().getBuildDirectory().file(Constant.MODULE_INFO_FILE_NAME));
         extractModuleTask.mustRunAfter(project.getTasks().withType(CollectDeployDetailsTask.class));
+//        collectDeployDetailsTask.finalizedBy(extractModuleTask);
 
-        project.getTasks().withType(ExtractBuildInfoTask.class).configureEach(extractBuildInfoTask ->
+        project.getRootProject().getTasks().withType(ExtractBuildInfoTask.class).configureEach(extractBuildInfoTask ->
         {
             log.info("{} Registered info producer from ({} , {})", extractBuildInfoTask.getPath(), collectDeployDetailsTask.getPath(), extractModuleTask.getPath());
             extractBuildInfoTask.registerModuleInfoProducer(new DefaultModuleInfoFileProducer(collectDeployDetailsTask, extractModuleTask));
         });
     }
 
-    public static void addExtractBuildInfoTask(Project project) {
+    public static ExtractBuildInfoTask addExtractBuildInfoTask(Project project) {
         Task task = project.getTasks().findByName(Constant.EXTRACT_BUILD_INFO_TASK_NAME);
         if (task instanceof ExtractBuildInfoTask) {
-            return;
+            return (ExtractBuildInfoTask) task;
         }
-        createTaskInProject(Constant.EXTRACT_BUILD_INFO_TASK_NAME, ExtractBuildInfoTask.class, Constant.EXTRACT_BUILD_INFO_TASK_DESCRIPTION, project, false);
+        return createTaskInProject(Constant.EXTRACT_BUILD_INFO_TASK_NAME, ExtractBuildInfoTask.class, Constant.EXTRACT_BUILD_INFO_TASK_DESCRIPTION, project, false);
     }
 
-    public static void addDeploymentTask(Project project) {
+    public static void addDeploymentTask(ExtractBuildInfoTask extractBuildInfoTask) {
+        Project project = extractBuildInfoTask.getProject();
         Task task = project.getTasks().findByName(Constant.DEPLOY_TASK_NAME);
         if (task instanceof DeployTask) {
             return;
         }
-        createTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
+        DeployTask deployTask = createTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
+        deployTask.dependsOn(extractBuildInfoTask);
     }
 
     /**
