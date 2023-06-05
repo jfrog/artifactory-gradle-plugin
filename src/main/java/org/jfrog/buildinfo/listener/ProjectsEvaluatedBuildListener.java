@@ -1,4 +1,4 @@
-package org.jfrog.buildinfo.extractor.listener;
+package org.jfrog.buildinfo.listener;
 
 import org.gradle.BuildAdapter;
 import org.gradle.StartParameter;
@@ -12,7 +12,7 @@ import org.gradle.api.logging.Logging;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.buildinfo.config.ArtifactoryPluginConvention;
 import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
-import org.jfrog.buildinfo.utils.Constant;
+import org.jfrog.buildinfo.Constant;
 import org.jfrog.buildinfo.utils.ConventionUtils;
 
 import java.util.Collections;
@@ -36,21 +36,23 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
      * @param collectDeployDetailsTask
      */
     private void evaluate(CollectDeployDetailsTask collectDeployDetailsTask) {
-        log.debug("Evaluating CollectDeployDetailsTask {}", collectDeployDetailsTask);
+        log.info("<ASSAF> Try Evaluating {}", collectDeployDetailsTask);
         Project project = collectDeployDetailsTask.getProject();
         ArtifactoryPluginConvention convention = ConventionUtils.getArtifactoryConvention(project);
         if (convention == null) {
+            log.info("<ASSAF> No convention {}", collectDeployDetailsTask);
             return;
         }
         ArtifactoryClientConfiguration clientConfiguration = convention.getClientConfig();
         if (clientConfiguration == null) {
+            log.info("<ASSAF> No client config {}", collectDeployDetailsTask);
             return;
         }
         // Fill-in the client config with current user/system properties for the given project
-//        ConventionUtils.updateConfig(clientConfiguration, project);
+        ConventionUtils.updateConfig(clientConfiguration, project);
 
 
-        collectDeployDetailsTask.taskEvaluated();
+        collectDeployDetailsTask.evaluateTask();
     }
 
     /**
@@ -62,8 +64,8 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
      */
     @Override
     public void afterEvaluate(Project project, ProjectState state) {
-        Set<Task> tasks = project.getTasksByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME, false);
         StartParameter startParameter = project.getGradle().getStartParameter();
+        Set<Task> tasks = project.getTasksByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME, false);
         tasks.forEach(task -> {
             if (task instanceof CollectDeployDetailsTask) {
                 CollectDeployDetailsTask collectDeployDetailsTask = (CollectDeployDetailsTask) task;

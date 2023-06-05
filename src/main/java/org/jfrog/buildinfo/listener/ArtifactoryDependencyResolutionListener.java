@@ -1,4 +1,4 @@
-package org.jfrog.buildinfo.extractor.listener;
+package org.jfrog.buildinfo.listener;
 
 import org.gradle.api.artifacts.DependencyResolutionListener;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
