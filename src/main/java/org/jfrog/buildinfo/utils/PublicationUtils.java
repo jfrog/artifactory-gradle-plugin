@@ -16,6 +16,7 @@ import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal;
 import org.gradle.api.publish.maven.internal.publisher.MavenNormalizedPublication;
 import org.jfrog.build.api.util.FileChecksumCalculator;
+import org.jfrog.build.extractor.clientConfiguration.ArtifactSpec;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.LayoutPatterns;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
@@ -248,7 +249,9 @@ public class PublicationUtils {
         addArtifactInfoToDeployDetails(destination, publicationName, builder, artifactInfo, artifactPath);
     }
 
-    // Adds a general artifact to deploy details in the given task destination
+    /**
+     * Adds a general artifact to deploy details in the given task destination
+     */
     private static void addArtifactInfoToDeployDetails(CollectDeployDetailsTask destination, String publicationName,
                                                        DeployDetails.Builder builder, PublishArtifactInfo artifactInfo, String artifactPath) {
         Project project = destination.getProject();
@@ -279,18 +282,17 @@ public class PublicationUtils {
     }
 
     private static Map<String, String> getPropsToAdd(CollectDeployDetailsTask destination, PublishArtifactInfo artifact, String publicationName) {
-//        Project project = destination.getProject();
+        Project project = destination.getProject();
         Map<String, String> propsToAdd = new HashMap<>(destination.getDefaultProps());
-        // TODO: check how to define artifactSpecs
-        //Apply artifact-specific props from the artifact specs
-//        ArtifactSpec spec =
-//                ArtifactSpec.builder().configuration(publicationName)
-//                        .group(project.getGroup().toString())
-//                        .name(project.getName()).version(project.getVersion().toString())
-//                        .classifier(artifact.getClassifier())
-//                        .type(artifact.getType()).build();
-//        Multimap<String, CharSequence> artifactSpecsProperties = destination.artifactSpecs.getProperties(spec);
-//        addProps(propsToAdd, artifactSpecsProperties);
+        // Apply artifact-specific props from the artifact specs
+        ArtifactSpec spec =
+                ArtifactSpec.builder().configuration(publicationName)
+                        .group(project.getGroup().toString())
+                        .name(project.getName()).version(project.getVersion().toString())
+                        .classifier(artifact.getClassifier())
+                        .type(artifact.getType()).build();
+        Multimap<String, CharSequence> artifactSpecsProperties = destination.artifactSpecs.getProperties(spec);
+        addProps(propsToAdd, artifactSpecsProperties);
         return propsToAdd;
     }
 
