@@ -70,6 +70,7 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
             if (task instanceof CollectDeployDetailsTask) {
                 CollectDeployDetailsTask collectDeployDetailsTask = (CollectDeployDetailsTask) task;
                 detailsCollectingTasks.add(collectDeployDetailsTask);
+                collectDeployDetailsTask.finalizeByBuildInfoTask(project);
                 if (startParameter.isConfigureOnDemand()) {
                     evaluate(collectDeployDetailsTask);
                 }
@@ -90,6 +91,7 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
             if ((task instanceof CollectDeployDetailsTask) && !((CollectDeployDetailsTask) task).isEvaluated()) {
                 CollectDeployDetailsTask collectDeployDetailsTask = (CollectDeployDetailsTask) task;
                 evaluate(collectDeployDetailsTask);
+                collectDeployDetailsTask.finalizeByBuildInfoTask(collectDeployDetailsTask.getProject());
             }
         });
     }

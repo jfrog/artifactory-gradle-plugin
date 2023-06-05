@@ -1,7 +1,6 @@
 package org.jfrog.buildinfo.listener;
 
 import org.gradle.api.artifacts.DependencyResolutionListener;
-import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.ResolvableDependencies;
 import org.gradle.api.artifacts.result.DependencyResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
@@ -32,23 +31,11 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
     }
 
     /**
-     * Get the Group, artifact and version of the given module
-     * @param module - the module to extract the GAV info
-     * @return Gav identifier string of the module or null if module is null
-     */
-    private static String getGav(ModuleVersionIdentifier module) {
-        if (module == null) {
-            return null;
-        }
-        return ProjectUtils.getAsGavString(module.getGroup(), module.getName(), module.getVersion());
-    }
-
-    /**
      * Update the modules map with the resolved dependencies.
      * @param dependencies - resolved dependencies to update the map
      */
     private void updateModulesMap(ResolvableDependencies dependencies) {
-        String moduleId = getGav(dependencies.getResolutionResult().getRoot().getModuleVersion());
+        String moduleId = ProjectUtils.getId(dependencies.getResolutionResult().getRoot().getModuleVersion());
         if (moduleId == null) {
             return;
         }
@@ -68,7 +55,7 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
                 continue;
             }
             ResolvedDependencyResult resolvedDependency = (ResolvedDependencyResult) dependency;
-            String componentId = getGav(resolvedDependency.getSelected().getModuleVersion());
+            String componentId = ProjectUtils.getId(resolvedDependency.getSelected().getModuleVersion());
             log.info("<ASSAF> dependency: " + componentId + " | already collected: " + (dependencyMap.get(componentId) != null));
             if (dependencyMap.containsKey(componentId)) {
                 // Only add information that was not collected yet for the given module.
@@ -100,7 +87,7 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
         if (from.getDependents().isEmpty()) {
             if (from.getSelectionReason().isExpected()) {
                 // If the dependency was requested by root, append the root's GAV.
-                dependents.add(getGav(from.getModuleVersion()));
+                dependents.add(ProjectUtils.getId(from.getModuleVersion()));
                 return;
             }
             // Unexpected result.
@@ -108,7 +95,7 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
         }
         // We assume the first parent in the list, is the item that triggered this dependency resolution.
         ResolvedDependencyResult parent = from.getDependents().iterator().next();
-        String parentGav = getGav(parent.getSelected().getModuleVersion());
+        String parentGav = ProjectUtils.getId(parent.getSelected().getModuleVersion());
         // Check for circular dependencies loop. We do this check to avoid an infinite loop dependencies. For example: A --> B --> C --> A...
         if (dependents.contains(parentGav)) {
             return;
@@ -117,5 +104,9 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
         dependents.add(parentGav);
         // Continue populating dependents list.
         populateDependents(parent, dependents);
+    }
+
+    public Map<String, Map<String, String[][]>> getModulesHierarchyMap() {
+        return modulesHierarchyMap;
     }
 }

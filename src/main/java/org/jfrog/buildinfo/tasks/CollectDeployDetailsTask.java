@@ -61,7 +61,7 @@ public class CollectDeployDetailsTask extends DefaultTask {
     private Map<String, String> defaultProps;
 
     // Container to hold all the details that were collected
-    public final Set<GradleDeployDetails> deployDetails = new TreeSet<>();
+    private final Set<GradleDeployDetails> deployDetails = new TreeSet<>();
 
     /**
      * Make sure this task Depends on Information Collection from all the subprojects.
@@ -248,6 +248,14 @@ public class CollectDeployDetailsTask extends DefaultTask {
         propertiesAction.execute(propertiesConfig);
         artifactSpecs.clear();
         artifactSpecs.addAll(propertiesConfig.getArtifactSpecs());
+    }
+
+    public void finalizeByBuildInfoTask(Project project) {
+        Task deployTask = project.getRootProject().getTasks().findByName(Constant.EXTRACT_BUILD_INFO_TASK_NAME);
+        if (deployTask == null) {
+            throw new IllegalStateException(String.format("Could not find %s in the root project", Constant.EXTRACT_BUILD_INFO_TASK_NAME));
+        }
+        finalizedBy(deployTask);
     }
 
     /**
