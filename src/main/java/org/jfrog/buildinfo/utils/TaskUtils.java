@@ -42,11 +42,11 @@ public class TaskUtils {
      * @return - task that was created for the given module
      */
     public static CollectDeployDetailsTask addCollectDeployDetailsTask(Project project) {
-        Task task = project.getTasks().findByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME);
+        Task task = project.getTasks().findByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME);
         if (task instanceof CollectDeployDetailsTask) {
             return (CollectDeployDetailsTask) task;
         }
-        return createTaskInProject(Constant.COLLECT_PUBLISH_INFO_TASK_NAME, CollectDeployDetailsTask.class, Constant.COLLECT_PUBLISH_INFO_TASK_DESCRIPTION, project, true);
+        return createTaskInProject(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, CollectDeployDetailsTask.class, Constant.ARTIFACTORY_PUBLISH_TASK_DESCRIPTION, project, true);
     }
 
     /**
@@ -55,7 +55,7 @@ public class TaskUtils {
      * @return - finished collection task or null if not exists in project
      */
     public static CollectDeployDetailsTask findExecutedCollectionTask(Project project) {
-        Set<Task> tasks = project.getTasksByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME, false);
+        Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
         if (tasks.isEmpty()) {
             return null;
         }

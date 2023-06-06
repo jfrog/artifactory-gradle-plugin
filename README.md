@@ -7,9 +7,15 @@
 </div>
 
 ---
+
+<div align="center">
+
 | Branch |                                                                                                       Main                                                                                                        |                                                                                                       Dev                                                                                                       |
 |:------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
 | Status | [![Test](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml?query=branch%3Amain) | [![Test](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml/badge.svg?branch=dev)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml?query=branch%3Adev) |
+
+</div>
+
 ---
 
 # Table of Contents
@@ -127,8 +133,9 @@ gradle artifactoryPublish
   option to get useful and readable information if something goes wrong with your build.
 
 The task does the following to the project and its submodules:
-1. Collects all the publication artifacts as configured.
-
+1. Collects all the publication artifacts, configured by the user.
+2. Extract module-info (intermediate file) that describes each module build information.
+3. Extract [build-info](https://www.buildinfo.org/) file in the root project that describes the information about the build.
 
 ### Artifactory Configuration
 

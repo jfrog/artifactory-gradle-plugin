@@ -25,8 +25,10 @@ public class ExtractModuleTask extends DefaultTask {
     @TaskAction
     public void extractModule() {
         log.info("<ASSAF> Task '{}' activated", getPath());
+        // Extract
         Module module = new GradleModuleExtractor().extractModule(getProject());
         try {
+            // Export
             ModuleExtractorUtils.saveModuleToFile(module, moduleFile.getAsFile().get());
         } catch (IOException e) {
             throw new RuntimeException("Could not extract module file for " + getPath(), e);

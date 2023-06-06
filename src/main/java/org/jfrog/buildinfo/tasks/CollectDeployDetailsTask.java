@@ -73,12 +73,12 @@ public class CollectDeployDetailsTask extends DefaultTask {
         Project project = getProject();
         if (isSkip()) {
             log.info("{} task '{}' skipped for project '{}'.",
-                    Constant.COLLECT_PUBLISH_INFO_TASK_NAME, this.getPath(), project.getName());
+                    Constant.ARTIFACTORY_PUBLISH_TASK_NAME, this.getPath(), project.getName());
             return;
         }
         // Depends on Information Collection tasks from all the subprojects
         for (Project sub : project.getSubprojects()) {
-            Task subCollectInfoTask = sub.getTasks().findByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME);
+            Task subCollectInfoTask = sub.getTasks().findByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME);
             if (subCollectInfoTask != null) {
                 dependsOn(subCollectInfoTask);
             }
