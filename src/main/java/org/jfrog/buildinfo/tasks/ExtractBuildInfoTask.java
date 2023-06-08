@@ -35,7 +35,7 @@ public class ExtractBuildInfoTask extends DefaultTask {
         log.info("<ASSAF> Task '{}' activated", getPath());
         ArtifactoryClientConfiguration accRoot = ConventionUtils.getArtifactoryConvention(getProject()).getClientConfig();
         // Reset the default properties, they may have changed
-        addDefaultPublisherAttributes(accRoot, getProject().getRootProject().getName(), "Gradle", getProject().getGradle().getGradleVersion());
+        addDefaultPublisherAttributes(accRoot, getProject().getRootProject().getName(), Constant.GRADLE, getProject().getGradle().getGradleVersion());
         // Extract Build Info.
         GradleBuildInfoExtractor gbie = new GradleBuildInfoExtractor(accRoot, moduleInfoFileProducers);
         BuildInfo buildInfo = gbie.extract(getProject().getRootProject());
@@ -47,6 +47,7 @@ public class ExtractBuildInfoTask extends DefaultTask {
         log.info("<ASSAF> trying to export to:\nExport: {}\nGeneratedPath: {}", getExportFile(accRoot), accRoot.info.getGeneratedBuildInfoFilePath());
         try {
             exportBuildInfo(buildInfo, getExportFile(accRoot));
+            // We offer option to create a copy in additional place if requested
             if (!StringUtils.isEmpty(accRoot.info.getGeneratedBuildInfoFilePath())) {
                 exportBuildInfo(buildInfo, new File(accRoot.info.getGeneratedBuildInfoFilePath()));
             }

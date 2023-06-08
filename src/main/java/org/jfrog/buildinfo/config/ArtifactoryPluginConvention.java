@@ -29,6 +29,14 @@ public class ArtifactoryPluginConvention {
         publishAction.execute(publisherConfig);
     }
 
+    public void buildInfo(Closure<ArtifactoryClientConfiguration.BuildInfoHandler> closure) {
+        buildInfo(ConfigureUtil.configureUsing(closure));
+    }
+
+    public void buildInfo(Action<ArtifactoryClientConfiguration.BuildInfoHandler> buildInfoAction) {
+        buildInfoAction.execute(clientConfig.info);
+    }
+
     public Project getProject() {
         return project;
     }

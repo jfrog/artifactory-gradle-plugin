@@ -35,6 +35,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
 
     @Override
     public BuildInfo extract(Project rootProject) {
+        log.info("<ASSAF> Extracting from:\n{}", this.moduleInfoFileProducers);
         BuildInfo buildInfo = createBuildInfoBuilder().build();
         PackageManagerUtils.collectEnvAndFilterProperties(clientConf, buildInfo);
         log.debug("buildInfoBuilder = " + buildInfo);

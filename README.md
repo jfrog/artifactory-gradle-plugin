@@ -19,19 +19,20 @@
 ---
 
 # Table of Contents
-- [Overview](#overview)
-- [🖥️ Download and Installation](#-download-and-installation)
-- [Dependencies Resolution](#dependencies-resolution)
-- [Artifactory Publication](#artifactory-publication)
+- [📚 Overview](#-overview)
+- [⬇️ Download and Installation](#-download-and-installation)
+- [🧩 Dependencies Resolution](#-dependencies-resolution)
+- [📦 Artifactory Publication](#-artifactory-publication)
   - [Artifactory Configuration](#artifactory-configuration)
   - [Task Configurations](#task-configurations)
+  - [Build-Info Configurations](#build-info-configurations)
   - [Client Configurations](#client-configurations)
-- [Examples](#examples)
-- [💻 Contribution](#-contributions)
+- [💡 Examples](#-examples)
+- [🫱🏻‍🫲🏼 Contribution](#-contributions)
 
 ---
 
-## Overview
+## 📚 Overview
 ```The minimum supported Gradle version to use this plugin is v6.6```
 
 The Gradle Artifactory Plugin provides tight integration with Gradle. All that is needed is a simple modification of your
@@ -44,7 +45,7 @@ Integration Benefits: [JFrog Artifactory and Gradle Repositories](https://jfrog.
 
 ---
 
-## 🖥️ Download and Installation
+## ⬇️ Download and Installation
 Add the following snippet to your ```build.gradle.kts```
 ```kotlin
 // Replace <plugin version> with the version of the Gradle Artifactory Plugin.
@@ -64,7 +65,7 @@ plugins {
 
 ---
 
-## Dependencies Resolution
+## 🧩 Dependencies Resolution
 
 Define the project to preform dependency resolution resolve dependencies from the default dependency resolution from Artifactory:
 ```kotlin
@@ -122,7 +123,7 @@ Follow this [documentation](https://docs.gradle.org/current/userguide/userguide.
 
 ---
 
-## Artifactory Publication
+## 📦 Artifactory Publication
 
 The plugin adds the following task for each project at the 'publishing' group and can be run with:
 ```text
@@ -204,14 +205,11 @@ artifactoryPublish {
             // If this plguin constant string is specified the plugin will try to apply all the known publications
             'ALL_PUBLICATIONS'
     )
-
     // Properties to be attached to the published artifacts.
-    properties = ['qa.level': 'basic', 'dev.team' : 'core']
-    // Properties can be also defined with closure in the format: configName artifactSpec, key1:val1, key2:val2
-    properties { 
-        simpleFile '**:**:**:*@*', simpleFile: 'only on settings file'
-    }
-  
+    setProperties(mapOf(
+            'qa.level' to 'basic',
+            'dev.team' to 'core'
+    ))
     // (default: false) Skip this task for the project (don't include its artifacts when publishing) 
     skip = true
     // (default: true) Publish generated artifacts to Artifactory, can be specified as boolean/string
@@ -222,8 +220,29 @@ artifactoryPublish {
     publishIvy = false
 }
 ```
+<details>
+<summary>build.gradle</summary>
+
+```groovy
+artifactoryPublish {
+    publifications('ALL_PUBLICATIONS')
+  
+    properties = ['qa.level': 'basic', 'dev.team' : 'core']
+    // Properties can be also defined with closure in the format: configName artifactSpec, key1:val1, key2:val2
+    properties {
+      simpleFile '**:**:**:*@*', simpleFile: 'only on settings file'
+    }
+  
+    skip = true
+    publishArtifacts = false
+    publishPom = false
+    publishIvy = false
+}
+```
+</details>
+
 #### Defaults - Global task Configurations to apply to all the projects
-You can specify the configurations of ```artifactoryPublish``` task as ```defaults``` under ```publish``` in the main ```artifactory``` convention. 
+You can specify the configurations of ```artifactoryPublish``` task as ```defaults``` under ```publish``` in the main ```artifactory``` convention.
 ```kotlin
 artifactory {
     publish {
@@ -238,6 +257,53 @@ artifactory {
 ```
 
 This task configurations will be added to the specific tasks configurations and apply to all the projects, allowing you to configure global configurations at one place that are the same for all the projects instead of configuring them for each project.
+
+### Build-Info Configurations
+
+The ```build-info.json``` file will be generated at the root ```build``` folder as default place.
+You can configure and control the information and attributes by using the ```buildInfo``` closure.
+ 
+```kotlin
+import java.util.*
+
+artifactory {
+    publish {
+        // Required publish information...
+    }
+    
+    buildInfo {
+        // Set specific build and project information for the build-info
+        setBuildName('new-strange-name')
+        setBuildNumber('' + Random(System.currentTimeMillis()).nextInt(20000))
+        setProject('project-key')
+        // Add a dynamic property to the build-info
+        addEnvironmentProperty('test.adding.dynVar',Date().toString())
+        // Generate a copy of the build-info.json file in the following path
+        setGeneratedBuildInfoFilePath("/Users/assafa/Documents/code/gradle-examples-to-test-new-plugin/gradle-examples/gradle-example-publish/myTest.json")
+    }
+}
+
+```
+
+<details>
+<summary>build.gradle</summary>
+
+```groovy
+artifactory {
+    buildInfo {
+        // Add a dynamic property to the build-info
+        addEnvironmentProperty('test.adding.dynVar',Date().toString())
+        // Set specific build and project information for the build-info
+        setBuildName('new-strange-name')
+        setBuildNumber('' + Random(System.currentTimeMillis()).nextInt(20000))
+        setProject('project-key')
+    }
+}
+```
+</details>
+
+* Alternatively to the closure you can configure the attributes by using the ```clientConfig.info``` object
+
 ### Client Configurations
 
 Redefine basic properties of the build info object can be applied using the ```clientConfig``` object under the main ```artifactory``` convention.
@@ -259,12 +325,6 @@ artifactory {
     // Set patterns of environment variables to include/exclude while running the tasks
     clientConfig.setEnvVarsExcludePatterns('*password*,*secret*')
     clientConfig.setEnvVarsIncludePatterns('*not-secret*')
-    // Add a dynamic environment variable for the tasks
-    clientConfig.info.addEnvironmentProperty('test.adding.dynVar',Date().toString())
-    // Set specific build and project information for the build-info
-    clientConfig.info.setBuildName('new-strange-name')
-    clientConfig.info.setBuildNumber('' + Random(System.currentTimeMillis()).nextInt(20000))
-    clientConfig.info.setProject('project-key')
 }
 ```
 
@@ -276,10 +336,6 @@ artifactory {
   clientConfig.setIncludeEnvVars(true)
   clientConfig.setEnvVarsExcludePatterns('*password*,*secret*')
   clientConfig.setEnvVarsIncludePatterns('*not-secret*')
-  clientConfig.info.addEnvironmentProperty('test.adding.dynVar',new Date().toString())
-  clientConfig.info.setBuildName('new-strange-name')
-  clientConfig.info.setBuildNumber('' + new Random(System.currentTimeMillis()).nextInt(20000))
-  clientConfig.info.setProject('project-key')
   clientConfig.timeout = 600
   clientConfig.setInsecureTls(false)
 }
@@ -288,13 +344,20 @@ artifactory {
 
 ---
 
-## Examples
+## 💡 Examples
 
-We highly recommend also using our [examples](https://github.com/JFrog/project-examples/tree/master/gradle-examples?_gl=1*pgsvlz*_ga*MTc3OTI0ODE4NS4xNjYyMjgxMjI1*_ga_SQ1NR9VTFJ*MTY4NTM2OTcwMC4yNi4wLjE2ODUzNjk3MDAuNjAuMC4w) as a reference when configuring the DSL in your build scripts.
+* Minimal
+* Multi Modules Project (Groovy)
+* Multi Modules Project (Kotlin)
+* Using CI Server
+* Android Project
+* Android Library (Ci Server)
+
+We highly recommend also using our [examples](https://github.com/JFrog/project-examples/tree/master/gradle-examples?_gl=1*pgsvlz*_ga*MTc3OTI0ODE4NS4xNjYyMjgxMjI1*_ga_SQ1NR9VTFJ*MTY4NTM2OTcwMC4yNi4wLjE2ODUzNjk3MDAuNjAuMC4w) as a reference when configuring your build scripts.
 
 ---
 
-## 💻 Contributions
+## 🫱🏻‍🫲🏼 Contributions
 
 We welcome pull requests from the community. To help us improve this project, please read
 our [Contribution](./CONTRIBUTING.md#-guidelines) guide.

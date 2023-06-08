@@ -51,6 +51,7 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
         // Fill-in the client config with current user/system properties for the given project
         ConventionUtils.updateConfig(clientConfiguration, project);
 
+        // TODO: CI mode
 
         collectDeployDetailsTask.evaluateTask();
     }
@@ -67,13 +68,14 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
         StartParameter startParameter = project.getGradle().getStartParameter();
         Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
         tasks.forEach(task -> {
-            if (task instanceof CollectDeployDetailsTask) {
-                CollectDeployDetailsTask collectDeployDetailsTask = (CollectDeployDetailsTask) task;
-                detailsCollectingTasks.add(collectDeployDetailsTask);
-                collectDeployDetailsTask.finalizeByBuildInfoTask(project);
-                if (startParameter.isConfigureOnDemand()) {
-                    evaluate(collectDeployDetailsTask);
-                }
+            if (!(task instanceof CollectDeployDetailsTask)) {
+                return;
+            }
+            CollectDeployDetailsTask collectDeployDetailsTask = (CollectDeployDetailsTask) task;
+            detailsCollectingTasks.add(collectDeployDetailsTask);
+            collectDeployDetailsTask.finalizeByBuildInfoTask(project);
+            if (startParameter.isConfigureOnDemand()) {
+                evaluate(collectDeployDetailsTask);
             }
         });
     }
