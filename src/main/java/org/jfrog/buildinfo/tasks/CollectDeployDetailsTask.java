@@ -11,8 +11,10 @@ import org.gradle.api.Task;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.publish.Publication;
+import org.gradle.api.publish.PublicationArtifact;
 import org.gradle.api.publish.PublicationContainer;
 import org.gradle.api.publish.PublishingExtension;
+import org.gradle.api.publish.internal.PublicationInternal;
 import org.gradle.api.publish.ivy.IvyPublication;
 import org.gradle.api.publish.ivy.internal.publication.IvyPublicationInternal;
 import org.gradle.api.publish.maven.MavenPublication;
@@ -34,6 +36,7 @@ import org.jfrog.buildinfo.utils.PublicationUtils;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.concurrent.Callable;
 
 public class CollectDeployDetailsTask extends DefaultTask {
     private static final Logger log = Logging.getLogger(CollectDeployDetailsTask.class);
@@ -73,12 +76,12 @@ public class CollectDeployDetailsTask extends DefaultTask {
         Project project = getProject();
         if (isSkip()) {
             log.info("{} task '{}' skipped for project '{}'.",
-                    Constant.COLLECT_PUBLISH_INFO_TASK_NAME, this.getPath(), project.getName());
+                    Constant.ARTIFACTORY_PUBLISH_TASK_NAME, this.getPath(), project.getName());
             return;
         }
         // Depends on Information Collection tasks from all the subprojects
         for (Project sub : project.getSubprojects()) {
-            Task subCollectInfoTask = sub.getTasks().findByName(Constant.COLLECT_PUBLISH_INFO_TASK_NAME);
+            Task subCollectInfoTask = sub.getTasks().findByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME);
             if (subCollectInfoTask != null) {
                 dependsOn(subCollectInfoTask);
             }
@@ -200,14 +203,13 @@ public class CollectDeployDetailsTask extends DefaultTask {
      */
     private void createDependencyOnIvyPublications() {
         for (IvyPublication ivyPublication : ivyPublications) {
-            // TODO: Check why still need to be internal
             if (!(ivyPublication instanceof IvyPublicationInternal)) {
                 log.warn("Ivy publication name '{}' is of unsupported type '{}'!",
                         ivyPublication.getName(), ivyPublication.getClass());
                 continue;
             }
             // Add 'dependsOn' to collect the artifacts from the publication
-            ivyPublication.getArtifacts().forEach(this::dependsOn);
+            dependsOnPublishable(ivyPublication);
             // Add 'dependsOn' the task that creates metadata/descriptors for the published artifacts
             String capitalizedPublicationName = ivyPublication.getName().substring(0, 1).toUpperCase() + ivyPublication.getName().substring(1);
             dependsOn(String.format("%s:generateDescriptorFileFor%sPublication",
@@ -226,13 +228,21 @@ public class CollectDeployDetailsTask extends DefaultTask {
                 continue;
             }
             // Add 'dependsOn' to collect the artifacts from the publication
-            mavenPublication.getArtifacts().forEach(this::dependsOn);
+            dependsOnPublishable(mavenPublication);
             // Add 'dependsOn' the task that creates metadata/descriptors for the published artifacts
             String capitalizedPublicationName = mavenPublication.getName().substring(0, 1).toUpperCase() +
                     mavenPublication.getName().substring(1);
             dependsOn(String.format("%s:generatePomFileFor%sPublication",
                     getProject().getPath(), capitalizedPublicationName));
         }
+    }
+
+    private void dependsOnPublishable(Publication publication) {
+        // TODO: Check how we can find the artifact dependencies without using internal api's.
+        // Based on org.gradle.plugins.signing.Sign#sign
+        PublicationInternal<?> publicationInternal = (PublicationInternal<?>) publication;
+        dependsOn((Callable<Set<? extends PublicationArtifact>>) publicationInternal::getPublishableArtifacts);
+        publicationInternal.allPublishableArtifacts(this::dependsOn);
     }
 
     public boolean hasPublications() {
@@ -268,8 +278,12 @@ public class CollectDeployDetailsTask extends DefaultTask {
             log.info("No publications to publish for project '{}'", getProject().getPath());
             return;
         }
-        collectDetailsFromIvyPublications();
-        collectDetailsFromMavenPublications();
+        try {
+            collectDetailsFromIvyPublications();
+            collectDetailsFromMavenPublications();
+        } catch (Exception e) {
+            throw new RuntimeException("Cannot collect deploy details for " + getPath(), e);
+        }
         log.info("<ASSAF> {} collected {} artifacts:", getPath(), deployDetails.size());
         for (GradleDeployDetails details : deployDetails) {
             log.info("<ASSAF> {} artifact: {}.{}", details.getPublishArtifact().getType(), details.getPublishArtifact().getName(), details.getPublishArtifact().getExtension());

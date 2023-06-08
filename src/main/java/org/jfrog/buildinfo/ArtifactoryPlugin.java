@@ -19,6 +19,10 @@ public class ArtifactoryPlugin implements Plugin<Project> {
 
     @Override
     public void apply(Project project) {
+        if ("buildSrc".equals(project.getName())) {
+            log.debug("Artifactory Plugin disabled for {}", project.getPath());
+            return;
+        }
         if (isGradleVersionNotSupported(project)) {
             log.error("Can't apply Artifactory Plugin on Gradle version " + project.getGradle().getGradleVersion());
             return;
