@@ -18,12 +18,19 @@ public class Constant {
     public static final String DEPLOY_TASK_NAME = "artifactoryDeploy";
     public static final String DEPLOY_TASK_DESCRIPTION = "Deploys artifacts and build-info to Artifactory.";
 
-    // Publications types
+    // Used PublicationExtensions / task types
     public static final String ALL_PUBLICATIONS = "ALL_PUBLICATIONS";
     public static final String MAVEN_JAVA_PLATFORM = "mavenJavaPlatform";
     public static final String MAVEN_JAVA = "mavenJava";
     public static final String MAVEN_WEB = "mavenWeb";
     public static final String IVY_JAVA = "ivyJava";
+    public static final String WAR = "war";
+    public static final String JAR = "jar";
+
+    // Components types
+    public static final String JAVA = "java";
+    public static final String JAVA_PLATFORM = "javaPlatform";
+    public static final String WEB = "web";
 
     // COLLECT_PUBLISH_INFO_TASK_NAME optional flag names (can be defined as String/boolean)
     public static final String PUBLISH_ARTIFACTS = "publishArtifacts";
