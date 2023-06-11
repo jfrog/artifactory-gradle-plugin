@@ -38,8 +38,11 @@ import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.Callable;
 
-public class CollectDeployDetailsTask extends DefaultTask {
-    private static final Logger log = Logging.getLogger(CollectDeployDetailsTask.class);
+/**
+ * Collect deploy details from publications in a project
+ */
+public class ArtifactoryTask extends DefaultTask {
+    private static final Logger log = Logging.getLogger(ArtifactoryTask.class);
 
     // Publication containers
     public Set<IvyPublication> ivyPublications = new HashSet<>();
@@ -53,7 +56,7 @@ public class CollectDeployDetailsTask extends DefaultTask {
     // Optional flags and attributes with default values
     private final Map<String, Boolean> flags = new HashMap<>();
     @Input
-    private boolean skip = false;
+    public boolean skip = false;
 
     private final Multimap<String, CharSequence> properties = ArrayListMultimap.create();
 
@@ -100,7 +103,7 @@ public class CollectDeployDetailsTask extends DefaultTask {
 
         // Configure the task using the "defaults" action (delegate to the task)
         PublisherConfig config = convention.getPublisherConfig();
-        Action<CollectDeployDetailsTask> defaultsAction = config.getDefaultsAction();
+        Action<ArtifactoryTask> defaultsAction = config.getDefaultsAction();
         if (defaultsAction != null) {
             log.info("<ASSAF> Delegating {} to defaults", getPath());
             defaultsAction.execute(this);
@@ -249,7 +252,7 @@ public class CollectDeployDetailsTask extends DefaultTask {
         return !ivyPublications.isEmpty() || !mavenPublications.isEmpty();
     }
 
-    public void properties(Closure closure) {
+    public void properties(Closure<PropertiesConfig> closure) {
         properties(ConfigureUtil.configureUsing(closure));
     }
 
@@ -260,10 +263,10 @@ public class CollectDeployDetailsTask extends DefaultTask {
         artifactSpecs.addAll(propertiesConfig.getArtifactSpecs());
     }
 
-    public void finalizeByBuildInfoTask(Project project) {
-        Task deployTask = project.getRootProject().getTasks().findByName(Constant.EXTRACT_BUILD_INFO_TASK_NAME);
+    public void finalizeByDeployTask(Project project) {
+        Task deployTask = project.getRootProject().getTasks().findByName(Constant.DEPLOY_TASK_NAME);
         if (deployTask == null) {
-            throw new IllegalStateException(String.format("Could not find %s in the root project", Constant.EXTRACT_BUILD_INFO_TASK_NAME));
+            throw new IllegalStateException(String.format("Could not find %s in the root project", Constant.DEPLOY_TASK_NAME));
         }
         finalizedBy(deployTask);
     }

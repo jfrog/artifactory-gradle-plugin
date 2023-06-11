@@ -5,7 +5,7 @@ import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
-import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
+import org.jfrog.buildinfo.tasks.ArtifactoryTask;
 
 public class PublisherConfig {
 
@@ -14,7 +14,7 @@ public class PublisherConfig {
     private final Repository repository;
 
     // Configure global CollectDeployDetailsTask that will be applied to all the projects
-    Action<CollectDeployDetailsTask> defaultsAction;
+    Action<ArtifactoryTask> defaultsAction;
 
     public PublisherConfig(ArtifactoryPluginConvention convention) {
         this.project = convention.getProject();
@@ -22,11 +22,11 @@ public class PublisherConfig {
         repository = new Repository(this.publisher);
     }
 
-    public void defaults(Closure<CollectDeployDetailsTask> closure) {
+    public void defaults(Closure<ArtifactoryTask> closure) {
         defaults(ConfigureUtil.configureUsing(closure));
     }
 
-    public void defaults(Action<CollectDeployDetailsTask> defaultsAction) {
+    public void defaults(Action<ArtifactoryTask> defaultsAction) {
         this.defaultsAction = defaultsAction;
     }
 
@@ -34,7 +34,7 @@ public class PublisherConfig {
 
     public void repository(Action<Repository> repositoryAction) { repositoryAction.execute(repository); }
 
-    public Action<CollectDeployDetailsTask> getDefaultsAction() {
+    public Action<ArtifactoryTask> getDefaultsAction() {
         return defaultsAction;
     }
 
@@ -44,6 +44,22 @@ public class PublisherConfig {
 
     public void setContextUrl(String contextUrl) {
         this.publisher.setContextUrl(contextUrl);
+    }
+
+    public boolean isPublishBuildInfo() {
+        return this.publisher.isPublishBuildInfo();
+    }
+
+    public void publishBuildInfo(boolean publishBuildInfo) {
+        this.publisher.setPublishBuildInfo(publishBuildInfo);
+    }
+
+    public int getForkCount() {
+        return this.publisher.getPublishForkCount();
+    }
+
+    public void setForkCount(int forkCount) {
+        this.publisher.setPublishForkCount(forkCount);
     }
 
     public Repository getRepository() {

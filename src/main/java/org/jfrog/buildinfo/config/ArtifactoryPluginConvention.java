@@ -37,6 +37,14 @@ public class ArtifactoryPluginConvention {
         buildInfoAction.execute(clientConfig.info);
     }
 
+    public void proxy(Closure<ArtifactoryClientConfiguration.ProxyHandler> closure) {
+        proxy(ConfigureUtil.configureUsing(closure));
+    }
+
+    public void proxy(Action<ArtifactoryClientConfiguration.ProxyHandler> buildInfoAction) {
+        buildInfoAction.execute(clientConfig.proxy);
+    }
+
     public Project getProject() {
         return project;
     }

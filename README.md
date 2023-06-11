@@ -125,23 +125,43 @@ Follow this [documentation](https://docs.gradle.org/current/userguide/userguide.
 
 ## 📦 Artifactory Publication
 
-The plugin adds the following task for each project at the 'publishing' group and can be run with:
+The plugin adds the ```artifactoryPublish``` task for each project, at the 'publishing' group.
+The task does the following to the project and its submodules:
+1. Collects all the publication artifacts, configured by the user.
+2. Extract module-info (intermediate file) that describes each module build information.
+3. Extract [build-info](https://www.buildinfo.org/) file in the root project that describes all the information about the build.
+4. Deploy the generated artifacts and build-info file to your Artifactory repository.
+
+Running the task with:
 ```text
 gradle artifactoryPublish
 ```
+<details>
+
+<summary>gradle wrapper in Unix</summary> 
+
+```text
+./gradlew artifactoryPublish
+```
+</details>
+
+<details>
+
+<summary>gradle wrapper in Windows</summary> 
+
+```text
+gradlew.bat artifactoryPublish
+```
+</details>
+
 * Getting debug information from Gradle
   We highly recommend running Gradle with the ``` -d ```
   option to get useful and readable information if something goes wrong with your build.
 
-The task does the following to the project and its submodules:
-1. Collects all the publication artifacts, configured by the user.
-2. Extract module-info (intermediate file) that describes each module build information.
-3. Extract [build-info](https://www.buildinfo.org/) file in the root project that describes the information about the build.
-
 ### Artifactory Configuration
 
 To use the ```artifactoryPublish``` task you need to define,  at the root project ```build.gradle.kts```, the Artifactory convention.
-This configuration will define the information needed to access the Artifactory instance that the artifacts will be published to from the task. 
+This configuration will define the information needed by the tasks to access the Artifactory instance that the artifacts will be published to. 
 
 ```kotlin
 artifactory {
@@ -165,6 +185,10 @@ artifactory {
               mavenCompatible = true
           }
         }
+        // (default: true) Publish generated build-info file to Artifactory
+        publishBuildInfo(true)
+        // (default: 3) Number of threads that will work and deploy artifacts to Artifactory
+        forkCount = 5
     }
 }
 ```
@@ -279,7 +303,9 @@ artifactory {
         // Add a dynamic property to the build-info
         addEnvironmentProperty('test.adding.dynVar',Date().toString())
         // Generate a copy of the build-info.json file in the following path
-        setGeneratedBuildInfoFilePath("/Users/assafa/Documents/code/gradle-examples-to-test-new-plugin/gradle-examples/gradle-example-publish/myTest.json")
+        setGeneratedBuildInfoFilePath("/Users/gradle-example-publish/myBuildInfoCopy.json")
+        // Generate a file with all the deployed artifacts information in the following path
+        setDdeployableArtifactsFilePath("/Users/gradle-example-publish/myArtifactsInBuild.json")
     }
 }
 
@@ -306,6 +332,43 @@ artifactory {
 
 ### Client Configurations
 
+#### Proxy Configurations
+Optionally, if needed, you can use and configure your proxy information to use in the task. 
+
+```kotlin
+artifactory {
+    publish {
+        // Required publish information...
+    }
+  
+    proxy {
+        host = "ProxyHost"
+        port = 60
+        username = "ProxyUserName"
+        password = "ProxyPassword"
+    }
+}
+```
+
+<details>
+<summary>build.gradle</summary>
+
+```groovy
+artifactory {
+    proxy {
+        setHost('ProxyHost')
+        setPort('ProxyPort')
+        setUsername('ProxyUserName')
+        setPassword('ProxyPassword')
+    }
+}
+```
+</details>
+
+* Alternatively to the closure you can configure the attributes by using the ```clientConfig.proxy``` object
+
+#### Basic Configurations
+
 Redefine basic properties of the build info object can be applied using the ```clientConfig``` object under the main ```artifactory``` convention.
 
 ```kotlin
@@ -318,6 +381,8 @@ artifactory {
     
     // (default: 300 seconds) Artifactory's connection timeout (in seconds).
     clientConfig.timeout = 600
+    // (default: 0 retries) Artifactory's connection retires
+    clientConfig.setConnectionRetries(4)
     // (default: false) Set to true to skip TLS certificates verification.
     clientConfig.setInsecureTls(false)
     // (default: false) Set to true to include environment variables while running the tasks
