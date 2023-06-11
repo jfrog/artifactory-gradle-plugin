@@ -7,7 +7,7 @@ import org.gradle.api.logging.Logging;
 import org.jfrog.buildinfo.config.ArtifactoryPluginConvention;
 import org.jfrog.buildinfo.listener.ArtifactoryDependencyResolutionListener;
 import org.jfrog.buildinfo.listener.ProjectsEvaluatedBuildListener;
-import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
+import org.jfrog.buildinfo.tasks.ArtifactoryTask;
 import org.jfrog.buildinfo.tasks.HelloWorldTask;
 import org.jfrog.buildinfo.utils.ConventionUtils;
 import org.jfrog.buildinfo.utils.ProjectUtils;
@@ -30,12 +30,12 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         // Add an Artifactory plugin convention to the project module
         ArtifactoryPluginConvention convention = ConventionUtils.getOrCreateArtifactoryConvention(project);
         // Add the collect publications for deploy details and extract module-info tasks to the project module
-        CollectDeployDetailsTask collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
+        ArtifactoryTask collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
         TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask);
 
         if (ProjectUtils.isRootProject(project)) {
             // Add extract build-info and deploy task for the root to only deploy once for each submodule
-            TaskUtils.addDeploymentTask(TaskUtils.addExtractBuildInfoTask(project));
+            TaskUtils.addDeploymentTask(project);
             // Add a DependencyResolutionListener, to populate the dependency hierarchy map.
             project.getGradle().addListener(resolutionListener);
         } else {

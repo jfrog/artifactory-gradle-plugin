@@ -22,7 +22,7 @@ import org.jfrog.build.extractor.clientConfiguration.LayoutPatterns;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.buildinfo.extractor.details.GradleDeployDetails;
 import org.jfrog.buildinfo.extractor.details.PublishArtifactInfo;
-import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
+import org.jfrog.buildinfo.tasks.ArtifactoryTask;
 
 import javax.xml.namespace.QName;
 import java.io.File;
@@ -42,7 +42,7 @@ public class PublicationUtils {
      * @param ivyPublicationInternal - ivy publication to extract details from
      * @param destination - task to collect and store the created details
      */
-    public static void extractIvyDeployDetails(IvyPublicationInternal ivyPublicationInternal, CollectDeployDetailsTask destination) {
+    public static void extractIvyDeployDetails(IvyPublicationInternal ivyPublicationInternal, ArtifactoryTask destination) {
         // Prepare needed attributes to extract
         String publicationName = ivyPublicationInternal.getName();
         IvyNormalizedPublication ivyNormalizedPublication = ivyPublicationInternal.asNormalisedPublication();
@@ -59,7 +59,7 @@ public class PublicationUtils {
     /**
      * Extract deploy details of the Ivy descriptor, if configured to add it and stores them at the given task destination
      */
-    private static void extractIvyDescriptor(CollectDeployDetailsTask destination, String publicationName, IvyNormalizedPublication ivyNormalizedPublication, IvyPublicationIdentity projectIdentity, Map<QName, String> extraInfo) {
+    private static void extractIvyDescriptor(ArtifactoryTask destination, String publicationName, IvyNormalizedPublication ivyNormalizedPublication, IvyPublicationIdentity projectIdentity, Map<QName, String> extraInfo) {
         File ivyFile = ivyNormalizedPublication.getIvyDescriptorFile();
         if (isPublishIvy(destination)) {
             DeployDetails.Builder builder = createArtifactBuilder(ivyFile, publicationName);
@@ -75,7 +75,7 @@ public class PublicationUtils {
      * Checks if the given task should publish the Ivy descriptor
      * Checks global publisher config if exists, if not exists checks specific task configuration
      */
-    private static boolean isPublishIvy(CollectDeployDetailsTask task) {
+    private static boolean isPublishIvy(ArtifactoryTask task) {
         ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(task.getProject());
         if (publisher == null) {
             return false;
@@ -93,7 +93,7 @@ public class PublicationUtils {
     /**
      * Extract deploy details of the Ivy artifacts and stores them at the given task destination
      */
-    private static void extractIvyArtifacts(CollectDeployDetailsTask destination, String publicationName, IvyNormalizedPublication ivyNormalizedPublication, IvyPublicationIdentity projectIdentity, Map<QName, String> extraInfo) {
+    private static void extractIvyArtifacts(ArtifactoryTask destination, String publicationName, IvyNormalizedPublication ivyNormalizedPublication, IvyPublicationIdentity projectIdentity, Map<QName, String> extraInfo) {
         File ivyFile = ivyNormalizedPublication.getIvyDescriptorFile();
         Set<IvyArtifact> artifacts = ivyNormalizedPublication.getAllArtifacts();
         for (IvyArtifact artifact : artifacts) {
@@ -116,9 +116,9 @@ public class PublicationUtils {
     /**
      * Adds a given Ivy artifact to deploy details in the given task destination
      */
-    private static void addIvyArtifactToDeployDetails(CollectDeployDetailsTask destination, String publicationName,
-                                               IvyPublicationIdentity projectIdentity, DeployDetails.Builder builder,
-                                               PublishArtifactInfo artifactInfo) {
+    private static void addIvyArtifactToDeployDetails(ArtifactoryTask destination, String publicationName,
+                                                      IvyPublicationIdentity projectIdentity, DeployDetails.Builder builder,
+                                                      PublishArtifactInfo artifactInfo) {
         ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(destination.getProject());
         if (publisher == null) {
             return;
@@ -151,7 +151,7 @@ public class PublicationUtils {
      * @param mavenPublicationInternal - maven publication to extract details from
      * @param destination - task to collect and store the created details
      */
-    public static void extractMavenDeployDetails(MavenPublicationInternal mavenPublicationInternal, CollectDeployDetailsTask destination) {
+    public static void extractMavenDeployDetails(MavenPublicationInternal mavenPublicationInternal, ArtifactoryTask destination) {
         String publicationName = mavenPublicationInternal.getName();
         mavenPublicationInternal.asNormalisedPublication().getPomArtifact().getFile();
         MavenNormalizedPublication mavenNormalizedPublication = mavenPublicationInternal.asNormalisedPublication();
@@ -166,7 +166,7 @@ public class PublicationUtils {
     /**
      * Extract deploy details of the Maven descriptor, if configured to add it and stores them at the given task destination
      */
-    private static void extractMavenDescriptor(CollectDeployDetailsTask destination, String publicationName, MavenPublicationInternal mavenPublicationInternal, MavenNormalizedPublication mavenNormalizedPublication) {
+    private static void extractMavenDescriptor(ArtifactoryTask destination, String publicationName, MavenPublicationInternal mavenPublicationInternal, MavenNormalizedPublication mavenNormalizedPublication) {
         File pomFile = mavenNormalizedPublication.getPomArtifact().getFile();
         if (isPublishMaven(destination)) {
             DeployDetails.Builder builder = createArtifactBuilder(pomFile, publicationName);
@@ -182,7 +182,7 @@ public class PublicationUtils {
      * Checks if the given task should publish the Maven descriptor
      * Checks global publisher config if exists, if not exists checks specific task configuration
      */
-    private static boolean isPublishMaven(CollectDeployDetailsTask task) {
+    private static boolean isPublishMaven(ArtifactoryTask task) {
         ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(task.getProject());
         if (publisher == null) {
             return false;
@@ -200,7 +200,7 @@ public class PublicationUtils {
     /**
      * Extract deploy details of the Maven artifacts and stores them at the given task destination
      */
-    private static void extractMavenArtifacts(CollectDeployDetailsTask destination, String publicationName, MavenPublicationInternal mavenPublicationInternal, MavenNormalizedPublication mavenNormalizedPublication) {
+    private static void extractMavenArtifacts(ArtifactoryTask destination, String publicationName, MavenPublicationInternal mavenPublicationInternal, MavenNormalizedPublication mavenNormalizedPublication) {
         Set<MavenArtifact> artifacts = new HashSet<>();
         try {
             artifacts = mavenNormalizedPublication.getAdditionalArtifacts();
@@ -220,7 +220,7 @@ public class PublicationUtils {
         }
     }
 
-    private static void createPublishArtifactInfoAndAddToDeployDetails(MavenArtifact artifact, CollectDeployDetailsTask destination, MavenPublication mavenPublication, String publicationName) {
+    private static void createPublishArtifactInfoAndAddToDeployDetails(MavenArtifact artifact, ArtifactoryTask destination, MavenPublication mavenPublication, String publicationName) {
         File file = artifact.getFile();
         DeployDetails.Builder builder = createArtifactBuilder(file, publicationName);
         if (builder == null) {
@@ -236,7 +236,7 @@ public class PublicationUtils {
     /**
      * Adds a given Maven artifact to deploy details in the given task destination
      */
-    private static void addMavenArtifactToDeployDetails(CollectDeployDetailsTask destination, String publicationName, DeployDetails.Builder builder, PublishArtifactInfo artifactInfo, MavenPublication mavenPublication) {
+    private static void addMavenArtifactToDeployDetails(ArtifactoryTask destination, String publicationName, DeployDetails.Builder builder, PublishArtifactInfo artifactInfo, MavenPublication mavenPublication) {
         Map<String, String> extraTokens = artifactInfo.getExtraTokens();
         String artifactPath = IvyPatternHelper.substitute(
                 LayoutPatterns.M2_PATTERN, mavenPublication.getGroupId().replace(".", "/"),
@@ -252,7 +252,7 @@ public class PublicationUtils {
     /**
      * Adds a general artifact to deploy details in the given task destination
      */
-    private static void addArtifactInfoToDeployDetails(CollectDeployDetailsTask destination, String publicationName,
+    private static void addArtifactInfoToDeployDetails(ArtifactoryTask destination, String publicationName,
                                                        DeployDetails.Builder builder, PublishArtifactInfo artifactInfo, String artifactPath) {
         Project project = destination.getProject();
         ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(project);
@@ -281,7 +281,7 @@ public class PublicationUtils {
         return publisher.getRepoKey();
     }
 
-    private static Map<String, String> getPropsToAdd(CollectDeployDetailsTask destination, PublishArtifactInfo artifact, String publicationName) {
+    private static Map<String, String> getPropsToAdd(ArtifactoryTask destination, PublishArtifactInfo artifact, String publicationName) {
         Project project = destination.getProject();
         Map<String, String> propsToAdd = new HashMap<>(destination.getDefaultProps());
         // Apply artifact-specific props from the artifact specs

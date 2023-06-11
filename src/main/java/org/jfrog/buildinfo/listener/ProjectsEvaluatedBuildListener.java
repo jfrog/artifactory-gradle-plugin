@@ -11,7 +11,7 @@ import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.buildinfo.config.ArtifactoryPluginConvention;
-import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
+import org.jfrog.buildinfo.tasks.ArtifactoryTask;
 import org.jfrog.buildinfo.Constant;
 import org.jfrog.buildinfo.utils.ConventionUtils;
 
@@ -35,7 +35,7 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
      * 2) Adds publishers to the task to collect build details from.
      * @param collectDeployDetailsTask
      */
-    private void evaluate(CollectDeployDetailsTask collectDeployDetailsTask) {
+    private void evaluate(ArtifactoryTask collectDeployDetailsTask) {
         log.info("<ASSAF> Try Evaluating {}", collectDeployDetailsTask);
         Project project = collectDeployDetailsTask.getProject();
         ArtifactoryPluginConvention convention = ConventionUtils.getArtifactoryConvention(project);
@@ -68,12 +68,12 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
         StartParameter startParameter = project.getGradle().getStartParameter();
         Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
         tasks.forEach(task -> {
-            if (!(task instanceof CollectDeployDetailsTask)) {
+            if (!(task instanceof ArtifactoryTask)) {
                 return;
             }
-            CollectDeployDetailsTask collectDeployDetailsTask = (CollectDeployDetailsTask) task;
+            ArtifactoryTask collectDeployDetailsTask = (ArtifactoryTask) task;
             detailsCollectingTasks.add(collectDeployDetailsTask);
-            collectDeployDetailsTask.finalizeByBuildInfoTask(project);
+            collectDeployDetailsTask.finalizeByDeployTask(project);
             if (startParameter.isConfigureOnDemand()) {
                 evaluate(collectDeployDetailsTask);
             }
@@ -90,10 +90,10 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
         Set<Task> tasks = gradle.getRootProject().getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
         detailsCollectingTasks.addAll(tasks);
         detailsCollectingTasks.forEach(task -> {
-            if ((task instanceof CollectDeployDetailsTask) && !((CollectDeployDetailsTask) task).isEvaluated()) {
-                CollectDeployDetailsTask collectDeployDetailsTask = (CollectDeployDetailsTask) task;
+            if ((task instanceof ArtifactoryTask) && !((ArtifactoryTask) task).isEvaluated()) {
+                ArtifactoryTask collectDeployDetailsTask = (ArtifactoryTask) task;
                 evaluate(collectDeployDetailsTask);
-                collectDeployDetailsTask.finalizeByBuildInfoTask(collectDeployDetailsTask.getProject());
+                collectDeployDetailsTask.finalizeByDeployTask(collectDeployDetailsTask.getProject());
             }
         });
     }

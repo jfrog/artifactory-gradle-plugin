@@ -2,16 +2,18 @@ package org.jfrog.buildinfo.utils;
 
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.execution.TaskExecutionGraph;
 import org.gradle.api.file.FileCollection;
 import org.jfrog.buildinfo.Constant;
 import org.jfrog.buildinfo.extractor.ModuleInfoFileProducer;
-import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
+import org.jfrog.buildinfo.tasks.ArtifactoryTask;
 import org.jfrog.buildinfo.tasks.DeployTask;
-import org.jfrog.buildinfo.tasks.ExtractBuildInfoTask;
 import org.jfrog.buildinfo.tasks.ExtractModuleTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 public class TaskUtils {
@@ -41,12 +43,12 @@ public class TaskUtils {
      * @param project - the module to collect information from
      * @return - task that was created for the given module
      */
-    public static CollectDeployDetailsTask addCollectDeployDetailsTask(Project project) {
+    public static ArtifactoryTask addCollectDeployDetailsTask(Project project) {
         Task task = project.getTasks().findByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME);
-        if (task instanceof CollectDeployDetailsTask) {
-            return (CollectDeployDetailsTask) task;
+        if (task instanceof ArtifactoryTask) {
+            return (ArtifactoryTask) task;
         }
-        return createTaskInProject(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, CollectDeployDetailsTask.class, Constant.ARTIFACTORY_PUBLISH_TASK_DESCRIPTION, project, true);
+        return createTaskInProject(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, ArtifactoryTask.class, Constant.ARTIFACTORY_PUBLISH_TASK_DESCRIPTION, project, true);
     }
 
     /**
@@ -54,13 +56,24 @@ public class TaskUtils {
      * @param project - a project to search for a finished task
      * @return - finished collection task or null if not exists in project
      */
-    public static CollectDeployDetailsTask findExecutedCollectionTask(Project project) {
+    public static ArtifactoryTask findExecutedCollectionTask(Project project) {
         Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
         if (tasks.isEmpty()) {
             return null;
         }
-        CollectDeployDetailsTask artifactoryTask = (CollectDeployDetailsTask)tasks.iterator().next();
+        ArtifactoryTask artifactoryTask = (ArtifactoryTask)tasks.iterator().next();
         return artifactoryTask.getState().getDidWork() ? artifactoryTask : null;
+    }
+
+    public static List<ArtifactoryTask> getAllArtifactoryPublishTasks(Project project) {
+        TaskExecutionGraph graph = project.getGradle().getTaskGraph();
+        List<ArtifactoryTask> tasks = new ArrayList<>();
+        for (Task task : graph.getAllTasks()) {
+            if (task instanceof ArtifactoryTask) {
+                tasks.add(((ArtifactoryTask) task));
+            }
+        }
+        return tasks;
     }
 
     /**
@@ -68,7 +81,7 @@ public class TaskUtils {
      * An ExtractModuleTask task will be added (if not exists) to the given task's project.
      * @param collectDeployDetailsTask - the task that will provide the information to produce the module info file
      */
-    public static void addExtractModuleInfoTask(CollectDeployDetailsTask collectDeployDetailsTask) {
+    public static void addExtractModuleInfoTask(ArtifactoryTask collectDeployDetailsTask) {
         Project project = collectDeployDetailsTask.getProject();
         Task task = project.getTasks().findByName(Constant.EXTRACT_MODULE_TASK_NAME);
         if (!(task instanceof ExtractModuleTask)) {
@@ -78,42 +91,29 @@ public class TaskUtils {
 
         extractModuleTask.getOutputs().upToDateWhen(reuseOutputs -> false);
         extractModuleTask.getModuleFile().set(project.getLayout().getBuildDirectory().file(Constant.MODULE_INFO_FILE_NAME));
-        extractModuleTask.mustRunAfter(project.getTasks().withType(CollectDeployDetailsTask.class));
-//        collectDeployDetailsTask.finalizedBy(extractModuleTask);
+        extractModuleTask.mustRunAfter(project.getTasks().withType(ArtifactoryTask.class));
 
-        project.getRootProject().getTasks().withType(ExtractBuildInfoTask.class).configureEach(extractBuildInfoTask ->
-        {
-            log.info("{} Registered info producer from ({} , {})", extractBuildInfoTask.getPath(), collectDeployDetailsTask.getPath(), extractModuleTask.getPath());
-            extractBuildInfoTask.registerModuleInfoProducer(new DefaultModuleInfoFileProducer(collectDeployDetailsTask, extractModuleTask));
-        });
+        project.getRootProject().getTasks().withType(DeployTask.class).configureEach(deployTask ->
+                deployTask.registerModuleInfoProducer(new DefaultModuleInfoFileProducer(collectDeployDetailsTask, extractModuleTask))
+        );
     }
 
-    public static ExtractBuildInfoTask addExtractBuildInfoTask(Project project) {
-        Task task = project.getTasks().findByName(Constant.EXTRACT_BUILD_INFO_TASK_NAME);
-        if (task instanceof ExtractBuildInfoTask) {
-            return (ExtractBuildInfoTask) task;
-        }
-        return createTaskInProject(Constant.EXTRACT_BUILD_INFO_TASK_NAME, ExtractBuildInfoTask.class, Constant.EXTRACT_BUILD_INFO_TASK_DESCRIPTION, project, false);
-    }
-
-    public static void addDeploymentTask(ExtractBuildInfoTask extractBuildInfoTask) {
-        Project project = extractBuildInfoTask.getProject();
+    public static void addDeploymentTask(Project project) {
         Task task = project.getTasks().findByName(Constant.DEPLOY_TASK_NAME);
         if (task instanceof DeployTask) {
             return;
         }
-        DeployTask deployTask = createTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
-        deployTask.dependsOn(extractBuildInfoTask);
+        createTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
     }
 
     /**
      * Produce module info files if the module has publications to deploy from the collecting task
      */
     private static class DefaultModuleInfoFileProducer implements ModuleInfoFileProducer {
-        private final CollectDeployDetailsTask collectDeployDetailsTask;
+        private final ArtifactoryTask collectDeployDetailsTask;
         private final ExtractModuleTask extractModuleTask;
 
-        DefaultModuleInfoFileProducer(CollectDeployDetailsTask collectDeployDetailsTask, ExtractModuleTask extractModuleTask) {
+        DefaultModuleInfoFileProducer(ArtifactoryTask collectDeployDetailsTask, ExtractModuleTask extractModuleTask) {
             this.collectDeployDetailsTask = collectDeployDetailsTask;
             this.extractModuleTask = extractModuleTask;
         }

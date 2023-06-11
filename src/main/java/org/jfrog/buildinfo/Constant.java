@@ -15,9 +15,6 @@ public class Constant {
     public static final String EXTRACT_MODULE_TASK_NAME = "extractModuleInfo";
     public static final String EXTRACT_MODULE_TASK_DESCRIPTION = "Extracts module information to an intermediate file.";
 
-    public static final String EXTRACT_BUILD_INFO_TASK_NAME = "extractBuildInfo";
-    public static final String EXTRACT_BUILD_INFO_TASK_DESCRIPTION = "Extracts build-info to a file.";
-
     public static final String DEPLOY_TASK_NAME = "artifactoryDeploy";
     public static final String DEPLOY_TASK_DESCRIPTION = "Deploys artifacts and build-info to Artifactory.";
 

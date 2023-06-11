@@ -3,6 +3,8 @@ group = "org.jfrog.buildinfo"
 val pluginDescription = "JFrog Gradle plugin for Build Info extraction and Artifactory publishing."
 val functionalTest by sourceSets.creating
 
+
+
 plugins {
     `java-gradle-plugin`
     `maven-publish`
@@ -12,9 +14,11 @@ repositories {
     mavenCentral()
 }
 
+val buildInfoVersion = "2.39.8"
 dependencies {
-    implementation ("org.jfrog.buildinfo","build-info-extractor","2.39.8")
-    implementation ("org.jfrog.buildinfo","build-info-api","2.39.8")
+    implementation ("org.jfrog.buildinfo","build-info-extractor",buildInfoVersion)
+    implementation ("org.jfrog.buildinfo","build-info-api",buildInfoVersion)
+    implementation ("org.jfrog.buildinfo","build-info-client",buildInfoVersion)
     implementation("org.jfrog.filespecs","file-specs-java","1.1.2")
 
     implementation("org.apache.commons", "commons-lang3","3.12.0")

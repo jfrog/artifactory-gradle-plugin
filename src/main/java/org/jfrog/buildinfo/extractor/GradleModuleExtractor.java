@@ -21,7 +21,7 @@ import org.jfrog.buildinfo.ArtifactoryPlugin;
 import org.jfrog.buildinfo.extractor.details.GradleDeployDetails;
 import org.jfrog.buildinfo.extractor.details.PublishArtifactInfo;
 import org.jfrog.buildinfo.listener.ArtifactoryDependencyResolutionListener;
-import org.jfrog.buildinfo.tasks.CollectDeployDetailsTask;
+import org.jfrog.buildinfo.tasks.ArtifactoryTask;
 import org.jfrog.buildinfo.utils.ConventionUtils;
 import org.jfrog.buildinfo.utils.ProjectUtils;
 import org.jfrog.buildinfo.utils.TaskUtils;
@@ -49,7 +49,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
     }
 
     private Set<GradleDeployDetails> getCollectedDeployDetails(Project project) {
-        CollectDeployDetailsTask detailsCollectionTask = TaskUtils.findExecutedCollectionTask(project);
+        ArtifactoryTask detailsCollectionTask = TaskUtils.findExecutedCollectionTask(project);
         if (detailsCollectionTask == null) {
             return Sets.newHashSet();
         }
