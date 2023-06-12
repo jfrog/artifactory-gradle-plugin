@@ -69,6 +69,9 @@ public class ArtifactoryTask extends DefaultTask {
     // Container to hold all the details that were collected
     private final Set<GradleDeployDetails> deployDetails = new TreeSet<>();
 
+    // Is this task initiated from a build server
+    private boolean ciServerBuild = false;
+
     /**
      * Make sure this task Depends on Information Collection from all the subprojects.
      * If defaults task is configured for the project
@@ -198,6 +201,37 @@ public class ArtifactoryTask extends DefaultTask {
         } else {
             log.warn("Publication named '{}' in project '{}' is of unknown type '{}'",
                     publicationObj.getName(), getProject().getPath(), publicationObj.getClass());
+        }
+    }
+
+    public void addDefaultPublications() {
+        if (hasPublications()) {
+            // has specified publications, no need to add default.
+            if (publishPublicationsSpecified) {
+                log.warn("None of the specified publications matched for project '{}' - nothing to publish.",
+                        getProject().getPath());
+            }
+            return;
+        }
+        PublishingExtension publishingExtension = (PublishingExtension) getProject().getExtensions().findByName(Constant.PUBLISH_TASK_GROUP);
+        if (publishingExtension == null) {
+            log.warn("Can't find publishing extensions that is defined for the project {}", getProject().getPath());
+            return;
+        }
+        addPublicationIfExists(publishingExtension, Constant.MAVEN_JAVA);
+        addPublicationIfExists(publishingExtension, Constant.MAVEN_JAVA_PLATFORM);
+        addPublicationIfExists(publishingExtension, Constant.MAVEN_WEB);
+        addPublicationIfExists(publishingExtension, Constant.IVY_JAVA);
+        // update changes
+        checkDependsOnArtifactsToPublish();
+    }
+
+    private void addPublicationIfExists(PublishingExtension publishingExtension, String publicationName) {
+        Publication publication = publishingExtension.getPublications().findByName(publicationName);
+        if (publication != null) {
+            log.info("No publications specified for project '{}' - adding '{}' publication.",
+                    getProject().getPath(), publicationName);
+            addPublication(publication);
         }
     }
 
@@ -355,6 +389,11 @@ public class ArtifactoryTask extends DefaultTask {
         return getFlag(Constant.PUBLISH_POM);
     }
 
+    @Input
+    public boolean isCiServerBuild() {
+        return this.ciServerBuild;
+    }
+
     public ArtifactSpecs getArtifactSpecs() {
         return artifactSpecs;
     }
@@ -374,6 +413,10 @@ public class ArtifactoryTask extends DefaultTask {
             }
         }
         return defaultProps;
+    }
+
+    public void setCiServerBuild() {
+        this.ciServerBuild = true;
     }
 
     public void setSkip(boolean skip) {

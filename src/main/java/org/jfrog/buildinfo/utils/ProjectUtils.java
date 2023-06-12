@@ -39,6 +39,15 @@ public class ProjectUtils {
         return getAsGavString(module.getGroup(), module.getName(), module.getVersion());
     }
 
+    public static boolean hasOneOfComponents(Project project, String... componentNames) {
+        for (String componentName : componentNames) {
+            if (project.getComponents().findByName(componentName) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static Iterable<GradleDeployDetails> filterIncludeExcludeDetails(Project project, ArtifactoryClientConfiguration.PublisherHandler publisher, Set<GradleDeployDetails> gradleDeployDetails, boolean isInclude) {
         IncludeExcludePatterns patterns = new IncludeExcludePatterns(
                 publisher.getIncludePatterns(),

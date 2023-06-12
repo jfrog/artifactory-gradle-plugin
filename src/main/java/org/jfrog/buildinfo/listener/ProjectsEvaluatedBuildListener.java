@@ -1,5 +1,6 @@
 package org.jfrog.buildinfo.listener;
 
+import org.apache.commons.lang3.StringUtils;
 import org.gradle.BuildAdapter;
 import org.gradle.StartParameter;
 import org.gradle.api.Project;
@@ -9,11 +10,14 @@ import org.gradle.api.Task;
 import org.gradle.api.invocation.Gradle;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.api.publish.PublishingExtension;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
+import org.jfrog.buildinfo.Constant;
 import org.jfrog.buildinfo.config.ArtifactoryPluginConvention;
 import org.jfrog.buildinfo.tasks.ArtifactoryTask;
-import org.jfrog.buildinfo.Constant;
 import org.jfrog.buildinfo.utils.ConventionUtils;
+import org.jfrog.buildinfo.utils.ProjectUtils;
+import org.jfrog.buildinfo.utils.PublicationUtils;
 
 import java.util.Collections;
 import java.util.Set;
@@ -32,8 +36,7 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
     /**
      * Evaluate the given collectDeployDetailsTask task, preform the follows:
      * 1) Fill the client configuration of the task's project with user and system properties.
-     * 2) Adds publishers to the task to collect build details from.
-     * @param collectDeployDetailsTask
+     * 2) Adds publishers to the task to collect build details from (if the task is from CI server -> add defaults).
      */
     private void evaluate(ArtifactoryTask collectDeployDetailsTask) {
         log.info("<ASSAF> Try Evaluating {}", collectDeployDetailsTask);
@@ -50,10 +53,26 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
         }
         // Fill-in the client config with current user/system properties for the given project
         ConventionUtils.updateConfig(clientConfiguration, project);
-
-        // TODO: CI mode
-
+        // Set task attributes if running on CI Server
+        if (collectDeployDetailsTask.isCiServerBuild()) {
+            addCiAttributesToTask(collectDeployDetailsTask, clientConfiguration);
+        }
         collectDeployDetailsTask.evaluateTask();
+    }
+
+    private void addCiAttributesToTask(ArtifactoryTask collectDeployDetailsTask, ArtifactoryClientConfiguration clientConfiguration) {
+        PublishingExtension publishingExtension = (PublishingExtension) collectDeployDetailsTask.getProject().getExtensions().findByName(Constant.PUBLISH_TASK_GROUP);
+        if (publishingExtension == null) {
+            log.debug("Can't find publishing extensions that is defined for the project {}", collectDeployDetailsTask.getProject().getPath());
+            return;
+        }
+        String publicationsNames = clientConfiguration.publisher.getPublications();
+        if (StringUtils.isNotBlank(publicationsNames)) {
+            // TODO: Where/how they define the publications ,as one string, in the CI server below?
+            collectDeployDetailsTask.publications((Object[]) publicationsNames.split(","));
+        } else if (ProjectUtils.hasOneOfComponents(collectDeployDetailsTask.getProject(), Constant.JAVA, Constant.JAVA_PLATFORM)) {
+            PublicationUtils.addDefaultPublications(collectDeployDetailsTask, publishingExtension);
+        }
     }
 
     /**
