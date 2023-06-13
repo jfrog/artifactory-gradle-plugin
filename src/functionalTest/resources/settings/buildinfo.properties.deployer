@@ -1,0 +1,10 @@
+# Deployer settings
+publish.publications=${publications}
+publish.contextUrl=${contextUrl}
+publish.repoKey=${localRepo}
+publish.username=${username}
+publish.password=${password}
+publish.unstable=false
+publish.buildInfo=${buildInfo}
+publish.maven=true
+publish.ivy=true
