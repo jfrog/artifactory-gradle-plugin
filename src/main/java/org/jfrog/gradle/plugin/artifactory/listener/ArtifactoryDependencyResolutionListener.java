@@ -5,8 +5,6 @@ import org.gradle.api.artifacts.ResolvableDependencies;
 import org.gradle.api.artifacts.result.DependencyResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
-import org.gradle.api.logging.Logger;
-import org.gradle.api.logging.Logging;
 import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 
 import java.util.*;
@@ -16,7 +14,6 @@ import java.util.*;
  * which is used in the 'requestedBy' field of every dependency in the build info, by listening to the 'afterResolve' event of every module.
  */
 public class ArtifactoryDependencyResolutionListener implements DependencyResolutionListener {
-    private static final Logger log = Logging.getLogger(ArtifactoryDependencyResolutionListener.class);
     private final Map<String, Map<String, String[][]>> modulesHierarchyMap = new HashMap<>();
 
     @Override
@@ -27,7 +24,6 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
         if (!dependencies.getResolutionResult().getAllDependencies().isEmpty()) {
             updateModulesMap(dependencies);
         }
-        log.info("<ASSAF> Done update after dependency resolved");
     }
 
     /**
@@ -39,7 +35,6 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
         if (moduleId == null) {
             return;
         }
-        log.info("<ASSAF> updating module: " + moduleId);
         Map<String, String[][]> dependenciesMap = modulesHierarchyMap.computeIfAbsent(moduleId, k -> new HashMap<>());
         updateDependencyMap(dependenciesMap, dependencies.getResolutionResult().getAllDependencies());
     }
@@ -56,7 +51,6 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
             }
             ResolvedDependencyResult resolvedDependency = (ResolvedDependencyResult) dependency;
             String componentId = ProjectUtils.getId(resolvedDependency.getSelected().getModuleVersion());
-            log.info("<ASSAF> dependency: " + componentId + " | already collected: " + (dependencyMap.get(componentId) != null));
             if (dependencyMap.containsKey(componentId)) {
                 // Only add information that was not collected yet for the given module.
                 continue;
@@ -73,7 +67,6 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
     private String[][] getDependencyDependents(ResolvedDependencyResult resolvedDependency) {
         List<String> dependents = new ArrayList<>();
         populateDependents(resolvedDependency, dependents);
-        log.info("<ASSAF> Dependents from resolved:\n" + dependents);
         return new String[][] { dependents.toArray(new String[0])};
     }
 

@@ -61,6 +61,11 @@ public class ConventionUtils {
         return null;
     }
 
+    /**
+     * Get the configured (contextUrl and repoKey/snapshotRepoKey) publisher handler of a given project
+     * @param project - the project to fetch its publisher configurations
+     * @return a configured publisher handler or null if not found
+     */
     public static ArtifactoryClientConfiguration.PublisherHandler getPublisherHandler(Project project) {
         ArtifactoryPluginConvention convention = getConventionWithPublisher(project);
         if (convention == null) {
@@ -69,6 +74,13 @@ public class ConventionUtils {
         return convention.getClientConfig().publisher;
     }
 
+    /**
+     * Update and fill a given client configuration with information from:
+     * 1) Start parameters
+     * 2) System properties
+     * 3) special buildInfo properties
+     * 4) default publisher attributes
+     */
     public static void updateConfig(ArtifactoryClientConfiguration configuration, Project project) {
         Properties props = new Properties();
         // Aggregate properties from parent to child

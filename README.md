@@ -37,7 +37,7 @@
 ---
 
 ## 📚 Overview
-```The minimum supported Gradle version to use this plugin is v6.6```
+```The minimum supported Gradle version to use this plugin is v6.9```
 
 The Gradle Artifactory Plugin provides tight integration with Gradle. All that is needed is a simple modification of your
 ```build.gradle```

@@ -171,8 +171,6 @@ public class DeployUtils {
         }
         try (ArtifactoryManager artifactoryManager = createArtifactoryManager(accRoot.publisher)) {
             configureProxy(accRoot.proxy, artifactoryManager);
-            // TODO: why only proxy config?, why not:
-//            configureArtifactoryManager(accRoot, artifactoryManager);
 
             if (accRoot.publisher.isPublishBuildInfo()) {
                 log.debug("Publishing build info to artifactory at: '{}'", accRoot.publisher.getContextUrl());

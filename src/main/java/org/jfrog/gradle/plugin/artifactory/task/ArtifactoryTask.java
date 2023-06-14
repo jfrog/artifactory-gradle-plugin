@@ -26,11 +26,11 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
-import org.jfrog.gradle.plugin.artifactory.config.PropertiesConfig;
-import org.jfrog.gradle.plugin.artifactory.extractor.details.GradleDeployDetails;
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.config.ArtifactoryPluginConvention;
+import org.jfrog.gradle.plugin.artifactory.config.PropertiesConfig;
 import org.jfrog.gradle.plugin.artifactory.config.PublisherConfig;
+import org.jfrog.gradle.plugin.artifactory.extractor.details.GradleDeployDetails;
 import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils;
 
@@ -44,47 +44,45 @@ import java.util.concurrent.Callable;
 public class ArtifactoryTask extends DefaultTask {
     private static final Logger log = Logging.getLogger(ArtifactoryTask.class);
 
-    // Publication containers
-    public Set<IvyPublication> ivyPublications = new HashSet<>();
-    public Set<MavenPublication> mavenPublications = new HashSet<>();
+    // Publication containers input
     private final Set<Object> publications = new HashSet<>();
-
-    // This project has specified publications to the task
-    private boolean publishPublicationsSpecified = false;
-    // This project task has been evaluated
-    private boolean evaluated = false;
-    // Optional flags and attributes with default values
-    private final Map<String, Boolean> flags = new HashMap<>();
-    @Input
-    public boolean skip = false;
-
+    // Properties input
     private final Multimap<String, CharSequence> properties = ArrayListMultimap.create();
-
     @Input
     public final ArtifactSpecs artifactSpecs = new ArtifactSpecs();
 
-    @Internal
-    private Map<String, String> defaultProps;
-
-    // Container to hold all the details that were collected
-    private final Set<GradleDeployDetails> deployDetails = new TreeSet<>();
-
+    // Optional flags and attributes with default values
+    private final Map<String, Boolean> flags = new HashMap<>();
     // Is this task initiated from a build server
     private boolean ciServerBuild = false;
+    @Input
+    public boolean skip = false;
+
+    // Internal attributes
+    public Set<IvyPublication> ivyPublications = new HashSet<>();
+    public Set<MavenPublication> mavenPublications = new HashSet<>();
+    // This project has specified publications to the task
+    private boolean publishPublicationsSpecified = false;
+    @Internal
+    private Map<String, String> defaultProps;
+    // This project task has been evaluated
+    private boolean evaluated = false;
+
+    // Output - Container to hold all the details that were collected
+    private final Set<GradleDeployDetails> deployDetails = new TreeSet<>();
 
     /**
-     * Make sure this task Depends on Information Collection from all the subprojects.
-     * If defaults task is configured for the project
+     * Make sure this task Depends on ArtifactoryTask from all its subprojects.
+     * Apply global specs and default global action to this task.
      */
     public void evaluateTask() {
-        log.info("<ASSAF> Evaluating {}", getPath());
         evaluated = true;
         Project project = getProject();
         if (isSkip()) {
-            log.info("{} task '{}' skipped for project '{}'.",
-                    Constant.ARTIFACTORY_PUBLISH_TASK_NAME, this.getPath(), project.getName());
+            log.debug("'{}' skipped for project '{}'.", getPath(), project.getName());
             return;
         }
+
         // Depends on Information Collection tasks from all the subprojects
         for (Project sub : project.getSubprojects()) {
             Task subCollectInfoTask = sub.getTasks().findByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME);
@@ -95,23 +93,63 @@ public class ArtifactoryTask extends DefaultTask {
 
         ArtifactoryPluginConvention convention = ConventionUtils.getConventionWithPublisher(project);
         if (convention == null) {
-            log.info("<ASSAF> No convention configured for {}", getPath());
+            log.debug("Can't find convention configured for {}", getPath());
             return;
         }
-        log.info("<ASSAF> Found convention with publisher configured for {}", getPath());
-
         // Add global properties to the specs
         artifactSpecs.clear();
         artifactSpecs.addAll(convention.getClientConfig().publisher.getArtifactSpecs());
-
-        // Configure the task using the "defaults" action (delegate to the task)
+        // Configure the task using the "defaults" action if exists (delegate to the task)
         PublisherConfig config = convention.getPublisherConfig();
         if (config != null) {
             Action<ArtifactoryTask> defaultsAction = config.getDefaultsAction();
             if (defaultsAction != null) {
-                log.info("<ASSAF> Delegating {} to defaults", getPath());
                 defaultsAction.execute(this);
             }
+        }
+    }
+
+    /**
+     * Collect all the deployment details for this project
+     */
+    @TaskAction
+    public void collectDeployDetails() {
+        log.info("Collecting deployment details in task '{}'", getPath());
+        if (!hasPublications()) {
+            log.info("No publications to publish for project '{}'", getProject().getPath());
+            return;
+        }
+        try {
+            collectDetailsFromIvyPublications();
+            collectDetailsFromMavenPublications();
+        } catch (Exception e) {
+            throw new RuntimeException("Cannot collect deploy details for " + getPath(), e);
+        }
+    }
+
+    private void collectDetailsFromIvyPublications() {
+        for (IvyPublication ivyPublication : ivyPublications) {
+            String publicationName = ivyPublication.getName();
+            if (!(ivyPublication instanceof IvyPublicationInternal)) {
+                // TODO: Check how the descriptor file can be extracted without using asNormalisedPublication
+                log.warn("Ivy publication name '{}' is of unsupported type '{}'!",
+                        publicationName, ivyPublication.getClass());
+                continue;
+            }
+            PublicationUtils.extractIvyDeployDetails((IvyPublicationInternal) ivyPublication, this);
+        }
+    }
+
+    private void collectDetailsFromMavenPublications() {
+        for (MavenPublication mavenPublication : mavenPublications) {
+            String publicationName = mavenPublication.getName();
+            if (!(mavenPublication instanceof MavenPublicationInternal)) {
+                // TODO: Check how the descriptor file can be extracted without using asNormalisedPublication
+                log.warn("Maven publication name '{}' is of unsupported type '{}'!",
+                        publicationName, mavenPublication.getClass());
+                continue;
+            }
+            PublicationUtils.extractMavenDeployDetails((MavenPublicationInternal) mavenPublication, this);
         }
     }
 
@@ -215,7 +253,7 @@ public class ArtifactoryTask extends DefaultTask {
             }
             return;
         }
-        PublishingExtension publishingExtension = (PublishingExtension) getProject().getExtensions().findByName(Constant.PUBLISH_TASK_GROUP);
+        PublishingExtension publishingExtension = (PublishingExtension) getProject().getExtensions().findByName(Constant.PUBLISHING);
         if (publishingExtension == null) {
             log.warn("Can't find publishing extensions that is defined for the project {}", getProject().getPath());
             return;
@@ -231,8 +269,8 @@ public class ArtifactoryTask extends DefaultTask {
     private void addPublicationIfExists(PublishingExtension publishingExtension, String publicationName) {
         Publication publication = publishingExtension.getPublications().findByName(publicationName);
         if (publication != null) {
-            log.info("No publications specified for project '{}' - adding '{}' publication.",
-                    getProject().getPath(), publicationName);
+            log.info("Publication '{}' exists but not specified for '{}' - adding to task publications.",
+                    getPath(), publicationName);
             addPublication(publication);
         }
     }
@@ -257,7 +295,7 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     /**
-     * Make sure task dependsOn any IvyPublication tasks and the task of the pom file for the published artifacts
+     * Make sure task dependsOn any MavenPublication tasks and the task of the pom file for the published artifacts
      */
     private void createDependencyOnMavenPublications() {
         for (MavenPublication mavenPublication : mavenPublications) {
@@ -288,6 +326,14 @@ public class ArtifactoryTask extends DefaultTask {
         return !ivyPublications.isEmpty() || !mavenPublications.isEmpty();
     }
 
+    public void finalizeByDeployTask(Project project) {
+        Task deployTask = project.getRootProject().getTasks().findByName(Constant.DEPLOY_TASK_NAME);
+        if (deployTask == null) {
+            throw new IllegalStateException(String.format("Could not find %s in the root project", Constant.DEPLOY_TASK_NAME));
+        }
+        finalizedBy(deployTask);
+    }
+
     public void properties(Closure<PropertiesConfig> closure) {
         properties(ConfigureUtil.configureUsing(closure));
     }
@@ -297,62 +343,6 @@ public class ArtifactoryTask extends DefaultTask {
         propertiesAction.execute(propertiesConfig);
         artifactSpecs.clear();
         artifactSpecs.addAll(propertiesConfig.getArtifactSpecs());
-    }
-
-    public void finalizeByDeployTask(Project project) {
-        Task deployTask = project.getRootProject().getTasks().findByName(Constant.DEPLOY_TASK_NAME);
-        if (deployTask == null) {
-            throw new IllegalStateException(String.format("Could not find %s in the root project", Constant.DEPLOY_TASK_NAME));
-        }
-        finalizedBy(deployTask);
-    }
-
-    /**
-     * Collect all the deployment details for this project
-     */
-    @TaskAction
-    public void collectDeployDetails() {
-        log.info("<ASSAF> Task '{}' activated", getPath());
-        if (!hasPublications()) {
-            log.info("No publications to publish for project '{}'", getProject().getPath());
-            return;
-        }
-        try {
-            collectDetailsFromIvyPublications();
-            collectDetailsFromMavenPublications();
-        } catch (Exception e) {
-            throw new RuntimeException("Cannot collect deploy details for " + getPath(), e);
-        }
-        log.info("<ASSAF> {} collected {} artifacts:", getPath(), deployDetails.size());
-        for (GradleDeployDetails details : deployDetails) {
-            log.info("<ASSAF> {} artifact: {}.{}", details.getPublishArtifact().getType(), details.getPublishArtifact().getName(), details.getPublishArtifact().getExtension());
-        }
-    }
-
-    private void collectDetailsFromIvyPublications() {
-        for (IvyPublication ivyPublication : ivyPublications) {
-            String publicationName = ivyPublication.getName();
-            if (!(ivyPublication instanceof IvyPublicationInternal)) {
-                // TODO: Check how the descriptor file can be extracted without using asNormalisedPublication
-                log.warn("Ivy publication name '{}' is of unsupported type '{}'!",
-                        publicationName, ivyPublication.getClass());
-                continue;
-            }
-            PublicationUtils.extractIvyDeployDetails((IvyPublicationInternal) ivyPublication, this);
-        }
-    }
-
-    private void collectDetailsFromMavenPublications() {
-        for (MavenPublication mavenPublication : mavenPublications) {
-            String publicationName = mavenPublication.getName();
-            if (!(mavenPublication instanceof MavenPublicationInternal)) {
-                // TODO: Check how the descriptor file can be extracted without using asNormalisedPublication
-                log.warn("Maven publication name '{}' is of unsupported type '{}'!",
-                        publicationName, mavenPublication.getClass());
-                continue;
-            }
-            PublicationUtils.extractMavenDeployDetails((MavenPublicationInternal) mavenPublication, this);
-        }
     }
 
     @Input

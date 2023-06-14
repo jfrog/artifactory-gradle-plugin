@@ -9,7 +9,7 @@ import org.jfrog.build.api.util.Log;
  */
 public class GradleClientLogger implements Log {
 
-    private Logger logger;
+    private final Logger logger;
 
     public GradleClientLogger(Logger logger) {
         this.logger = logger;
