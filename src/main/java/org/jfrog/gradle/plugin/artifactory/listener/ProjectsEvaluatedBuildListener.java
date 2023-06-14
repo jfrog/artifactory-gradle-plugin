@@ -27,28 +27,29 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Build event listener to prepare data for publish Task after the projects are evaluated
  * Main actions:
- * 1) Setting the deployment task as a final task for all the CollectDeployDetailsTask tasks
+ * 1) Prepare (evaluate) task dependencies with other task
+ * 2) Grabbing user and system properties
+ * 3) Apply default action to projects
+ * 4) Adding default attributes that are used in CI mode
  */
 public class ProjectsEvaluatedBuildListener extends BuildAdapter implements ProjectEvaluationListener {
     private static final Logger log = Logging.getLogger(ProjectsEvaluatedBuildListener.class);
     private final Set<Task> detailsCollectingTasks = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     /**
-     * Evaluate the given collectDeployDetailsTask task, preform the follows:
-     * 1) Fill the client configuration of the task's project with user and system properties.
-     * 2) Adds publishers to the task to collect build details from (if the task is from CI server -> add defaults).
+     * Prepare the given task before running.
      */
     private void evaluate(ArtifactoryTask collectDeployDetailsTask) {
-        log.info("<ASSAF> Try Evaluating {}", collectDeployDetailsTask);
+        log.debug("Try to evaluate {}", collectDeployDetailsTask);
         Project project = collectDeployDetailsTask.getProject();
         ArtifactoryPluginConvention convention = ConventionUtils.getArtifactoryConvention(project);
         if (convention == null) {
-            log.info("<ASSAF> No convention {}", collectDeployDetailsTask);
+            log.debug("Can't find artifactory convention.");
             return;
         }
         ArtifactoryClientConfiguration clientConfiguration = convention.getClientConfig();
         if (clientConfiguration == null) {
-            log.info("<ASSAF> No client config {}", collectDeployDetailsTask);
+            log.debug("Client configuration not defined.");
             return;
         }
         // Fill-in the client config with current user/system properties for the given project
@@ -61,14 +62,13 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
     }
 
     private void addCiAttributesToTask(ArtifactoryTask collectDeployDetailsTask, ArtifactoryClientConfiguration clientConfiguration) {
-        PublishingExtension publishingExtension = (PublishingExtension) collectDeployDetailsTask.getProject().getExtensions().findByName(Constant.PUBLISH_TASK_GROUP);
+        PublishingExtension publishingExtension = (PublishingExtension) collectDeployDetailsTask.getProject().getExtensions().findByName(Constant.PUBLISHING);
         if (publishingExtension == null) {
             log.debug("Can't find publishing extensions that is defined for the project {}", collectDeployDetailsTask.getProject().getPath());
             return;
         }
         String publicationsNames = clientConfiguration.publisher.getPublications();
         if (StringUtils.isNotBlank(publicationsNames)) {
-            // TODO: Where/how they define the publications ,as one string, in the CI server below?
             collectDeployDetailsTask.publications((Object[]) publicationsNames.split(","));
         } else if (ProjectUtils.hasOneOfComponents(collectDeployDetailsTask.getProject(), Constant.JAVA, Constant.JAVA_PLATFORM)) {
             PublicationUtils.addDefaultPublications(collectDeployDetailsTask, publishingExtension);
@@ -77,7 +77,7 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
 
     /**
      * This method is invoked after evaluation of every project.
-     * If the configure-on-demand mode is active, Evaluates the CollectDeployDetailsTask tasks
+     * If the configure-on-demand mode is active, Evaluates the ArtifactoryTask tasks
      * @param project The project which was evaluated. Never null.
      * @param state The project evaluation state. If project evaluation failed, the exception is available in this
      * state. Never null.
@@ -101,7 +101,7 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
 
     /**
      * this method is invoked after all projects are evaluated.
-     * Evaluate all the CollectDeployDetailsTask tasks that are not yet evaluated.
+     * Evaluate all the ArtifactoryTask tasks that are not yet evaluated.
      * @param gradle The build which has been evaluated. Never null.
      */
     @Override

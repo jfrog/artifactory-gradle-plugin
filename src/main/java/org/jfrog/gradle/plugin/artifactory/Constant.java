@@ -3,7 +3,7 @@ package org.jfrog.gradle.plugin.artifactory;
 public class Constant {
     public static final String GRADLE = "Gradle";
     public static final String ARTIFACTORY = "artifactory";
-    public static final String PUBLISH_TASK_GROUP = "publishing";
+    public static final String PUBLISHING = "publishing";
 
     // Minimum Gradle version to use the plugin
     public static final String MIN_GRADLE_VERSION = "6.9";

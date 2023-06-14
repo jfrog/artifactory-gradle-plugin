@@ -48,6 +48,10 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
         return getModuleBuilder(project, gradleDeployDetails).build();
     }
 
+    /**
+     * Get all the deployment details that the ArtifactoryTask collected for the given project.
+     * @param project - the project to get its deployment details
+     */
     private Set<GradleDeployDetails> getCollectedDeployDetails(Project project) {
         ArtifactoryTask detailsCollectionTask = TaskUtils.findExecutedCollectionTask(project);
         if (detailsCollectionTask == null) {
@@ -56,6 +60,11 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
         return detailsCollectionTask.getDeployDetails();
     }
 
+    /**
+     * Create a ModuleBuilder ready to be built for the given project and deployment details
+     * @param project - project to extract module details
+     * @param gradleDeployDetails - module deployment details
+     */
     private ModuleBuilder getModuleBuilder(Project project, Set<GradleDeployDetails> gradleDeployDetails) {
         String moduleId = ProjectUtils.getId(project);
         String repo = gradleDeployDetails.stream()
@@ -153,7 +162,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
             dependencyBuilder.requestedBy(requestedByMap.get(depId));
         }
         if (file.isFile()) {
-            // In recent gradle builds (3.4+) subproject dependencies are represented by a dir not jar.
+            // In gradle builds (3.4+) subproject dependencies are represented by a dir not jar.
             Map<String, String> checksums = FileChecksumCalculator.calculateChecksums(file, MD5_ALGORITHM, SHA1_ALGORITHM, SHA256_ALGORITHM);
             dependencyBuilder.md5(checksums.get(MD5_ALGORITHM)).sha1(checksums.get(SHA1_ALGORITHM)).sha256(checksums.get(SHA256_ALGORITHM));
         }

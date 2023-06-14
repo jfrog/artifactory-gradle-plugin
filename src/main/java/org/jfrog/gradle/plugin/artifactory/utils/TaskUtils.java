@@ -33,7 +33,7 @@ public class TaskUtils {
         T task = project.getTasks().create(taskName, taskClass);
         task.setDescription(taskDescription);
         if (publishGroup) {
-            task.setGroup(Constant.PUBLISH_TASK_GROUP);
+            task.setGroup(Constant.PUBLISHING);
         }
         return task;
     }
@@ -49,31 +49,6 @@ public class TaskUtils {
             return (ArtifactoryTask) task;
         }
         return createTaskInProject(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, ArtifactoryTask.class, Constant.ARTIFACTORY_PUBLISH_TASK_DESCRIPTION, project, true);
-    }
-
-    /**
-     * Find a CollectDeployDetailsTask of a given project that finished to execute or null if not exists.
-     * @param project - a project to search for a finished task
-     * @return - finished collection task or null if not exists in project
-     */
-    public static ArtifactoryTask findExecutedCollectionTask(Project project) {
-        Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
-        if (tasks.isEmpty()) {
-            return null;
-        }
-        ArtifactoryTask artifactoryTask = (ArtifactoryTask)tasks.iterator().next();
-        return artifactoryTask.getState().getDidWork() ? artifactoryTask : null;
-    }
-
-    public static List<ArtifactoryTask> getAllArtifactoryPublishTasks(Project project) {
-        TaskExecutionGraph graph = project.getGradle().getTaskGraph();
-        List<ArtifactoryTask> tasks = new ArrayList<>();
-        for (Task task : graph.getAllTasks()) {
-            if (task instanceof ArtifactoryTask) {
-                tasks.add(((ArtifactoryTask) task));
-            }
-        }
-        return tasks;
     }
 
     /**
@@ -98,12 +73,45 @@ public class TaskUtils {
         );
     }
 
+    /**
+     * Adds a task to deploy the artifacts of a given project, extract information on a the build and export/deploy it.
+     * @param project - project to add the task to, should be the root project
+     */
     public static void addDeploymentTask(Project project) {
         Task task = project.getTasks().findByName(Constant.DEPLOY_TASK_NAME);
         if (task instanceof DeployTask) {
             return;
         }
         createTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
+    }
+
+    /**
+     * Find a ArtifactoryTask of a given project that finished to execute or null if not exists.
+     * @param project - a project to search for a finished task
+     * @return - finished collection task or null if not exists in project
+     */
+    public static ArtifactoryTask findExecutedCollectionTask(Project project) {
+        Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
+        if (tasks.isEmpty()) {
+            return null;
+        }
+        ArtifactoryTask artifactoryTask = (ArtifactoryTask)tasks.iterator().next();
+        return artifactoryTask.getState().getDidWork() ? artifactoryTask : null;
+    }
+
+    /**
+     * Get a list of all the ArtifactoryTask tasks of a given project and its submodules
+     * @param project - project to get its related tasks
+     */
+    public static List<ArtifactoryTask> getAllArtifactoryPublishTasks(Project project) {
+        TaskExecutionGraph graph = project.getGradle().getTaskGraph();
+        List<ArtifactoryTask> tasks = new ArrayList<>();
+        for (Task task : graph.getAllTasks()) {
+            if (task instanceof ArtifactoryTask) {
+                tasks.add(((ArtifactoryTask) task));
+            }
+        }
+        return tasks;
     }
 
     /**

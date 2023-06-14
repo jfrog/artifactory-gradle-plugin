@@ -71,9 +71,6 @@ public class PublicationUtils {
         addMavenWebPublication(project, publishingExtension);
     }
 
-    /**
-     * Add if not exists and needed 'mavenWeb' publication to the project
-     */
     private static void addMavenWebPublication(Project project, PublishingExtension publishingExtension) {
         if (publishingExtension.getPublications().findByName(Constant.MAVEN_WEB) != null) {
             // mavenWeb publication already exists

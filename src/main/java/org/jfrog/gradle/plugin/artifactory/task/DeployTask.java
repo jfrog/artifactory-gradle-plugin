@@ -50,7 +50,7 @@ public class DeployTask extends DefaultTask {
 
     @TaskAction
     public void extractBuildInfoAndDeploy() throws IOException {
-        log.info("<ASSAF> Task '{}' activated", getPath());
+        log.debug("Extracting build-info and deploying build details in task '{}'", getPath());
         ArtifactoryClientConfiguration accRoot = ConventionUtils.getArtifactoryConvention(getProject()).getClientConfig();
         // Deploy Artifacts to artifactory
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
@@ -91,10 +91,8 @@ public class DeployTask extends DefaultTask {
     }
 
     /**
-     * Extract build-info, export it to the file-system (optional: export a file with the deployed artifacts) and Deploy it to Artifactory.
-     * @param accRoot -
-     * @param allDeployedDetails
-     * @throws IOException
+     * Extract build-info, export it to the file-system and Deploy it to Artifactory.
+     * (optional: export an additional file with the deployed artifacts)
      */
     private void handleBuildInfoOperations(ArtifactoryClientConfiguration accRoot, Map<String, Set<DeployDetails>> allDeployedDetails) throws IOException {
         // Extract build-info
@@ -107,7 +105,6 @@ public class DeployTask extends DefaultTask {
     }
 
     private void exportBuildInfoToFileSystem(ArtifactoryClientConfiguration accRoot, BuildInfo buildInfo) throws IOException {
-        log.info("<ASSAF> trying to export to:\nExport: {}\nGeneratedPath: {}", getExportFile(accRoot), accRoot.info.getGeneratedBuildInfoFilePath());
         try {
             exportBuildInfo(buildInfo, getExportFile(accRoot));
             // We offer option to create a copy in additional place if requested

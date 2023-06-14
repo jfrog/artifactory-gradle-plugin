@@ -2,40 +2,21 @@ package org.jfrog.gradle.plugin.artifactory.config;
 
 import groovy.lang.Closure;
 import org.gradle.api.Action;
-import org.gradle.api.Project;
 import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 
 public class PublisherConfig {
 
-    private final Project project;
     private final ArtifactoryClientConfiguration.PublisherHandler publisher;
     private final Repository repository;
 
-    // Configure global CollectDeployDetailsTask that will be applied to all the projects
+    // Configure global task that will be applied to all the projects
     Action<ArtifactoryTask> defaultsAction;
 
     public PublisherConfig(ArtifactoryPluginConvention convention) {
-        this.project = convention.getProject();
         this.publisher = convention.getClientConfig().publisher;
         repository = new Repository(this.publisher);
-    }
-
-    public void defaults(Closure<ArtifactoryTask> closure) {
-        defaults(ConfigureUtil.configureUsing(closure));
-    }
-
-    public void defaults(Action<ArtifactoryTask> defaultsAction) {
-        this.defaultsAction = defaultsAction;
-    }
-
-    public void repository(Closure<Repository> closure) { repository(ConfigureUtil.configureUsing(closure)); }
-
-    public void repository(Action<Repository> repositoryAction) { repositoryAction.execute(repository); }
-
-    public Action<ArtifactoryTask> getDefaultsAction() {
-        return defaultsAction;
     }
 
     public String getContextUrl() {
@@ -46,12 +27,24 @@ public class PublisherConfig {
         this.publisher.setContextUrl(contextUrl);
     }
 
+    public void defaults(Closure<ArtifactoryTask> closure) {
+        defaults(ConfigureUtil.configureUsing(closure));
+    }
+
+    public void defaults(Action<ArtifactoryTask> defaultsAction) {
+        this.defaultsAction = defaultsAction;
+    }
+
+    public Action<ArtifactoryTask> getDefaultsAction() {
+        return defaultsAction;
+    }
+
     public boolean isPublishBuildInfo() {
         return this.publisher.isPublishBuildInfo();
     }
 
-    public void publishBuildInfo(Object publishBuildInfo) {
-        this.publisher.setPublishBuildInfo(Boolean.valueOf(publishBuildInfo.toString()));
+    public void publishBuildInfo(boolean publishBuildInfo) {
+        this.publisher.setPublishBuildInfo(publishBuildInfo);
     }
 
     public int getForkCount() {
@@ -61,6 +54,10 @@ public class PublisherConfig {
     public void setForkCount(int forkCount) {
         this.publisher.setPublishForkCount(forkCount);
     }
+
+    public void repository(Closure<Repository> closure) { repository(ConfigureUtil.configureUsing(closure)); }
+
+    public void repository(Action<Repository> repositoryAction) { repositoryAction.execute(repository); }
 
     public Repository getRepository() {
         return repository;

@@ -37,7 +37,7 @@
 ---
 
 ## 📚 Overview
-```The minimum supported Gradle version to use this plugin is v6.6```
+```The minimum supported Gradle version to use this plugin is v6.9```
 
 The Gradle Artifactory Plugin provides tight integration with Gradle. All that is needed is a simple modification of your
 ```build.gradle```
@@ -131,7 +131,7 @@ Follow this [documentation](https://docs.gradle.org/current/userguide/userguide.
 
 The plugin adds the ```artifactoryPublish``` task for each project, at the 'publishing' group.
 The task does the following to the project and its submodules:
-1. Collects all the publication artifacts, configured by the user.
+1. Collects all the publication artifacts - follow this [documentation](https://docs.gradle.org/current/userguide/publishing_setup.html) about defining publications.
 2. Extract module-info (intermediate file) that describes each module build information.
 3. Extract [build-info](https://www.buildinfo.org/) file in the root project that describes all the information about the build.
 4. Deploy the generated artifacts and build-info file to your Artifactory repository.
@@ -157,10 +157,6 @@ gradle artifactoryPublish
 gradlew.bat artifactoryPublish
 ```
 </details>
-
-* Getting debug information from Gradle
-  We highly recommend running Gradle with the ``` -d ```
-  option to get useful and readable information if something goes wrong with your build.
 
 ### ⚙️ Artifactory Configuration
 
@@ -336,43 +332,6 @@ artifactory {
 
 ### ⚙️ Client Configurations
 
-#### Proxy Configurations
-Optionally, if needed, you can use and configure your proxy information to use in the task. 
-
-```kotlin
-artifactory {
-    publish {
-        // Required publish information...
-    }
-  
-    proxy {
-        host = "ProxyHost"
-        port = 60
-        username = "ProxyUserName"
-        password = "ProxyPassword"
-    }
-}
-```
-
-<details>
-<summary>build.gradle</summary>
-
-```groovy
-artifactory {
-    proxy {
-        setHost('ProxyHost')
-        setPort('ProxyPort')
-        setUsername('ProxyUserName')
-        setPassword('ProxyPassword')
-    }
-}
-```
-</details>
-
-* Alternatively to the closure you can configure the attributes by using the ```clientConfig.proxy``` object
-
-#### Basic Configurations
-
 Redefine basic properties of the build info object can be applied using the ```clientConfig``` object under the main ```artifactory``` convention.
 
 ```kotlin
@@ -411,6 +370,42 @@ artifactory {
 ```
 </details>
 
+#### Proxy Configurations
+Optionally, if needed, you can use and configure your proxy information to use in the task.
+
+```kotlin
+artifactory {
+    publish {
+        // Required publish information...
+    }
+  
+    proxy {
+        host = "ProxyHost"
+        port = 60
+        username = "ProxyUserName"
+        password = "ProxyPassword"
+    }
+}
+```
+
+<details>
+<summary>build.gradle</summary>
+
+```groovy
+artifactory {
+    proxy {
+        setHost('ProxyHost')
+        setPort('ProxyPort')
+        setUsername('ProxyUserName')
+        setPassword('ProxyPassword')
+    }
+}
+```
+</details>
+
+* Alternatively to the closure you can configure the attributes by using the ```clientConfig.proxy``` object
+
+
 ### ⚙️ Using CI Server
 Gradle project can be used with one of the Artifactory CI clients or plugins:
 * [JFrog CLI](https://www.jfrog.com/confluence/display/CLI/JFrog+CLI)
@@ -433,9 +428,6 @@ The following are links to the build scripts of different types of projects that
 Sample project that uses the Gradle Artifactory Plugin with Gradle Publications.
 #### [Multi Modules Project (Kotlin)](./src/functionalTest/resources/gradle-kts-example-publish/build.gradle.kts)
 Sample project that configures the Gradle Artifactory Plugin with the Gradle Kotlin DSL.
-
-* Android Project
-* Android Library (Ci Server)
 
 We highly recommend also using our [gradle project examples](https://github.com/JFrog/project-examples/tree/master/gradle-examples?_gl=1*pgsvlz*_ga*MTc3OTI0ODE4NS4xNjYyMjgxMjI1*_ga_SQ1NR9VTFJ*MTY4NTM2OTcwMC4yNi4wLjE2ODUzNjk3MDAuNjAuMC4w) as a reference when configuring your build scripts.
 

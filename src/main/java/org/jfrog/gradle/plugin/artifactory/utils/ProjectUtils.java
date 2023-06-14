@@ -19,16 +19,17 @@ public class ProjectUtils {
         return project.equals(project.getRootProject());
     }
 
-    public static String getAsGavString(String group, String name, String version) {
-        return group + ':' + name + ':' + version;
-    }
-
+    /**
+     * Get the ID (Group, artifact and version) of the given module
+     * @param project - project to extract its Id
+     * @return Gav identifier string of the module
+     */
     public static String getId(Project project) {
         return getAsGavString(project.getGroup().toString(), project.getName(), project.getVersion().toString());
     }
 
     /**
-     * Get the Group, artifact and version of the given module
+     * Get the ID (Group, artifact and version) of the given module
      * @param module - the module to extract the GAV info
      * @return Gav identifier string of the module or null if module is null
      */
@@ -39,6 +40,15 @@ public class ProjectUtils {
         return getAsGavString(module.getGroup(), module.getName(), module.getVersion());
     }
 
+    private static String getAsGavString(String group, String name, String version) {
+        return group + ':' + name + ':' + version;
+    }
+
+    /**
+     * Check if a given project has at least one of the given components
+     * @param project - project to check
+     * @param componentNames - components names to check
+     */
     public static boolean hasOneOfComponents(Project project, String... componentNames) {
         for (String componentName : componentNames) {
             if (project.getComponents().findByName(componentName) != null) {
@@ -48,6 +58,14 @@ public class ProjectUtils {
         return false;
     }
 
+    /**
+     * Filter (Include/Exclude) project deployment details by a given publisher configurations
+     * @param project - project of the given details
+     * @param publisher - configurations to apply
+     * @param gradleDeployDetails - details to filter
+     * @param isInclude - if true applying include-pattern or exclude-pattern if false
+     * @return filtered details by the given input
+     */
     public static Iterable<GradleDeployDetails> filterIncludeExcludeDetails(Project project, ArtifactoryClientConfiguration.PublisherHandler publisher, Set<GradleDeployDetails> gradleDeployDetails, boolean isInclude) {
         IncludeExcludePatterns patterns = new IncludeExcludePatterns(
                 publisher.getIncludePatterns(),
