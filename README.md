@@ -23,11 +23,15 @@
 - [⬇️ Download and Installation](#-download-and-installation)
 - [🧩 Dependencies Resolution](#-dependencies-resolution)
 - [📦 Artifactory Publication](#-artifactory-publication)
-  - [Artifactory Configuration](#artifactory-configuration)
-  - [Task Configurations](#task-configurations)
-  - [Build-Info Configurations](#build-info-configurations)
-  - [Client Configurations](#client-configurations)
-- [💡 Examples](#-examples)
+  - [⚙️ Artifactory Configuration](#-artifactory-configuration)
+  - [⚙️ Task Configurations](#-task-configurations)
+  - [⚙️ Build-Info Configurations](#-build-info-configurations)
+  - [⚙️ Client Configurations](#-client-configurations)
+  - [⚙️ Using CI Server](#-using-ci-server)
+- [🚦 Troubleshooting](#-troubleshooting)
+  - [💡 Examples](#-examples)
+  - [🐞 Debug](#-debug)
+  - [🔥 Reporting Issues](#-reporting-issues)
 - [🫱🏻‍🫲🏼 Contribution](#-contributions)
 
 ---
@@ -75,7 +79,7 @@ repositories {
         url = uri("http://repo.myorg.com/artifactory/libs-releases")
         // Optional resolver credentials (leave out to use anonymous resolution)
         credentials {
-            // Artifactory user name
+            // Artifactory's username
             username = "resolver"
             // Password or API Key
             password = "resolverPaS*" 
@@ -158,7 +162,7 @@ gradlew.bat artifactoryPublish
   We highly recommend running Gradle with the ``` -d ```
   option to get useful and readable information if something goes wrong with your build.
 
-### Artifactory Configuration
+### ⚙️ Artifactory Configuration
 
 To use the ```artifactoryPublish``` task you need to define,  at the root project ```build.gradle.kts```, the Artifactory convention.
 This configuration will define the information needed by the tasks to access the Artifactory instance that the artifacts will be published to. 
@@ -212,7 +216,7 @@ artifactory {
 
 * In addition to the required configuration above, you are required to configure what publications will be included in the ```artifactoryPublish``` task for each project.
 
-### Task Configurations
+### ⚙️ Task Configurations
 
 You can configure your root project or/and under its submodules (projects) to control the task operation for specific project.
 
@@ -282,7 +286,7 @@ artifactory {
 
 This task configurations will be added to the specific tasks configurations and apply to all the projects, allowing you to configure global configurations at one place that are the same for all the projects instead of configuring them for each project.
 
-### Build-Info Configurations
+### ⚙️ Build-Info Configurations
 
 The ```build-info.json``` file will be generated at the root ```build``` folder as default place.
 You can configure and control the information and attributes by using the ```buildInfo``` closure.
@@ -330,7 +334,7 @@ artifactory {
 
 * Alternatively to the closure you can configure the attributes by using the ```clientConfig.info``` object
 
-### Client Configurations
+### ⚙️ Client Configurations
 
 #### Proxy Configurations
 Optionally, if needed, you can use and configure your proxy information to use in the task. 
@@ -407,18 +411,39 @@ artifactory {
 ```
 </details>
 
+### ⚙️ Using CI Server
+Gradle project can be used with one of the Artifactory CI clients or plugins:
+* [JFrog CLI](https://www.jfrog.com/confluence/display/CLI/JFrog+CLI)
+* [Jenkins Artifactory Plugin](https://www.jfrog.com/confluence/display/JFROG/Jenkins+Artifactory+Plug-in)
+* [Azure DevOps Extension](https://www.jfrog.com/confluence/display/JFROG/Artifactory+Azure+DevOps+Extension)
+* [Bamboo Artifactory Plugin](https://www.jfrog.com/confluence/display/JFROG/Bamboo+Artifactory+Plug-in)
+* [TeamCity Artifactory Plugin](https://www.jfrog.com/confluence/display/JFROG/TeamCity+Artifactory+Plug-in)
+* [Setup JFrog CLI GitHub Action](https://github.com/marketplace/actions/setup-jfrog-cli)
+
+The Artifactory configuration in this case (repositories, Artifactory credentials, etc.) is done from the CI client UI. You can still add the artifactory closure to the build script and have default values configured there, but the values configured in the CI Server override them.
+
 ---
 
-## 💡 Examples
+## 🚦 Troubleshooting
 
-* Minimal
-* Multi Modules Project (Groovy)
-* Multi Modules Project (Kotlin)
-* Using CI Server
+### 💡 Examples
+The following are links to the build scripts of different types of projects that configured and uses the plugin.
+
+#### [Multi Modules Project (Groovy)](./src/functionalTest/resources/gradle-example-publish/build.gradle)
+Sample project that uses the Gradle Artifactory Plugin with Gradle Publications.
+#### [Multi Modules Project (Kotlin)](./src/functionalTest/resources/gradle-kts-example-publish/build.gradle.kts)
+Sample project that configures the Gradle Artifactory Plugin with the Gradle Kotlin DSL.
+
 * Android Project
 * Android Library (Ci Server)
 
-We highly recommend also using our [examples](https://github.com/JFrog/project-examples/tree/master/gradle-examples?_gl=1*pgsvlz*_ga*MTc3OTI0ODE4NS4xNjYyMjgxMjI1*_ga_SQ1NR9VTFJ*MTY4NTM2OTcwMC4yNi4wLjE2ODUzNjk3MDAuNjAuMC4w) as a reference when configuring your build scripts.
+We highly recommend also using our [gradle project examples](https://github.com/JFrog/project-examples/tree/master/gradle-examples?_gl=1*pgsvlz*_ga*MTc3OTI0ODE4NS4xNjYyMjgxMjI1*_ga_SQ1NR9VTFJ*MTY4NTM2OTcwMC4yNi4wLjE2ODUzNjk3MDAuNjAuMC4w) as a reference when configuring your build scripts.
+
+### 🐞 Debug
+We highly recommend running Gradle with the ```-d ```
+option to get useful and readable debug information if something goes wrong with your build.
+### 🔥 Reporting Issues
+Please help us improve the plugin by [reporting issues](https://github.com/jfrog/artifactory-gradle-plugin/issues/new/choose) you encounter.
 
 ---
 

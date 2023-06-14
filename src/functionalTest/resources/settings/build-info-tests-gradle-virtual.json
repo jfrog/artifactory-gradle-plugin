@@ -1,0 +1,9 @@
+{
+  "rclass": "virtual",
+  "packageType": "gradle",
+  "repositories": [
+    "${LOCAL_REPO}",
+    "${REMOTE_REPO}"
+  ],
+  "defaultDeploymentRepo": "${LOCAL_REPO}"
+}
