@@ -1,20 +1,12 @@
-<div align="center">
-
-# 🐸 Artifactory Gradle Plugin 🐘
-
-[![Scanned by Frogbot](https://raw.github.com/jfrog/frogbot/master/images/frogbot-badge.svg)](https://github.com/jfrog/frogbot#readme)
-
-</div>
+# Artifactory Gradle Plugin 🐸 🐘
 
 ---
-
-<div align="center">
 
 | Branch |                                                                                                       Main                                                                                                        |                                                                                                       Dev                                                                                                       |
 |:------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
 | Status | [![Test](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml?query=branch%3Amain) | [![Test](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml/badge.svg?branch=dev)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml?query=branch%3Adev) |
 
-</div>
+[![Scanned by Frogbot](https://raw.github.com/jfrog/frogbot/master/images/frogbot-badge.svg)](https://github.com/jfrog/frogbot#readme)
 
 ---
 
@@ -142,7 +134,7 @@ gradle artifactoryPublish
 ```
 <details>
 
-<summary>gradle wrapper in Unix</summary> 
+<summary>gradle wrapper in Unix</summary>
 
 ```text
 ./gradlew artifactoryPublish
@@ -151,7 +143,7 @@ gradle artifactoryPublish
 
 <details>
 
-<summary>gradle wrapper in Windows</summary> 
+<summary>gradle wrapper in Windows</summary>
 
 ```text
 gradlew.bat artifactoryPublish
@@ -161,7 +153,7 @@ gradlew.bat artifactoryPublish
 ### ⚙️ Artifactory Configuration
 
 To use the ```artifactoryPublish``` task you need to define,  at the root project ```build.gradle.kts```, the Artifactory convention.
-This configuration will define the information needed by the tasks to access the Artifactory instance that the artifacts will be published to. 
+This configuration will define the information needed by the tasks to access the Artifactory instance that the artifacts will be published to.
 
 ```kotlin
 artifactory {
@@ -286,7 +278,7 @@ This task configurations will be added to the specific tasks configurations and 
 
 The ```build-info.json``` file will be generated at the root ```build``` folder as default place.
 You can configure and control the information and attributes by using the ```buildInfo``` closure.
- 
+
 ```kotlin
 import java.util.*
 
@@ -432,7 +424,7 @@ Sample project that configures the Gradle Artifactory Plugin with the Gradle Kot
 We highly recommend also using our [gradle project examples](https://github.com/JFrog/project-examples/tree/master/gradle-examples?_gl=1*pgsvlz*_ga*MTc3OTI0ODE4NS4xNjYyMjgxMjI1*_ga_SQ1NR9VTFJ*MTY4NTM2OTcwMC4yNi4wLjE2ODUzNjk3MDAuNjAuMC4w) as a reference when configuring your build scripts.
 
 ### 🐞 Debug
-We highly recommend running Gradle with the ```-d ```
+We highly recommend running Gradle with the ```-d```
 option to get useful and readable debug information if something goes wrong with your build.
 ### 🔥 Reporting Issues
 Please help us improve the plugin by [reporting issues](https://github.com/jfrog/artifactory-gradle-plugin/issues/new/choose) you encounter.

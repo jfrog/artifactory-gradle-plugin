@@ -8,7 +8,7 @@ import org.jfrog.gradle.plugin.artifactory.Constant
 
 initscript {
     dependencies {
-        classpath fileTree('${pluginLibDir}')
+        classpath fileTree("${pluginLibDir}")
     }
 }
 

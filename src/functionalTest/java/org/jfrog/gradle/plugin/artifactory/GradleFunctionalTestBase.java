@@ -12,7 +12,11 @@ import org.jfrog.build.extractor.clientConfiguration.client.artifactory.Artifact
 import org.jfrog.gradle.plugin.artifactory.utils.TestingLog;
 import org.jfrog.gradle.plugin.artifactory.utils.Utils;
 import org.jfrog.gradle.plugin.artifactory.utils.ValidationUtils;
-import org.testng.annotations.*;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterMethod;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,7 +30,7 @@ import java.util.regex.Matcher;
 public class GradleFunctionalTestBase {
     // ArtifactoryManager
     protected ArtifactoryManager artifactoryManager;
-    protected static final Log log = new TestingLog();
+    protected static final Log testingLog = new TestingLog();
     private String username;
     private String adminToken;
     private String platformUrl;
@@ -124,7 +128,7 @@ public class GradleFunctionalTestBase {
     }
 
     private ArtifactoryManager createArtifactoryManager() {
-        return new ArtifactoryManager(artifactoryUrl, username, adminToken, log);
+        return new ArtifactoryManager(artifactoryUrl, username, adminToken, testingLog);
     }
 
     private void createTestRepositories() throws IOException {

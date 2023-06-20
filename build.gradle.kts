@@ -20,28 +20,27 @@ val commonsTxtVersion = "1.10.0"
 val testNgVersion = "7.7.1"
 
 dependencies {
-    implementation ("org.jfrog.buildinfo","build-info-extractor",buildInfoVersion)
-    implementation ("org.jfrog.buildinfo","build-info-api",buildInfoVersion)
-    implementation ("org.jfrog.buildinfo","build-info-client",buildInfoVersion)
-    implementation ("org.jfrog.filespecs","file-specs-java",fileSpecsVersion)
+    implementation("org.jfrog.buildinfo","build-info-extractor", buildInfoVersion)
+    implementation("org.jfrog.buildinfo","build-info-api", buildInfoVersion)
+    implementation("org.jfrog.buildinfo","build-info-client", buildInfoVersion)
+    implementation("org.jfrog.filespecs","file-specs-java", fileSpecsVersion)
 
-    implementation ("org.apache.commons", "commons-lang3",commonsLangVersion)
-    implementation ("org.apache.ivy", "ivy","2.5.1")
-    implementation ("com.google.guava", "guava","31.1-jre")
+    implementation("org.apache.commons", "commons-lang3", commonsLangVersion)
+    implementation("org.apache.ivy", "ivy","2.5.1")
+    implementation("com.google.guava", "guava","31.1-jre")
 
-    testImplementation ("org.testng","testng",testNgVersion)
+    testImplementation("org.testng","testng", testNgVersion)
 
-    "functionalTestImplementation" ("org.jfrog.buildinfo","build-info-extractor",buildInfoVersion)
-    "functionalTestImplementation" ("org.jfrog.buildinfo","build-info-api",buildInfoVersion)
-    "functionalTestImplementation" ("org.jfrog.filespecs","file-specs-java",fileSpecsVersion)
+    "functionalTestImplementation"("org.jfrog.buildinfo","build-info-extractor", buildInfoVersion)
+    "functionalTestImplementation"("org.jfrog.buildinfo","build-info-api", buildInfoVersion)
+    "functionalTestImplementation"("org.jfrog.filespecs","file-specs-java", fileSpecsVersion)
 
-    "functionalTestImplementation" ("org.testng","testng",testNgVersion)
-    "functionalTestImplementation" ("org.apache.commons", "commons-lang3",commonsLangVersion)
-    "functionalTestImplementation" ("org.apache.commons", "commons-text",commonsTxtVersion)
-    "functionalTestImplementation" ("commons-io", "commons-io",commonsIoVersion)
-    "functionalTestImplementation" ("org.apache.httpcomponents", "httpclient","4.5.14")
-    "functionalTestImplementation" (project(mapOf("path" to ":")))
-
+    "functionalTestImplementation"("org.testng","testng", testNgVersion)
+    "functionalTestImplementation"("org.apache.commons", "commons-lang3", commonsLangVersion)
+    "functionalTestImplementation"("org.apache.commons", "commons-text", commonsTxtVersion)
+    "functionalTestImplementation"("commons-io", "commons-io", commonsIoVersion)
+    "functionalTestImplementation"("org.apache.httpcomponents", "httpclient","4.5.14")
+    "functionalTestImplementation"(project(mapOf("path" to ":")))
 }
 
 gradlePlugin {

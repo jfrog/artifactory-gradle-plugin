@@ -17,7 +17,7 @@ jobs:
       - name: Static Code Analysis
         uses: github/super-linter/slim@v5
         env:
-          FILTER_REGEX_EXCLUDE: .*src/functionalTest/resources/.*
+          FILTER_REGEX_EXCLUDE: .*src/functionalTest/resources.*
           # validate only new/edited files
           # VALIDATE_ALL_CODEBASE: true
           # validations on code:
