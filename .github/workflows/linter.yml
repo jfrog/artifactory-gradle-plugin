@@ -1,14 +1,9 @@
 name: Static Analysis
 
-on:
-  push:
-  # Triggers the workflow on labeled PRs only.
-  pull_request_target:
-    types: [ labeled ]
+on: [ push, pull_request ]
 
 jobs:
   Static-Check:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'safe to test'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source
@@ -22,9 +17,8 @@ jobs:
       - name: Static Code Analysis
         uses: github/super-linter/slim@v5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # validate only new/edited files
-          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_ALL_CODEBASE: true
           # validations on:
           VALIDATE_JAVA: true
           VALIDATE_GOOGLE_JAVA_FORMAT: true
