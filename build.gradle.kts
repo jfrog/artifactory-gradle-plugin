@@ -30,6 +30,7 @@ dependencies {
     implementation("com.google.guava", "guava","32.0.1-jre")
 
     testImplementation("org.testng","testng", testNgVersion)
+    testImplementation ("org.mockito", "mockito-core" ,"3.+")
 
     "functionalTestImplementation"("org.jfrog.buildinfo","build-info-extractor", buildInfoVersion)
     "functionalTestImplementation"("org.jfrog.buildinfo","build-info-api", buildInfoVersion)

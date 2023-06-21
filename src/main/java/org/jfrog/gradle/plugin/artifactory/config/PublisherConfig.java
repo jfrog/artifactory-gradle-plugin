@@ -19,14 +19,17 @@ public class PublisherConfig {
         repository = new Repository(this.publisher);
     }
 
+    @SuppressWarnings("unused")
     public String getContextUrl() {
         return this.publisher.getContextUrl();
     }
 
+    @SuppressWarnings("unused")
     public void setContextUrl(String contextUrl) {
         this.publisher.setContextUrl(contextUrl);
     }
 
+    @SuppressWarnings("unused")
     public void defaults(Closure<ArtifactoryTask> closure) {
         defaults(ConfigureUtil.configureUsing(closure));
     }
@@ -39,26 +42,32 @@ public class PublisherConfig {
         return defaultsAction;
     }
 
+    @SuppressWarnings("unused")
     public boolean isPublishBuildInfo() {
         return this.publisher.isPublishBuildInfo();
     }
 
+    @SuppressWarnings("unused")
     public void publishBuildInfo(boolean publishBuildInfo) {
         this.publisher.setPublishBuildInfo(publishBuildInfo);
     }
 
+    @SuppressWarnings("unused")
     public int getForkCount() {
         return this.publisher.getPublishForkCount();
     }
 
+    @SuppressWarnings("unused")
     public void setForkCount(int forkCount) {
         this.publisher.setPublishForkCount(forkCount);
     }
 
+    @SuppressWarnings("unused")
     public void repository(Closure<Repository> closure) { repository(ConfigureUtil.configureUsing(closure)); }
 
     public void repository(Action<Repository> repositoryAction) { repositoryAction.execute(repository); }
 
+    @SuppressWarnings("unused")
     public Repository getRepository() {
         return repository;
     }
@@ -72,10 +81,12 @@ public class PublisherConfig {
             this.ivyPublishInfo = new IvyPublishInfo(publisher);
         }
 
+        @SuppressWarnings("unused")
         public String getRepoKey() {
             return publisher.getRepoKey();
         }
 
+        @SuppressWarnings("unused")
         public void setRepoKey(String repoKey) {
             this.publisher.setRepoKey(repoKey);
         }
@@ -96,6 +107,7 @@ public class PublisherConfig {
             this.publisher.setPassword(password);
         }
 
+        @SuppressWarnings("unused")
         public void ivy(Closure<IvyPublishInfo> closure) {
             ivy(ConfigureUtil.configureUsing(closure));
         }
@@ -104,6 +116,7 @@ public class PublisherConfig {
             ivyAction.execute(ivyPublishInfo);
         }
 
+        @SuppressWarnings("unused")
         public IvyPublishInfo getIvy() {
             return ivyPublishInfo;
         }
@@ -115,27 +128,33 @@ public class PublisherConfig {
             this.publisher = publisher;
         }
 
+        @SuppressWarnings("unused")
         public void setIvyLayout(String ivyLayout) {
             publisher.setIvy(true);
             publisher.setIvyPattern(ivyLayout);
         }
 
+        @SuppressWarnings("unused")
         public String getIvyLayout() {
             return publisher.getIvyPattern();
         }
 
+        @SuppressWarnings("unused")
         public void setArtifactLayout(String artifactLayout) {
             publisher.setIvyArtifactPattern(artifactLayout);
         }
 
+        @SuppressWarnings("unused")
         public String getArtifactLayout() {
             return publisher.getIvyArtifactPattern();
         }
 
+        @SuppressWarnings("unused")
         public boolean getMavenCompatible() {
             return publisher.isM2Compatible();
         }
 
+        @SuppressWarnings("unused")
         public void setMavenCompatible(boolean mavenCompatible) {
             this.publisher.setM2Compatible(mavenCompatible);
         }

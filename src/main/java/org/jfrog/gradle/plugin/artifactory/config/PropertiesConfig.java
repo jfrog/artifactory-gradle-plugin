@@ -44,11 +44,12 @@ public class PropertiesConfig extends GroovyObjectSupport {
 
         return DynamicInvokeResult.found();
     }
+
     private Map<String, String> convertToMap(Map<?, ?> inputMap) {
         Map<String, String> resultMap = new HashMap<>();
         for (Map.Entry<?, ?> entry : inputMap.entrySet()) {
-            String key = entry.getKey().toString();
-            String value = entry.getValue().toString();
+            String key = String.valueOf(entry.getKey());
+            String value = String.valueOf(entry.getValue());
             resultMap.put(key, value);
         }
         return resultMap;
