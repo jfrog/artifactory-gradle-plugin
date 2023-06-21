@@ -58,7 +58,6 @@ public class GradleFunctionalTestBase {
     @AfterMethod
     protected void cleanup() throws IOException {
         deleteTestDir();
-        // TODO: why not delete from remote/virtual? no use?
         deleteContentFromRepo(localRepo);
     }
 
@@ -227,7 +226,7 @@ public class GradleFunctionalTestBase {
     }
 
     public String getAdminToken() {
-        return adminToken;
+        return this.adminToken;
     }
 
     public String getPlatformUrl() {

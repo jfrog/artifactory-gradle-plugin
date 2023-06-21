@@ -81,6 +81,11 @@ publishing {
                         email.set("eco-system@jfrog.com")
                     }
                 }
+                scm {
+                    connection.set("scm:git:git://github.com/jfrog/artifactory-gradle-plugin.git")
+                    developerConnection.set("scm:git:git@github.com/jfrog/artifactory-gradle-plugin.git")
+                    url.set("https://github.com/jfrog/artifactory-gradle-plugin")
+                }
             }
             from(components["java"])
         }
@@ -99,6 +104,7 @@ tasks.register<Jar>("uberJar") {
     // Exclude META-INF files from dependencies
     exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
+
 tasks.named<Jar>("jar") {
     dependsOn("uberJar")
     exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
