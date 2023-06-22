@@ -12,6 +12,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * DSL object that holds a properties configurations for specific scope.
+ * Expected format of entry in the closure is: configName artifactSpec, key1:val1, key2:val2...
+ * This object is defined at the user build script ander 'artifactoryPublish' / 'defaults' closure in groovy.
+ */
 public class PropertiesConfig extends GroovyObjectSupport {
 
     private final ArtifactSpecs artifactSpecs = new ArtifactSpecs();

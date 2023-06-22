@@ -1,10 +1,6 @@
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask
 import org.jfrog.gradle.plugin.artifactory.Constant
-// TODO: path changed...
-//import org.jfrog.gradle.ArtifactoryPlugin
-//import org.jfrog.gradle.Constant
-//import org.jfrog.gradle.tasks.ArtifactoryTask
 
 initscript {
     dependencies {

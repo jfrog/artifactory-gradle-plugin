@@ -65,23 +65,20 @@ public class GradleDeployDetails implements Comparable<GradleDeployDetails> {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         GradleDeployDetails that = (GradleDeployDetails) o;
-
-        if (!Objects.equals(deployDetails, that.deployDetails))
-            return false;
-        if (!Objects.equals(publishArtifact, that.publishArtifact))
-            return false;
-        return Objects.equals(project, that.project);
+        return Objects.equals(deployDetails, that.deployDetails) &&
+                Objects.equals(publishArtifact, that.publishArtifact) &&
+                Objects.equals(project, that.project);
     }
 
     @Override
     public int hashCode() {
-        int result = deployDetails != null ? deployDetails.hashCode() : 0;
-        result = 31 * result + (publishArtifact != null ? publishArtifact.hashCode() : 0);
-        result = 31 * result + (project != null ? project.hashCode() : 0);
-        return result;
+        return Objects.hash(deployDetails, publishArtifact, project);
     }
 }

@@ -11,6 +11,7 @@ import org.jfrog.gradle.plugin.artifactory.extractor.details.GradleDeployDetails
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Set;
 
 public class ProjectUtils {
@@ -97,21 +98,20 @@ public class ProjectUtils {
         private final IncludeExcludePatterns patterns;
         private final boolean include;
 
-        public IncludeExcludePredicate(Project project, IncludeExcludePatterns patterns, boolean isInclude) {
+        public IncludeExcludePredicate(Project project, IncludeExcludePatterns patterns, boolean include) {
             this.project = project;
             this.patterns = patterns;
-            include = isInclude;
+            this.include = include;
         }
 
         public boolean apply(@Nullable GradleDeployDetails input) {
-            if (input == null) {
+            if (input == null || !Objects.equals(input.getProject(), project)) {
                 return false;
             }
             if (include) {
-                return input.getProject().equals(project) && !PatternMatcher.pathConflicts(input.getDeployDetails().getArtifactPath(), patterns);
-            } else {
-                return input.getProject().equals(project) && PatternMatcher.pathConflicts(input.getDeployDetails().getArtifactPath(), patterns);
+                return !PatternMatcher.pathConflicts(input.getDeployDetails().getArtifactPath(), patterns);
             }
+            return PatternMatcher.pathConflicts(input.getDeployDetails().getArtifactPath(), patterns);
         }
     }
 }

@@ -7,6 +7,10 @@ import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.utils.GradleClientLogger;
 
+/**
+ * Main configuration object for the plugin. a DSL object that controls all the plugin configurations.
+ * This object is defined at the user build script ander 'artifactory' closure.
+ */
 public class ArtifactoryPluginConvention {
 
     private final Project project;

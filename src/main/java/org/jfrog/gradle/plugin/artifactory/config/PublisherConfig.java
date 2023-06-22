@@ -6,6 +6,10 @@ import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 
+/**
+ * Main publish configuration object for the plugin. a DSL object that controls all the plugin publishing configurations.
+ * This object is defined and used at the user build script ander 'publish' in the 'artifactory' closure.
+ */
 public class PublisherConfig {
 
     private final ArtifactoryClientConfiguration.PublisherHandler publisher;
