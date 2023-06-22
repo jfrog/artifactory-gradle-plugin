@@ -55,13 +55,13 @@ public class ArtifactoryPlugin implements Plugin<Project> {
             log.debug("Artifactory Plugin disabled for {}", project.getPath());
             return false;
         }
-        if (isGradleVersionNotSupported(project)) {
-            throw new GradleException("Can't apply Artifactory Plugin on Gradle version" + project.getGradle().getGradleVersion() + ". Minimum supported Gradle version is " + Constant.MIN_GRADLE_VERSION);
+        if (!isGradleVersionSupported(project)) {
+            throw new GradleException("Can't apply Artifactory Plugin on Gradle version " + project.getGradle().getGradleVersion() + ", Minimum supported Gradle version is " + Constant.MIN_GRADLE_VERSION);
         }
         return true;
     }
 
-    public boolean isGradleVersionNotSupported(Project project) {
+    public boolean isGradleVersionSupported(Project project) {
         return new Version(project.getGradle().getGradleVersion()).isAtLeast(Constant.MIN_GRADLE_VERSION);
     }
 
