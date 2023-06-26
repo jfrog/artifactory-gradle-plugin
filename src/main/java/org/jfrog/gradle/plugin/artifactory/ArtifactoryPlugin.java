@@ -1,9 +1,11 @@
 package org.jfrog.gradle.plugin.artifactory;
 
+import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.jfrog.build.client.Version;
 import org.jfrog.gradle.plugin.artifactory.config.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
 import org.jfrog.gradle.plugin.artifactory.listener.ProjectsEvaluatedBuildListener;
@@ -18,12 +20,7 @@ public class ArtifactoryPlugin implements Plugin<Project> {
 
     @Override
     public void apply(Project project) {
-        if ("buildSrc".equals(project.getName())) {
-            log.debug("Artifactory Plugin disabled for {}", project.getPath());
-            return;
-        }
-        if (isGradleVersionNotSupported(project)) {
-            log.error("Can't apply Artifactory Plugin on Gradle version " + project.getGradle().getGradleVersion());
+        if (!shouldApplyPluginOnProject(project)) {
             return;
         }
         // Get / Add an Artifactory plugin convention to the project module
@@ -53,8 +50,19 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         log.debug("Using Artifactory Plugin for " + project.getPath());
     }
 
-    public boolean isGradleVersionNotSupported(Project project) {
-        return Constant.MIN_GRADLE_VERSION.compareTo(project.getGradle().getGradleVersion()) > 0;
+    private boolean shouldApplyPluginOnProject(Project project) {
+        if ("buildSrc".equals(project.getName())) {
+            log.debug("Artifactory Plugin disabled for {}", project.getPath());
+            return false;
+        }
+        if (!isGradleVersionSupported(project)) {
+            throw new GradleException("Can't apply Artifactory Plugin on Gradle version " + project.getGradle().getGradleVersion() + ", Minimum supported Gradle version is " + Constant.MIN_GRADLE_VERSION);
+        }
+        return true;
+    }
+
+    public boolean isGradleVersionSupported(Project project) {
+        return new Version(project.getGradle().getGradleVersion()).isAtLeast(Constant.MIN_GRADLE_VERSION);
     }
 
     public ArtifactoryDependencyResolutionListener getResolutionListener() {

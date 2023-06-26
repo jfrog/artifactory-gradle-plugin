@@ -35,10 +35,7 @@ public class Utils {
      */
     public static String readParam(String paramName, String defaultValue) {
         String paramValue = System.getenv(TestConstant.BITESTS_ENV_VAR_PREFIX + paramName.toUpperCase());
-        if (StringUtils.isBlank(paramValue)) {
-            paramValue = defaultValue;
-        }
-        return paramValue;
+        return StringUtils.defaultIfBlank(paramValue, defaultValue);
     }
 
     /**
@@ -102,7 +99,11 @@ public class Utils {
     }
 
     /**
-     * Generate buildinfo.properties file with all details from user.
+     * Generate buildinfo.properties file with publisher and other properties base on the given inputs.
+     * @param testBase - the test that hold the Artifactory properties that the user/CI server needs to provide
+     * @param publications - the publications to add into the properties
+     * @param publishBuildInfo - property that decide if to publish the build info
+     * @param setDeployer - if true it will set the deployer properties for the build info
      * @throws IOException - In case of any IO error
      */
     public static void generateBuildInfoProperties(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, boolean setDeployer) throws IOException {
@@ -115,10 +116,20 @@ public class Utils {
     }
 
     /**
-     * Generate buildinfo.properties section from source template.
+     *
      *
      * @param publishBuildInfo - Publish build info
      * @param source           - Path to server specific buildinfo.properties template.
+     * @throws IOException
+     */
+
+    /**
+     * Generate buildinfo.properties section from source template.
+     * @param testBase
+     * @param publications
+     * @param publishBuildInfo
+     * @param source
+     * @return
      * @throws IOException - In case of any IO error
      */
     private static String generateBuildInfoPropertiesForServer(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, Path source) throws IOException {

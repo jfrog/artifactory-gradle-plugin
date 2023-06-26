@@ -21,7 +21,6 @@
 # Table of Contents
 - [📚 Overview](#-overview)
 - [⬇️ Download and Installation](#-download-and-installation)
-- [🧩 Dependencies Resolution](#-dependencies-resolution)
 - [📦 Artifactory Publication](#-artifactory-publication)
   - [⚙️ Artifactory Configuration](#-artifactory-configuration)
   - [⚙️ Task Configurations](#-task-configurations)
@@ -41,35 +40,12 @@
 
 The Gradle Artifactory Plugin provides tight integration with Gradle. All that is needed is a simple modification of your
 ```build.gradle```
-script file with a few configuration parameters and you can:
-1. Resolve your build dependencies from Artifactory
-2. Deploy your build artifacts and build information to Artifactory
+script file with a few configuration parameters, and you can deploy your build artifacts and build information to Artifactory.
 
 Integration Benefits: [JFrog Artifactory and Gradle Repositories](https://jfrog.com/integration/gradle-repository/)
 
----
-
-## ⬇️ Download and Installation
-Add the following snippet to your ```build.gradle.kts```
-```kotlin
-// Replace <plugin version> with the version of the Gradle Artifactory Plugin.
-plugins {
-    id("com.jfrog.artifactory") version "<plugin version>"
-}
-```
 <details>
-<summary>build.gradle</summary>
-
-```groovy
-plugins {
-  id "com.jfrog.artifactory" version "<plugin version>"
-}
-```
-</details>
-
----
-
-## 🧩 Dependencies Resolution
+<summary>🧩 Dependencies resolution with Artifactory</summary>
 
 Define the project to preform dependency resolution resolve dependencies from the default dependency resolution from Artifactory:
 ```kotlin
@@ -124,6 +100,28 @@ repositories {
 </details>
 
 Follow this [documentation](https://docs.gradle.org/current/userguide/userguide.html) for different ways to configure your repositories.
+
+</details>
+
+---
+
+## ⬇️ Download and Installation
+Add the following snippet to your ```build.gradle.kts```
+```kotlin
+// Replace <plugin version> with the version of the Gradle Artifactory Plugin.
+plugins {
+    id("com.jfrog.artifactory") version "<plugin version>"
+}
+```
+<details>
+<summary>build.gradle</summary>
+
+```groovy
+plugins {
+  id "com.jfrog.artifactory" version "<plugin version>"
+}
+```
+</details>
 
 ---
 

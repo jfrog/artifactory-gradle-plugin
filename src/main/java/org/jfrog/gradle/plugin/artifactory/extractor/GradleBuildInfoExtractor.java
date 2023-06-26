@@ -146,13 +146,13 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
         BuildAgent buildAgent = new BuildAgent(clientConf.info.getBuildAgentName(), clientConf.info.getBuildAgentVersion());
         bib.buildAgent(buildAgent);
 
-        //CI agent
+        // CI agent
         String agentName = clientConf.info.getAgentName();
         String agentVersion = clientConf.info.getAgentVersion();
-        if (StringUtils.isNotBlank(agentName) && StringUtils.isNotBlank(agentVersion)) {
+        if (StringUtils.isNoneBlank(agentName, agentVersion)) {
             bib.agent(new Agent(agentName, agentVersion));
         } else {
-            //Fallback for standalone builds
+            // Fallback for standalone builds
             bib.agent(new Agent(buildAgent.getName(), buildAgent.getVersion()));
         }
 

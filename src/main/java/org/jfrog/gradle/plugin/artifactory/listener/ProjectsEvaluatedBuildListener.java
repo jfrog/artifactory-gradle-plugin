@@ -100,8 +100,8 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
     }
 
     /**
-     * this method is invoked after all projects are evaluated.
-     * Evaluate all the ArtifactoryTask tasks that are not yet evaluated.
+     * This method is invoked after all projects are evaluated.
+     * Evaluate all the ArtifactoryTask tasks that are not yet evaluated (if configure-on-demand on the project is not requested).
      * @param gradle The build which has been evaluated. Never null.
      */
     @Override

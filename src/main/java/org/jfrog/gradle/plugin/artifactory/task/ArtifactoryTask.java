@@ -39,7 +39,8 @@ import java.util.*;
 import java.util.concurrent.Callable;
 
 /**
- * Collect deploy details from publications in a project
+ * Collect deploy details from publications in a project.
+ * This task can also be used and configure by the user in the build script as a DSL object under 'artifactoryPublish'/'defaults' closure.
  */
 public class ArtifactoryTask extends DefaultTask {
     private static final Logger log = Logging.getLogger(ArtifactoryTask.class);
@@ -386,6 +387,7 @@ public class ArtifactoryTask extends DefaultTask {
         return this.ciServerBuild;
     }
 
+    @SuppressWarnings("unused")
     public ArtifactSpecs getArtifactSpecs() {
         return artifactSpecs;
     }
@@ -407,10 +409,12 @@ public class ArtifactoryTask extends DefaultTask {
         return defaultProps;
     }
 
+    @SuppressWarnings("unused")
     public void setCiServerBuild() {
         this.ciServerBuild = true;
     }
 
+    @SuppressWarnings("unused")
     public void setSkip(boolean skip) {
         this.skip = skip;
     }

@@ -1,25 +1,30 @@
-name: "Frogbot Scan"
+name: "Frogbot Scan and Fix"
 on:
-  pull_request_target:
-    types: [opened, synchronize]
+  schedule:
+    # The repository will be scanned once a day at 00:00 GMT.
+    - cron: "0 0 * * *"
 permissions:
+  contents: write
   pull-requests: write
-  contents: read
+  security-events: write
 jobs:
-  scan-pull-request:
+  create-fix-pull-requests:
     runs-on: ubuntu-latest
-    environment: frogbot
+    strategy:
+      matrix:
+        # The repository scanning will be triggered periodically on the following branches.
+        branch: [ "dev" ]
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ matrix.branch }}
 
       # Install prerequisites
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           java-version: "11"
-          distribution: "temurin"
+          distribution: "adopt"
 
       - uses: jfrog/frogbot@v2
         env:
