@@ -18,23 +18,15 @@
 
 ---
 
-# Table of Contents
+## Table of Contents
 - [📚 Overview](#-overview)
-- [⬇️ Download and Installation](#-download-and-installation)
-- [📦 Artifactory Publication](#-artifactory-publication)
-  - [⚙️ Artifactory Configuration](#-artifactory-configuration)
-  - [⚙️ Task Configurations](#-task-configurations)
-  - [⚙️ Build-Info Configurations](#-build-info-configurations)
-  - [⚙️ Client Configurations](#-client-configurations)
-  - [⚙️ Using CI Server](#-using-ci-server)
-- [🚦 Troubleshooting](#-troubleshooting)
-  - [💡 Examples](#-examples)
-  - [🐞 Debug](#-debug)
-  - [🔥 Reporting Issues](#-reporting-issues)
-- [🫱🏻‍🫲🏼 Contribution](#-contributions)
+- [⬇️ Installation](#-installation)
+- [📦 Usage](#-usage)
+- [💡 Examples](#-examples)
+- [🐞 Reporting Issues](#-reporting-issues)
+- [🫱🏻‍🫲🏼 Contributions](#-contributions)
 
 ---
-
 ## 📚 Overview
 ```The minimum supported Gradle version to use this plugin is v6.9```
 
@@ -42,71 +34,16 @@ The Gradle Artifactory Plugin provides tight integration with Gradle. All that i
 ```build.gradle```
 script file with a few configuration parameters, and you can deploy your build artifacts and build information to Artifactory.
 
-Integration Benefits: [JFrog Artifactory and Gradle Repositories](https://jfrog.com/integration/gradle-repository/)
-
-<details>
-<summary>🧩 Dependencies resolution with Artifactory</summary>
-
-Define the project to preform dependency resolution resolve dependencies from the default dependency resolution from Artifactory:
-```kotlin
-repositories { 
-    maven {
-        // The Artifactory (preferably virtual) repository to resolve from 
-        url = uri("http://repo.myorg.com/artifactory/libs-releases")
-        // Optional resolver credentials (leave out to use anonymous resolution)
-        credentials {
-            // Artifactory's username
-            username = "resolver"
-            // Password or API Key
-            password = "resolverPaS*" 
-        } 
-    }
-
-    ivy {
-        url = uri("http://localhost:8081/artifactory/ivy-releases")
-        // Optional section for configuring Ivy-style resolution.
-        patternLayout {
-            ivy("[organization]/[module]/[revision]/ivy.xml")
-            artifact("[organization]/[module]/[revision]/[module]-[revision](-[classifier]).[ext]")
-            // Convert any dots in an [organization] layout value to path separators, similar to Maven's groupId-to-path conversion. False if not specified.
-            setM2compatible(true)
-        }
-    }
-}
-```
-
-<details>
-<summary>build.gradle</summary>
-
-```groovy
-repositories {
-  maven {
-    url = "http://repo.myorg.com/artifactory/libs-releases"
-    credentials {
-      username = "resolver"
-      password = "resolverPaS"
-    }
-  }
-  ivy {
-    url = "http://localhost:8081/artifactory/ivy-releases"
-    patternLayout {
-      ivy = "[organization]/[module]/[revision]/ivy.xml"
-      artifact = "[organization]/[module]/[revision]/[module]-[revision](-[classifier]).[ext]"
-      m2Compatible = true
-    }
-  }
-}
-```
-</details>
-
-Follow this [documentation](https://docs.gradle.org/current/userguide/userguide.html) for different ways to configure your repositories.
-
-</details>
+The plugin adds the ```artifactoryPublish``` task for each project, in the 'publishing' group.
+The task performs the following actions on the project and its submodules:
+1. Collects all the publication artifacts - follow this [documentation](https://docs.gradle.org/current/userguide/publishing_setup.html) about defining publications.
+2. Extracts module-info (intermediate file) that describes each module's build information.
+3. Extracts the [build-info](https://www.buildinfo.org/) file in the root project that describes all the information about the build.
+4. Deploys the generated artifacts and build-info file to your Artifactory repository.
 
 ---
-
-## ⬇️ Download and Installation
-Add the following snippet to your ```build.gradle.kts```
+## ⬇️ Installation
+To use the Artifactory Gradle Plugin, add the following snippet to your build script:
 ```kotlin
 // Replace <plugin version> with the version of the Gradle Artifactory Plugin.
 plugins {
@@ -114,117 +51,40 @@ plugins {
 }
 ```
 <details>
-<summary>build.gradle</summary>
+<summary>Groovy Format</summary>
 
 ```groovy
 plugins {
-  id "com.jfrog.artifactory" version "<plugin version>"
+    id "com.jfrog.artifactory" version "<plugin version>"
 }
 ```
 </details>
 
 ---
-
-## 📦 Artifactory Publication
-
-The plugin adds the ```artifactoryPublish``` task for each project, at the 'publishing' group.
-The task does the following to the project and its submodules:
-1. Collects all the publication artifacts - follow this [documentation](https://docs.gradle.org/current/userguide/publishing_setup.html) about defining publications.
-2. Extract module-info (intermediate file) that describes each module build information.
-3. Extract [build-info](https://www.buildinfo.org/) file in the root project that describes all the information about the build.
-4. Deploy the generated artifacts and build-info file to your Artifactory repository.
-
-Running the task with:
-```text
-gradle artifactoryPublish
-```
-<details>
-
-<summary>gradle wrapper in Unix</summary> 
-
-```text
+## 📦 Usage
+Deploy the project artifacts and build info by running: 
+```bash
 ./gradlew artifactoryPublish
 ```
-</details>
+To use the `artifactoryPublish` task, you need to define the `artifactory` convention in the root project build script. 
 
 <details>
+<summary>Using CI Server</summary>
 
-<summary>gradle wrapper in Windows</summary> 
-
-```text
-gradlew.bat artifactoryPublish
-```
+The task configurations or the Artifactory convention, when using CI Server on a Gradle project, is done from the CI client UI. You can still add the `artifactory` closure to the build script and have default values configured there, but the values configured in the CI Server will override them.
 </details>
-
-### ⚙️ Artifactory Configuration
-
-To use the ```artifactoryPublish``` task you need to define,  at the root project ```build.gradle.kts```, the Artifactory convention.
-This configuration will define the information needed by the tasks to access the Artifactory instance that the artifacts will be published to. 
-
-```kotlin
-artifactory {
-    publish {
-        // Define the Artifactory URL to publish the artifacts
-        contextUrl = 'http://127.0.0.1:8081/artifactory'
-        // Define the project repository that the artifacts will be published to
-        repository {
-          // The Artifactory repository key
-          repoKey = 'libs-snapshot-local'
-          // The publisher username
-          username = "${artifactory_user}"
-          // The publisher password
-          password = "${artifactory_password}"
-
-          // This is an optional section (relevant only when publishIvy = true) for configuring Ivy publication.
-          ivy { 
-              ivyLayout = '[organization]/[module]/ivy-[revision].xml'
-              artifactLayout = '[organization]/[module]/[revision]/[module]-[revision](-[classifier]).[ext]'
-              //Convert any dots in an [organization] layout value to path separators, similar to Maven's groupId-to-path conversion. True if not specified
-              mavenCompatible = true
-          }
-        }
-        // (default: true) Publish generated build-info file to Artifactory
-        publishBuildInfo(true)
-        // (default: 3) Number of threads that will work and deploy artifacts to Artifactory
-        forkCount = 5
-    }
-}
-```
-
-<details>
-<summary>build.gradle</summary>
-
-```groovy
-artifactory {
-    publish {
-      contextUrl = 'http://127.0.0.1:8081/artifactory'
-      repository {
-        repoKey = 'libs-snapshot-local'
-        username = "${artifactory_user}"
-        password = "${artifactory_password}"
-      }
-    }
-}
-```
-</details>
-
-* In addition to the required configuration above, you are required to configure what publications will be included in the ```artifactoryPublish``` task for each project.
 
 ### ⚙️ Task Configurations
-
-You can configure your root project or/and under its submodules (projects) to control the task operation for specific project.
-
-Configure the task attributes (or only part of them) for each project in the following way:
-
+You can configure the attributes for your root project and/or its submodules (projects) to control the task operation for specific projects. Configure the attributes as follows:
 ```kotlin
 artifactoryPublish {
     // Specify what publications to include when collecting artifacts to publish to Artifactory
     publifications(
-            // Publication can be specified as Object
+            // Publication can be specified as an Object
             publishing.publications.ivyJava,
-            // Publication can be specified as String
+            // Publication can be specified as a String
             'mavenJava',
-            // If this plguin constant string is specified the plugin will try to apply all the known publications
+            // If this plugin constant string is specified, the plugin will try to apply all the known publications
             'ALL_PUBLICATIONS'
     )
     // Properties to be attached to the published artifacts.
@@ -242,15 +102,16 @@ artifactoryPublish {
     publishIvy = false
 }
 ```
+
 <details>
-<summary>build.gradle</summary>
+<summary>Groovy Format</summary>
 
 ```groovy
 artifactoryPublish {
     publifications('ALL_PUBLICATIONS')
   
     properties = ['qa.level': 'basic', 'dev.team' : 'core']
-    // Properties can be also defined with closure in the format: configName artifactSpec, key1:val1, key2:val2
+  // Properties can also be defined with a closure in the format: configName artifactSpec, key1:val1, key2:val2
     properties {
       simpleFile '**:**:**:*@*', simpleFile: 'only on settings file'
     }
@@ -263,36 +124,43 @@ artifactoryPublish {
 ```
 </details>
 
-#### Defaults - Global task Configurations to apply to all the projects
-You can specify the configurations of ```artifactoryPublish``` task as ```defaults``` under ```publish``` in the main ```artifactory``` convention.
+### ⚙️ Artifactory Convention
+This configuration defines the information needed by the tasks to access the Artifactory instance to which the artifacts will be published.
 ```kotlin
 artifactory {
     publish {
+        // Define the Artifactory URL to publish the artifacts
+        contextUrl = uri('http://127.0.0.1:8081/artifactory')
+        // Define the project repository to which the artifacts will be published
         repository {
-            // Required repository information...
+            // The Artifactory repository key
+            repoKey = 'libs-snapshot-local'
+            // The publisher username
+            username = "${artifactory_user}"
+            // The publisher password
+            password = "${artifactory_password}"
+
+            // This is an optional section (relevant only when publishIvy = true) for configuring Ivy publication.
+            ivy { 
+                ivyLayout = '[organization]/[module]/ivy-[revision].xml'
+                artifactLayout = '[organization]/[module]/[revision]/[module]-[revision](-[classifier]).[ext]'
+                //Convert any dots in an [organization] layout value to path separators, similar to Maven's groupId-to-path conversion. True if not specified
+                mavenCompatible = true
+            }
         }
-        defaults {
-            // artifactoryPublish task attributes...
-        }
+        // (default: true) Publish the generated build-info file to Artifactory
+        publishBuildInfo(false)
+        // (default: 3) Number of threads that will work and deploy artifacts to Artifactory
+        forkCount = 5
     }
-}
-```
 
-This task configurations will be added to the specific tasks configurations and apply to all the projects, allowing you to configure global configurations at one place that are the same for all the projects instead of configuring them for each project.
-
-### ⚙️ Build-Info Configurations
-
-The ```build-info.json``` file will be generated at the root ```build``` folder as default place.
-You can configure and control the information and attributes by using the ```buildInfo``` closure.
- 
-```kotlin
-import java.util.*
-
-artifactory {
-    publish {
-        // Required publish information...
+    // Optionally, you can specify global configurations. These configurations will be added for all projects instead of configuring them for each project.
+    defaults {
+         // artifactoryPublish task attributes...
     }
-    
+  
+    // Configure and control the information and attributes of the generated build-info file.
+    // Alternatively, you can configure the attributes by using the `clientConfig.info` object.
     buildInfo {
         // Set specific build and project information for the build-info
         setBuildName('new-strange-name')
@@ -302,44 +170,19 @@ artifactory {
         addEnvironmentProperty('test.adding.dynVar',Date().toString())
         // Generate a copy of the build-info.json file in the following path
         setGeneratedBuildInfoFilePath("/Users/gradle-example-publish/myBuildInfoCopy.json")
-        // Generate a file with all the deployed artifacts information in the following path
+        // Generate a file with all the deployed artifacts' information in the following path
         setDdeployableArtifactsFilePath("/Users/gradle-example-publish/myArtifactsInBuild.json")
     }
-}
-
-```
-
-<details>
-<summary>build.gradle</summary>
-
-```groovy
-artifactory {
-    buildInfo {
-        // Add a dynamic property to the build-info
-        addEnvironmentProperty('test.adding.dynVar',Date().toString())
-        // Set specific build and project information for the build-info
-        setBuildName('new-strange-name')
-        setBuildNumber('' + Random(System.currentTimeMillis()).nextInt(20000))
-        setProject('project-key')
+  
+    // Optionally, you can use and configure your proxy information to use in the task.
+    // Alternatively, you can configure the attributes by using the clientConfig.proxy object.
+    proxy {
+        host = "ProxyHost"
+        port = 60
+        username = "ProxyUserName"
+        password = "ProxyPassword"
     }
-}
-```
-</details>
 
-* Alternatively to the closure you can configure the attributes by using the ```clientConfig.info``` object
-
-### ⚙️ Client Configurations
-
-Redefine basic properties of the build info object can be applied using the ```clientConfig``` object under the main ```artifactory``` convention.
-
-```kotlin
-import java.util.*
-
-artifactory {
-    publish {
-        // Required publish information...
-    }
-    
     // (default: 300 seconds) Artifactory's connection timeout (in seconds).
     clientConfig.timeout = 600
     // (default: 0 retries) Artifactory's connection retires
@@ -354,73 +197,9 @@ artifactory {
 }
 ```
 
-<details>
-<summary>build.gradle</summary>
-
-```groovy
-artifactory {
-  clientConfig.setIncludeEnvVars(true)
-  clientConfig.setEnvVarsExcludePatterns('*password*,*secret*')
-  clientConfig.setEnvVarsIncludePatterns('*not-secret*')
-  clientConfig.timeout = 600
-  clientConfig.setInsecureTls(false)
-}
-```
-</details>
-
-#### Proxy Configurations
-Optionally, if needed, you can use and configure your proxy information to use in the task.
-
-```kotlin
-artifactory {
-    publish {
-        // Required publish information...
-    }
-  
-    proxy {
-        host = "ProxyHost"
-        port = 60
-        username = "ProxyUserName"
-        password = "ProxyPassword"
-    }
-}
-```
-
-<details>
-<summary>build.gradle</summary>
-
-```groovy
-artifactory {
-    proxy {
-        setHost('ProxyHost')
-        setPort('ProxyPort')
-        setUsername('ProxyUserName')
-        setPassword('ProxyPassword')
-    }
-}
-```
-</details>
-
-* Alternatively to the closure you can configure the attributes by using the ```clientConfig.proxy``` object
-
-
-### ⚙️ Using CI Server
-Gradle project can be used with one of the Artifactory CI clients or plugins:
-* [JFrog CLI](https://www.jfrog.com/confluence/display/CLI/JFrog+CLI)
-* [Jenkins Artifactory Plugin](https://www.jfrog.com/confluence/display/JFROG/Jenkins+Artifactory+Plug-in)
-* [Azure DevOps Extension](https://www.jfrog.com/confluence/display/JFROG/Artifactory+Azure+DevOps+Extension)
-* [Bamboo Artifactory Plugin](https://www.jfrog.com/confluence/display/JFROG/Bamboo+Artifactory+Plug-in)
-* [TeamCity Artifactory Plugin](https://www.jfrog.com/confluence/display/JFROG/TeamCity+Artifactory+Plug-in)
-* [Setup JFrog CLI GitHub Action](https://github.com/marketplace/actions/setup-jfrog-cli)
-
-The Artifactory configuration in this case (repositories, Artifactory credentials, etc.) is done from the CI client UI. You can still add the artifactory closure to the build script and have default values configured there, but the values configured in the CI Server override them.
-
 ---
-
-## 🚦 Troubleshooting
-
-### 💡 Examples
-The following are links to the build scripts of different types of projects that configured and uses the plugin.
+## 💡 Examples
+The following are links to the build scripts of different types of projects that are configured to use the plugin.
 
 #### [Multi Modules Project (Groovy)](./src/functionalTest/resources/gradle-example-publish/build.gradle)
 Sample project that uses the Gradle Artifactory Plugin with Gradle Publications.
@@ -429,15 +208,16 @@ Sample project that configures the Gradle Artifactory Plugin with the Gradle Kot
 
 We highly recommend also using our [gradle project examples](https://github.com/JFrog/project-examples/tree/master/gradle-examples?_gl=1*pgsvlz*_ga*MTc3OTI0ODE4NS4xNjYyMjgxMjI1*_ga_SQ1NR9VTFJ*MTY4NTM2OTcwMC4yNi4wLjE2ODUzNjk3MDAuNjAuMC4w) as a reference when configuring your build scripts.
 
-### 🐞 Debug
-We highly recommend running Gradle with the ```-d ```
+---
+## 🐞 Reporting Issues
+We highly recommend running Gradle with the ```-d```
 option to get useful and readable debug information if something goes wrong with your build.
-### 🔥 Reporting Issues
-Please help us improve the plugin by [reporting issues](https://github.com/jfrog/artifactory-gradle-plugin/issues/new/choose) you encounter.
+
+Please help us improve the plugin by [reporting any issues](https://github.com/jfrog/artifactory-gradle-plugin/issues/new/choose) you encounter.
 
 ---
-
 ## 🫱🏻‍🫲🏼 Contributions
 
 We welcome pull requests from the community. To help us improve this project, please read
 our [Contribution](./CONTRIBUTING.md#-guidelines) guide.
+---
