@@ -1,0 +1,86 @@
+pipelines:
+  - name: release_artifactory_gradle_plugin
+    configuration:
+      runtime:
+        type: image
+        image:
+          auto:
+            language: java
+            versions:
+              - "11"
+      environmentVariables:
+        readOnly:
+          NEXT_VERSION: 0.0.0
+          NEXT_DEVELOPMENT_VERSION: 0.0.x-SNAPSHOT
+
+    steps:
+      - name: Release
+        type: Bash
+        configuration:
+          inputResources:
+            - name: artifactoryGradlePluginReleaseGit
+          integrations:
+            - name: il_automation
+            - name: entplus_deployer
+            - name: mvn_central
+        execution:
+          onExecute:
+            - cd $res_artifactoryGradlePluginReleaseGit_resourcePath
+
+            # Set env
+            - export CI=true
+            - export JFROG_BUILD_STATUS=PASS
+            - export JFROG_CLI_BUILD_NAME=ecosystem-artifactory-gradle-plugin-release
+            - export JFROG_CLI_BUILD_NUMBER=$run_number
+            - export JFROG_CLI_BUILD_PROJECT=ecosys
+
+            # Configure git
+            - git checkout main
+            - git remote set-url origin https://$int_il_automation_token@github.com/jfrog/artifactory-gradle-plugin.git
+
+            # Make sure versions provided
+            - echo "Checking variables"
+            - test -n "$NEXT_VERSION" -a "$NEXT_VERSION" != "0.0.0"
+            - test -n "$NEXT_DEVELOPMENT_VERSION" -a "$NEXT_DEVELOPMENT_VERSION" != "0.0.x-SNAPSHOT"
+
+            # Configure JFrog CLI
+            - curl -fL https://install-cli.jfrog.io | sh
+            - jf c rm --quiet
+            - jf c add internal --url=$int_entplus_deployer_url --user=$int_entplus_deployer_user --password=$int_entplus_deployer_apikey
+            - jf gradlec --use-wrapper --repo-resolve ecosys-maven-remote --repo-deploy ecosys-oss-release-local --deploy-maven-desc
+
+            # Run audit
+            - jf audit
+
+            # Update version
+            - sed -i -e "/build-info-extractor-gradle-version=/ s/=.*/=$NEXT_VERSION/" gradle.properties
+            - git commit -am "[artifactory-release] Release version ${NEXT_VERSION} [skipRun]" --allow-empty
+            - git tag ${NEXT_VERSION}
+
+            # Run build and publish
+            - >
+              ORG_GRADLE_PROJECT_signingKey=$(echo $int_mvn_central_signingKey | base64 -d)
+              ORG_GRADLE_PROJECT_signingPassword=$int_mvn_central_signingPassword
+              jf gradle clean build artifactoryPublish -x test -x functionalTest -Psign
+            - jf rt bag && jf rt bce
+            - jf rt bp
+
+            # Distribute release bundle
+            - jf ds rbc ecosystem-artifactory-gradle-plugin $NEXT_VERSION --spec=./release/specs/prod-rbc-filespec.json --spec-vars="version=$NEXT_VERSION" --sign
+            - jf ds rbd ecosystem-artifactory-gradle-plugin $NEXT_VERSION --site="releases.jfrog.io" --sync
+
+            # Publish to Maven Central
+            - >
+              ORG_GRADLE_PROJECT_sonatypeUsername=$int_mvn_central_user
+              ORG_GRADLE_PROJECT_sonatypePassword=$int_mvn_central_password
+              ORG_GRADLE_PROJECT_signingKey=$(echo $int_mvn_central_signingKey | base64 -d)
+              ORG_GRADLE_PROJECT_signingPassword=$int_mvn_central_signingPassword
+              ./gradlew clean build publishToSonatype closeAndReleaseSonatypeStagingRepository -x test -x functionalTest -Psign
+
+            # Update next development version
+            - sed -i "s/\(version=\).*\$/\1${NEXT_DEVELOPMENT_VERSION}/" gradle.properties
+            - git commit -am "[artifactory-release] Next development version [skipRun]"
+
+            # Push changes
+            - git push
+            - git push --tags
