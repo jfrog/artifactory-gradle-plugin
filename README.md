@@ -20,8 +20,8 @@
 
 ## Table of Contents
 - [📚 Overview](#-overview)
-- [⬇️ Installation](#-installation)
-- [📦 Usage](#-usage)
+- [📦 Installation](#-installation)
+- [🚀 Usage](#-usage)
 - [💡 Examples](#-examples)
 - [🐞 Reporting Issues](#-reporting-issues)
 - [🫱🏻‍🫲🏼 Contributions](#-contributions)
@@ -42,7 +42,7 @@ The task performs the following actions on the project and its submodules:
 4. Deploys the generated artifacts and build-info file to your Artifactory repository.
 
 ---
-## ⬇️ Installation
+## 📦 Installation
 To use the Artifactory Gradle Plugin, add the following snippet to your build script:
 ```kotlin
 // Replace <plugin version> with the version of the Gradle Artifactory Plugin.
@@ -61,8 +61,8 @@ plugins {
 </details>
 
 ---
-## 📦 Usage
-Deploy the project artifacts and build info by running: 
+## 🚀 Usage
+Deploy the project artifacts and build info to Artifactory by running: 
 ```bash
 ./gradlew artifactoryPublish
 ```
@@ -220,4 +220,3 @@ Please help us improve the plugin by [reporting any issues](https://github.com/j
 
 We welcome pull requests from the community. To help us improve this project, please read
 our [Contribution](./CONTRIBUTING.md#-guidelines) guide.
----
