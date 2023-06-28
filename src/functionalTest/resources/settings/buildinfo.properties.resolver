@@ -1,0 +1,5 @@
+# Resolver settings
+resolve.contextUrl=${contextUrl}
+resolve.repoKey=${virtualRepo}
+resolve.username=${username}
+resolve.password=${password}

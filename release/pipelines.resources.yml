@@ -1,0 +1,20 @@
+resources:
+  - name: artifactoryGradlePluginSnapshotGit
+    type: GitRepo
+    configuration:
+      path: jfrog/artifactory-gradle-plugin
+      gitProvider: il_automation
+      buildOn:
+        pullRequestCreate: true
+      branches:
+        include: master
+      cancelPendingRunsOn:
+        pullRequestUpdate: true
+
+  - name: artifactoryGradlePluginReleaseGit
+    type: GitRepo
+    configuration:
+      path: jfrog/artifactory-gradle-plugin
+      gitProvider: il_automation
+      buildOn:
+        commit: false
