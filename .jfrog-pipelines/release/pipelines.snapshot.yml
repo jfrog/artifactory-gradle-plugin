@@ -53,7 +53,7 @@ pipelines:
             - jf rt bp
 
             # Distribute release bundle
-            - jf ds rbc ecosystem-artifactory_gradle_plugin-snapshot $run_number --spec=.jfrog-pipelines/release/specs/dev-rbc-filespec.json --sign
+            - jf ds rbc ecosystem-artifactory_gradle_plugin-snapshot $run_number --spec=./.jfrog-pipelines/release/specs/dev-rbc-filespec.json --sign
             - jf ds rbd ecosystem-artifactory_gradle_plugin-snapshot $run_number --site="releases.jfrog.io" --sync
 
           onComplete:
