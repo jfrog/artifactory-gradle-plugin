@@ -61,6 +61,7 @@ public class PublishArtifactInfo implements Comparable<PublishArtifactInfo> {
      * Get the artifact (and module) processed and combined extra information.
      * 1. adds 'classifier' extra information to the map
      * 2. adds the raw artifact extra information and remove duplications of keys (localPart in the QName are the same).
+     *
      * @return a map of artifact extra information that can be used to create the artifact path for DeployDetails.
      */
     public Map<String, String> getExtraTokens() {

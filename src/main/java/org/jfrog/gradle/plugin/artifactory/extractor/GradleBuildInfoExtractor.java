@@ -21,7 +21,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
+public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
 
     private static final Logger log = Logging.getLogger(GradleBuildInfoExtractor.class);
 
@@ -43,6 +43,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
 
     /**
      * Creates a builder for this project filled with all the collected information and ready to be built.
+     *
      * @return BuildInfoBuilder with fields sets by the client configurations, ready to be used.
      */
     private BuildInfoBuilder createBuildInfoBuilder() {
@@ -83,6 +84,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
 
     /**
      * Fill the module field base on the client configurations
+     *
      * @param bib - the builder to set its fields
      */
     private void populateBuilderModulesFields(BuildInfoBuilder bib) {
@@ -140,6 +142,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
 
     /**
      * Fill the agent fields base on the client configurations
+     *
      * @param bib - the builder to set its fields
      */
     private void populateBuilderAgentFields(BuildInfoBuilder bib) {
@@ -165,6 +168,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
 
     /**
      * Fill the Version Control related fields base on the client configurations
+     *
      * @param bib - the builder to set its fields
      */
     private void populateBuilderVcsFields(BuildInfoBuilder bib) {
@@ -176,6 +180,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
 
     /**
      * Fill the Issue-Tracker (Jira) related fields base on the client configurations
+     *
      * @param bib - the builder to set its fields
      */
     private void populateBuilderIssueTrackerFields(BuildInfoBuilder bib) {
@@ -195,6 +200,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
 
     /**
      * Fill the principal (ciUsername) field base on the client configurations
+     *
      * @param bib - the builder to set its fields
      */
     private String populateBuilderPrincipalField(BuildInfoBuilder bib) {
@@ -205,6 +211,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
 
     /**
      * Fill the artifactoryPrincipal (username) field base on the client configurations
+     *
      * @param bib - the builder to set its fields
      */
     private String populateBuilderArtifactoryPrincipalField(BuildInfoBuilder bib) {
@@ -219,6 +226,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project>  {
 
     /**
      * Fill the Promotion fields base on the given client configurations
+     *
      * @param bib - the builder to set its fields
      */
     private void populateBuilderPromotionFields(BuildInfoBuilder bib, Date buildStartDate, String principal, String artifactoryPrincipal) {

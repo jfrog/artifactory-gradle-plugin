@@ -30,7 +30,8 @@ public class Utils {
     /**
      * Reads a value from environment variable base on a given suffix paramName: 'BITESTS_PLATFORM_' + paramName
      * If the var not exists return the given default value
-     * @param paramName - suffix for environment variable name
+     *
+     * @param paramName    - suffix for environment variable name
      * @param defaultValue - value if env var not exists
      */
     public static String readParam(String paramName, String defaultValue) {
@@ -50,8 +51,9 @@ public class Utils {
 
     /**
      * Run 'ArtifactoryPublish' task with specific context.
-     * @param gradleVersion - run the tasks with this given gradle version
-     * @param envVars - environment variable that will be used in the task
+     *
+     * @param gradleVersion   - run the tasks with this given gradle version
+     * @param envVars         - environment variable that will be used in the task
      * @param applyInitScript - apply the template init script to add the plugin
      * @return result of the task
      */
@@ -61,10 +63,11 @@ public class Utils {
 
     /**
      * Run Gradle task with specific context.
-     * @param gradleVersion - run the tasks with this given gradle version
-     * @param projectDir - the gradle project to run the tasks on
-     * @param taskName - task name to run
-     * @param envVars - environment variable that will be used in the task
+     *
+     * @param gradleVersion   - run the tasks with this given gradle version
+     * @param projectDir      - the gradle project to run the tasks on
+     * @param taskName        - task name to run
+     * @param envVars         - environment variable that will be used in the task
      * @param applyInitScript - apply the template init script to add the plugin
      * @return result of the task
      */
@@ -86,6 +89,7 @@ public class Utils {
 
     /**
      * Generate Gradle init script.
+     *
      * @throws IOException - In case of any IO error
      */
     private static void generateInitScript() throws IOException {
@@ -100,10 +104,11 @@ public class Utils {
 
     /**
      * Generate buildinfo.properties file with publisher and other properties base on the given inputs.
-     * @param testBase - the test that hold the Artifactory properties that the user/CI server needs to provide
-     * @param publications - the publications to add into the properties
+     *
+     * @param testBase         - the test that hold the Artifactory properties that the user/CI server needs to provide
+     * @param publications     - the publications to add into the properties
      * @param publishBuildInfo - property that decide if to publish the build info
-     * @param setDeployer - if true it will set the deployer properties for the build info
+     * @param setDeployer      - if true it will set the deployer properties for the build info
      * @throws IOException - In case of any IO error
      */
     public static void generateBuildInfoProperties(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, boolean setDeployer) throws IOException {
@@ -116,20 +121,13 @@ public class Utils {
     }
 
     /**
+     * Generate buildinfo.properties section from source template.
      *
-     *
+     * @param testBase         - the test function class to provide credentials and platform information to run test with
+     * @param publications     - comma seperated list of publications to include
      * @param publishBuildInfo - Publish build info
      * @param source           - Path to server specific buildinfo.properties template.
-     * @throws IOException
-     */
-
-    /**
-     * Generate buildinfo.properties section from source template.
-     * @param testBase
-     * @param publications
-     * @param publishBuildInfo
-     * @param source
-     * @return
+     * @return Generated buildinfo.properties according to the given input
      * @throws IOException - In case of any IO error
      */
     private static String generateBuildInfoPropertiesForServer(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, Path source) throws IOException {
@@ -148,7 +146,7 @@ public class Utils {
     }
 
     /**
-     * @param buildResult Details of the build
+     * @param buildResult - Details of the build
      * @return A pair of: Left item - buildResult's build name, Right item - buildResult's build number
      */
     public static Pair<String, String> getBuildDetails(BuildResult buildResult) {

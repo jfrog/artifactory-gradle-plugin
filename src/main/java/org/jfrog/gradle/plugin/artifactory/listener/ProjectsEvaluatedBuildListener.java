@@ -78,9 +78,10 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
     /**
      * This method is invoked after evaluation of every project.
      * If the configure-on-demand mode is active, Evaluates the ArtifactoryTask tasks
+     *
      * @param project The project which was evaluated. Never null.
-     * @param state The project evaluation state. If project evaluation failed, the exception is available in this
-     * state. Never null.
+     * @param state   The project evaluation state. If project evaluation failed, the exception is available in this
+     *                state. Never null.
      */
     @Override
     public void afterEvaluate(Project project, ProjectState state) {
@@ -102,6 +103,7 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
     /**
      * This method is invoked after all projects are evaluated.
      * Evaluate all the ArtifactoryTask tasks that are not yet evaluated (if configure-on-demand on the project is not requested).
+     *
      * @param gradle The build which has been evaluated. Never null.
      */
     @Override
@@ -118,5 +120,6 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
     }
 
     @Override
-    public void beforeEvaluate(Project project) {}
+    public void beforeEvaluate(Project project) {
+    }
 }

@@ -44,7 +44,7 @@ public class PropertiesConfigTest {
         Map<Object, Object> arguments = new HashMap<>();
         arguments.put("key1", "val1");
         arguments.put("key2", "val2");
-        Object[] args = { arguments, VALID_ARTIFACT_NOTATION };
+        Object[] args = {arguments, VALID_ARTIFACT_NOTATION};
         String scope = "configName";
         // Add mock config scope to project
         when(configurationContainer.getByName(scope)).thenReturn(null);
@@ -60,7 +60,7 @@ public class PropertiesConfigTest {
         Map<Object, Object> arguments = new HashMap<>();
         arguments.put("key1", "val1");
         arguments.put("key2", "val2");
-        Object[] args = { arguments, VALID_ARTIFACT_NOTATION };
+        Object[] args = {arguments, VALID_ARTIFACT_NOTATION};
         // Invoke method on valid config scope to add properties
         Object result = propertiesConfig.invokeMethod(ArtifactSpec.CONFIG_ALL, args);
         // Validate scoped properties is added.
@@ -73,7 +73,7 @@ public class PropertiesConfigTest {
         Map<Object, Object> arguments = new HashMap<>();
         arguments.put("key1", "val1");
         arguments.put("key2", "val2");
-        Object[] args = { arguments, VALID_ARTIFACT_NOTATION };
+        Object[] args = {arguments, VALID_ARTIFACT_NOTATION};
         String scope = "unknownConfigName";
         // Add mock of expected unknown config scope to project
         when(configurationContainer.getByName(scope))
@@ -101,13 +101,13 @@ public class PropertiesConfigTest {
     public void testInvokeMethodInvalidArgumentsNoArtifactNotation() {
         Map<Object, Object> arguments = new HashMap<>();
         arguments.put("key1", "val1");
-        Object[] args = { arguments };
+        Object[] args = {arguments};
         propertiesConfig.invokeMethod("configName", args);
     }
 
     @Test(expectedExceptions = GradleException.class)
     public void testInvokeMethodInvalidArgumentsNoProperties() {
-        Object[] args = { VALID_ARTIFACT_NOTATION };
+        Object[] args = {VALID_ARTIFACT_NOTATION};
         propertiesConfig.invokeMethod("configName", args);
     }
 

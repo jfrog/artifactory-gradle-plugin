@@ -156,13 +156,14 @@ public class ArtifactoryTask extends DefaultTask {
 
     /**
      * Task input attribute configuration to specify what publications will be included in the publication to Artifactory
+     *
      * @param publications - List of entries that can be:
-     *                    * Any Publication object
-     *                    * String (ID of known Publication)
-     *                    * 'ALL_PUBLICATIONS' a special constant that will try to include all publications if exist
+     *                     * Any Publication object
+     *                     * String (ID of known Publication)
+     *                     * 'ALL_PUBLICATIONS' a special constant that will try to include all publications if exist
      */
     public void publications(Object... publications) {
-        if (publications != null){
+        if (publications != null) {
             this.publications.addAll(Arrays.asList(publications));
             checkDependsOnArtifactsToPublish();
         }
@@ -202,7 +203,7 @@ public class ArtifactoryTask extends DefaultTask {
                 // Specified by Publication object
                 addPublication((Publication) publication);
             } else {
-                log.error("Publication type '{}' not supported in task '{}'", publication,getClass().getName());
+                log.error("Publication type '{}' not supported in task '{}'", publication, getClass().getName());
             }
         }
         publishPublicationsSpecified = true;
@@ -210,6 +211,7 @@ public class ArtifactoryTask extends DefaultTask {
 
     /**
      * Add a Publication to the task by String ID.
+     *
      * @param publication - the ID of the publication or 'ALL_PUBLICATIONS' to add all the known publications
      */
     private void addPublication(CharSequence publication) {
@@ -232,6 +234,7 @@ public class ArtifactoryTask extends DefaultTask {
 
     /**
      * Add a IvyPublication/MavenPublication to be included in this task
+     *
      * @param publicationObj - publication object to collect information from
      */
     private void addPublication(Publication publicationObj) {
@@ -368,12 +371,16 @@ public class ArtifactoryTask extends DefaultTask {
     @Input
     @Optional
     @Nullable
-    public Boolean getPublishArtifacts() { return getFlag(Constant.PUBLISH_ARTIFACTS); }
+    public Boolean getPublishArtifacts() {
+        return getFlag(Constant.PUBLISH_ARTIFACTS);
+    }
 
     @Input
     @Optional
     @Nullable
-    public Boolean getPublishIvy() { return getFlag(Constant.PUBLISH_IVY); }
+    public Boolean getPublishIvy() {
+        return getFlag(Constant.PUBLISH_IVY);
+    }
 
     @Input
     @Optional
