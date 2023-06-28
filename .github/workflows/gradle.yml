@@ -1,5 +1,5 @@
 name: "Publish to Gradle Gallery"
-# During the build-info release, the build-info JARs upload to the Maven Central repository.
+# During the Artifactory Gradle plugin release, the build-info JARs upload to the Maven Central repository.
 # The upload is asynchronous and may take few hours.
 # Since the Gradle plugin depends on the build-info JARs, we should publish it to the Gradle Gallery only after we make
 # sure the upload to Maven Central completed successfully.
