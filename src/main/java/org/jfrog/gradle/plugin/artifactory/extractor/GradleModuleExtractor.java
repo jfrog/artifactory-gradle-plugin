@@ -50,6 +50,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
 
     /**
      * Get all the deployment details that the ArtifactoryTask collected for the given project.
+     *
      * @param project - the project to get its deployment details
      */
     private Set<GradleDeployDetails> getCollectedDeployDetails(Project project) {
@@ -62,7 +63,8 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
 
     /**
      * Create a ModuleBuilder ready to be built for the given project and deployment details
-     * @param project - project to extract module details
+     *
+     * @param project             - project to extract module details
      * @param gradleDeployDetails - module deployment details
      */
     private ModuleBuilder getModuleBuilder(Project project, Set<GradleDeployDetails> gradleDeployDetails) {

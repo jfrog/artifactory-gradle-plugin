@@ -5,33 +5,41 @@ import org.testng.Reporter;
 
 public class TestingLog implements Log {
 
-    private static final int DEBUG_LEVEL = 2;
-    private static final int INFO_LEVEL = 1;
-    private static final int WARN_LEVEL = 1;
-    private static final int ERROR_LEVEL = 0;
+    public enum LogLevel {
+        ERROR(0),
+        WARN(1),
+        INFO(1),
+        DEBUG(2);
+
+        public final int value;
+
+        LogLevel(int value) {
+            this.value = value;
+        }
+    }
 
     @Override
     public void debug(String message) {
-        Reporter.log(message, DEBUG_LEVEL, true);
+        Reporter.log(message, LogLevel.DEBUG.value, true);
     }
 
     @Override
     public void info(String message) {
-        Reporter.log(message, INFO_LEVEL, true);
+        Reporter.log(message, LogLevel.INFO.value, true);
     }
 
     @Override
     public void warn(String message) {
-        Reporter.log(message, WARN_LEVEL, true);
+        Reporter.log(message, LogLevel.WARN.value, true);
     }
 
     @Override
     public void error(String message) {
-        Reporter.log(message, ERROR_LEVEL, true);
+        Reporter.log(message, LogLevel.ERROR.value, true);
     }
 
     @Override
     public void error(String message, Throwable e) {
-        Reporter.log(message, ERROR_LEVEL, true);
+        Reporter.log(message, LogLevel.ERROR.value, true);
     }
 }

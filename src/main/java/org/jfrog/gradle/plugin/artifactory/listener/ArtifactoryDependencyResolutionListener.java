@@ -17,7 +17,8 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
     private final Map<String, Map<String, String[][]>> modulesHierarchyMap = new HashMap<>();
 
     @Override
-    public void beforeResolve(ResolvableDependencies dependencies) {}
+    public void beforeResolve(ResolvableDependencies dependencies) {
+    }
 
     @Override
     public void afterResolve(ResolvableDependencies dependencies) {
@@ -28,6 +29,7 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
 
     /**
      * Update the modules map with the resolved dependencies.
+     *
      * @param dependencies - resolved dependencies to update the map
      */
     private void updateModulesMap(ResolvableDependencies dependencies) {
@@ -41,8 +43,9 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
 
     /**
      * Update the resolved dependency map with the given information.
+     *
      * @param dependencyMap - the map that holds the modules resolved dependencies information
-     * @param dependencies - the resolved dependencies to update the map
+     * @param dependencies  - the resolved dependencies to update the map
      */
     private void updateDependencyMap(Map<String, String[][]> dependencyMap, Set<? extends DependencyResult> dependencies) {
         for (DependencyResult dependency : dependencies) {
@@ -61,17 +64,19 @@ public class ArtifactoryDependencyResolutionListener implements DependencyResolu
 
     /**
      * Get pathToRoot list of transitive dependencies. Root is expected to be last in list.
+     *
      * @param resolvedDependency - the dependency to resolve from.
      * @return Dependents list of a given dependency
      */
     private String[][] getDependencyDependents(ResolvedDependencyResult resolvedDependency) {
         List<String> dependents = new ArrayList<>();
         populateDependents(resolvedDependency, dependents);
-        return new String[][] { dependents.toArray(new String[0])};
+        return new String[][]{dependents.toArray(new String[0])};
     }
 
     /**
      * Recursively populate a pathToRoot list of transitive dependencies. Root is expected to be last in list.
+     *
      * @param dependency - To populate the dependents list for.
      * @param dependents - Dependents list to populate.
      */

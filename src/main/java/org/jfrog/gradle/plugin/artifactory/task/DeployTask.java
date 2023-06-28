@@ -61,6 +61,7 @@ public class DeployTask extends DefaultTask {
 
     /**
      * Deploy to artifactory all the applicable artifacts collected in all the Artifactory tasks.
+     *
      * @param accRoot - client configuration that defined at the root project
      * @return Map of module to deployed artifact details.
      */

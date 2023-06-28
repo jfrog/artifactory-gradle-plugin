@@ -29,11 +29,12 @@ public class DeployUtils {
     /**
      * Deploy all the artifacts from a given ArtifactoryTask base on a given arguments.
      * Populate a given set with the details that were deployed
-     * @param accRoot - client configurations to apply in deployment
-     * @param propsRoot - root properties to merge with the task properties
+     *
+     * @param accRoot          - client configurations to apply in deployment
+     * @param propsRoot        - root properties to merge with the task properties
      * @param allDeployDetails - a container that will be populated with the details of the deployed artifacts
-     * @param artifactoryTask - the task to deploy its details.
-     * @param logPrefix - the in case the deployment is in multi-threads a prefix to each log
+     * @param artifactoryTask  - the task to deploy its details.
+     * @param logPrefix        - the in case the deployment is in multi-threads a prefix to each log
      */
     public static void deployTaskArtifacts(ArtifactoryClientConfiguration accRoot, Map<String, String> propsRoot, Map<String,
             Set<DeployDetails>> allDeployDetails, ArtifactoryTask artifactoryTask, String logPrefix) {

@@ -194,6 +194,7 @@ public class GradleFunctionalTestBase {
 
     /**
      * Delete all content from the given repository.
+     *
      * @param repoKey - repository key
      */
     protected void deleteContentFromRepo(String repoKey) throws IOException {
@@ -214,6 +215,7 @@ public class GradleFunctionalTestBase {
 
     /**
      * Delete repository.
+     *
      * @param repo - repository name
      * @throws IOException in case of any I/O error.
      */

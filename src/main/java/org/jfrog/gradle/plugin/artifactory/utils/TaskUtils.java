@@ -21,6 +21,7 @@ public class TaskUtils {
 
     /**
      * Create a task in a given project
+     *
      * @param taskName        - the name (ID) of the task
      * @param taskClass       - the task class to be created
      * @param taskDescription - the task description
@@ -40,6 +41,7 @@ public class TaskUtils {
 
     /**
      * Adds to a given project a task to collect all the publications and information to be deployed.
+     *
      * @param project - the module to collect information from
      * @return - task that was created for the given module
      */
@@ -54,6 +56,7 @@ public class TaskUtils {
     /**
      * Adds a task that will run after the given collectDeployDetailsTask task and will extract module info file from the information collected.
      * An ExtractModuleTask task will be added (if not exists) to the given task's project.
+     *
      * @param collectDeployDetailsTask - the task that will provide the information to produce the module info file
      */
     public static void addExtractModuleInfoTask(ArtifactoryTask collectDeployDetailsTask) {
@@ -75,6 +78,7 @@ public class TaskUtils {
 
     /**
      * Adds a task to deploy the artifacts of a given project, extract information on a the build and export/deploy it.
+     *
      * @param project - project to add the task to, should be the root project
      */
     public static void addDeploymentTask(Project project) {
@@ -87,6 +91,7 @@ public class TaskUtils {
 
     /**
      * Find a ArtifactoryTask of a given project that finished to execute or null if not exists.
+     *
      * @param project - a project to search for a finished task
      * @return - finished collection task or null if not exists in project
      */
@@ -95,12 +100,13 @@ public class TaskUtils {
         if (tasks.isEmpty()) {
             return null;
         }
-        ArtifactoryTask artifactoryTask = (ArtifactoryTask)tasks.iterator().next();
+        ArtifactoryTask artifactoryTask = (ArtifactoryTask) tasks.iterator().next();
         return artifactoryTask.getState().getDidWork() ? artifactoryTask : null;
     }
 
     /**
      * Get a list of all the ArtifactoryTask tasks of a given project and its submodules
+     *
      * @param project - project to get its related tasks
      */
     public static List<ArtifactoryTask> getAllArtifactoryPublishTasks(Project project) {

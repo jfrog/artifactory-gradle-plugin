@@ -20,6 +20,7 @@ public class ConventionUtils {
 
     /**
      * Get or create if not exists an artifactory convention for a given project
+     *
      * @param project - the project to fetch/create its convention
      * @return project convention
      */
@@ -34,6 +35,7 @@ public class ConventionUtils {
 
     /**
      * Get the Artifactory convention that is defined at the root project of a given project
+     *
      * @param project - the project that will get its root's convention
      * @return Artifactory's convention defined at the root project if exists
      */
@@ -44,6 +46,7 @@ public class ConventionUtils {
     /**
      * Get a convention of a given project that configured a publisher with: contextUrl and repoKey/snapshotRepoKey
      * If the current project didn't configure a publisher tries the parent until one is found
+     *
      * @param project - the project to fetch its publisher configurations
      * @return an Artifactory convention with publisher configured or null if not found
      */
@@ -63,6 +66,7 @@ public class ConventionUtils {
 
     /**
      * Get the configured (contextUrl and repoKey/snapshotRepoKey) publisher handler of a given project
+     *
      * @param project - the project to fetch its publisher configurations
      * @return a configured publisher handler or null if not found
      */
@@ -113,7 +117,7 @@ public class ConventionUtils {
         if (parent != null) {
             fillProperties(parent, props);
         }
-        Map<String , ?> projectProperties = project.getExtensions().getExtraProperties().getProperties();
+        Map<String, ?> projectProperties = project.getExtensions().getExtraProperties().getProperties();
         props.putAll(BuildInfoExtractorUtils.filterStringEntries(projectProperties));
     }
 }

@@ -22,6 +22,7 @@ public class ProjectUtils {
 
     /**
      * Get the ID (Group, artifact and version) of the given module
+     *
      * @param project - project to extract its Id
      * @return Gav identifier string of the module
      */
@@ -31,6 +32,7 @@ public class ProjectUtils {
 
     /**
      * Get the ID (Group, artifact and version) of the given module
+     *
      * @param module - the module to extract the GAV info
      * @return Gav identifier string of the module or null if module is null
      */
@@ -47,7 +49,8 @@ public class ProjectUtils {
 
     /**
      * Check if a given project has at least one of the given components
-     * @param project - project to check
+     *
+     * @param project        - project to check
      * @param componentNames - components names to check
      */
     public static boolean hasOneOfComponents(Project project, String... componentNames) {
@@ -61,10 +64,11 @@ public class ProjectUtils {
 
     /**
      * Filter (Include/Exclude) project deployment details by a given publisher configurations
-     * @param project - project of the given details
-     * @param publisher - configurations to apply
+     *
+     * @param project             - project of the given details
+     * @param publisher           - configurations to apply
      * @param gradleDeployDetails - details to filter
-     * @param isInclude - if true applying include-pattern or exclude-pattern if false
+     * @param isInclude           - if true applying include-pattern or exclude-pattern if false
      * @return filtered details by the given input
      */
     public static Iterable<GradleDeployDetails> filterIncludeExcludeDetails(Project project, ArtifactoryClientConfiguration.PublisherHandler publisher, Set<GradleDeployDetails> gradleDeployDetails, boolean isInclude) {
