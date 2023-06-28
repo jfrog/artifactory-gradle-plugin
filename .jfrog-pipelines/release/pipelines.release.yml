@@ -30,7 +30,7 @@ pipelines:
             # Set env
             - export CI=true
             - export JFROG_BUILD_STATUS=PASS
-            - export JFROG_CLI_BUILD_NAME=ecosystem-artifactory-gradle-plugin-.jfrog-pipeline
+            - export JFROG_CLI_BUILD_NAME=ecosystem-artifactory-gradle-plugin-release
             - export JFROG_CLI_BUILD_NUMBER=$run_number
             - export JFROG_CLI_BUILD_PROJECT=ecosys
 
@@ -47,14 +47,14 @@ pipelines:
             - curl -fL https://install-cli.jfrog.io | sh
             - jf c rm --quiet
             - jf c add internal --url=$int_entplus_deployer_url --user=$int_entplus_deployer_user --password=$int_entplus_deployer_apikey
-            - jf gradlec --use-wrapper --repo-resolve ecosys-maven-remote --repo-deploy ecosys-oss-.jfrog-pipeline-local --deploy-maven-desc
+            - jf gradlec --use-wrapper --repo-resolve ecosys-maven-remote --repo-deploy ecosys-oss-release-local --deploy-maven-desc
 
             # Run audit
             - jf audit
 
             # Update version
             - sed -i -e "/build-info-extractor-gradle-version=/ s/=.*/=$NEXT_VERSION/" gradle.properties
-            - git commit -am "[artifactory-.jfrog-pipeline] Release version ${NEXT_VERSION} [skipRun]" --allow-empty
+            - git commit -am "[artifactory-release] Release version ${NEXT_VERSION} [skipRun]" --allow-empty
             - git tag ${NEXT_VERSION}
 
             # Run build and publish
@@ -63,8 +63,8 @@ pipelines:
             - jf rt bag && jf rt bce
             - jf rt bp
 
-            # Distribute .jfrog-pipeline bundle
-            - jf ds rbc ecosystem-artifactory-gradle-plugin $NEXT_VERSION --spec=./.jfrog-pipeline/specs/prod-rbc-filespec.json --spec-vars="version=$NEXT_VERSION" --sign
+            # Distribute release bundle
+            - jf ds rbc ecosystem-artifactory-gradle-plugin $NEXT_VERSION --spec=.jfrog-pipelines/release/specs/prod-rbc-filespec.json --spec-vars="version=$NEXT_VERSION" --sign
             - jf ds rbd ecosystem-artifactory-gradle-plugin $NEXT_VERSION --site="releases.jfrog.io" --sync
 
             # Publish to Maven Central
@@ -77,7 +77,7 @@ pipelines:
 
             # Update next development version
             - sed -i "s/\(version=\).*\$/\1${NEXT_DEVELOPMENT_VERSION}/" gradle.properties
-            - git commit -am "[artifactory-.jfrog-pipeline] Next development version [skipRun]"
+            - git commit -am "[artifactory-release] Next development version [skipRun]"
 
             # Push changes
             - git push
