@@ -59,9 +59,7 @@ pipelines:
 
             # Run build and publish
             - >
-              ORG_GRADLE_PROJECT_signingKey=$(echo $int_mvn_central_signingKey | base64 -d)
-              ORG_GRADLE_PROJECT_signingPassword=$int_mvn_central_signingPassword
-              jf gradle clean build artifactoryPublish -x test -x functionalTest -Psign
+              jf gradle clean build artifactoryPublish -x test -x functionalTest
             - jf rt bag && jf rt bce
             - jf rt bp
 

@@ -40,7 +40,7 @@ pipelines:
             - jf audit --fail=false
 
             # Delete former snapshots to make sure the release bundle will not contain the same artifacts
-            - jf rt del "ecosys-oss-snapshot-local/com/jfrog/buildinfo/*" --quiet
+            - jf rt del "ecosys-oss-snapshot-local/com/jfrog/buildinfo/build-info-extractor-gradle/*" --quiet
 
             # Run test, build and publish snapshot
             - >
@@ -48,7 +48,7 @@ pipelines:
               JFROG_CLI_BUILD_NAME=$JFROG_CLI_BUILD_NAME
               JFROG_CLI_BUILD_NUMBER=$JFROG_CLI_BUILD_NUMBER
               JFROG_CLI_BUILD_PROJECT=$JFROG_CLI_BUILD_PROJECT
-              jf gradle clean build artifactoryPublish
+              jf gradle clean build artifactoryPublish -x functionalTest
             - jf rt bag && jf rt bce
             - jf rt bp
 
@@ -57,7 +57,5 @@ pipelines:
             - jf ds rbd ecosystem-artifactory_gradle_plugin-snapshot $run_number --site="releases.jfrog.io" --sync
 
           onComplete:
-            # Show tests in the *Tests* tab
-            - save_tests $res_artifactoryGradlePluginSnapshotGit_resourcePath/build/test-results/test/
             # Save gradle cache
-            - add_cache_files $res_biSnapshotGit_resourcePath/.gradle gradle_cache
+            - add_cache_files $res_artifactoryGradlePluginSnapshotGit_resourcePath/.gradle gradle_cache
