@@ -7,6 +7,7 @@ plugins {
     `java-gradle-plugin`
     `maven-publish`
     signing
+    id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
 }
 
 repositories {
@@ -90,6 +91,12 @@ val uberJar by tasks.register<Jar>("uberJar") {
 tasks.named<Jar>("jar") {
     dependsOn("uberJar")
     exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
+}
+
+nexusPublishing {
+    repositories {
+        sonatype()
+    }
 }
 
 publishing {
