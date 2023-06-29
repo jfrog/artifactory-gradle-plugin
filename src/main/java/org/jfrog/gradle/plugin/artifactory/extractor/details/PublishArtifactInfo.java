@@ -52,6 +52,8 @@ public class PublishArtifactInfo implements Comparable<PublishArtifactInfo> {
 
     /**
      * Get artifact raw extra information.
+     *
+     * @return a map of raw extra information
      */
     public Map<QName, String> getExtraInfo() {
         return extraInfo;

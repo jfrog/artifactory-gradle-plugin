@@ -52,6 +52,7 @@ public class ProjectUtils {
      *
      * @param project        - project to check
      * @param componentNames - components names to check
+     * @return true if the given project has at least one of the given components.
      */
     public static boolean hasOneOfComponents(Project project, String... componentNames) {
         for (String componentName : componentNames) {
