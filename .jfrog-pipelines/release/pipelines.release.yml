@@ -53,7 +53,7 @@ pipelines:
             - jf audit
 
             # Update version
-            - sed -i -e "/build-info-extractor-gradle-version=/ s/=.*/=$NEXT_VERSION/" gradle.properties
+            - sed -i -e "/version=/ s/=.*/=$NEXT_VERSION/" gradle.properties
             - git commit -am "[artifactory-release] Release version ${NEXT_VERSION} [skipRun]" --allow-empty
             - git tag ${NEXT_VERSION}
 
