@@ -110,6 +110,7 @@ publishing {
         pom {
             name.set(rootProject.name)
             description.set(pluginDescription)
+            url.set("https://github.com/jfrog/artifactory-gradle-plugin")
 
             licenses {
                 license {
