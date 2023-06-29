@@ -84,6 +84,9 @@ public class ConventionUtils {
      * 2) System properties
      * 3) special buildInfo properties
      * 4) default publisher attributes
+     *
+     * @param configuration - configuration to update
+     * @param project - project to get parent information and start parameters
      */
     public static void updateConfig(ArtifactoryClientConfiguration configuration, Project project) {
         Properties props = new Properties();
