@@ -1,7 +1,7 @@
 {
   "files": [
     {
-      "pattern": "ecosys-oss-release-local/(org/jfrog/buildinfo/build-info-extractor-gradle/${gradleVersion}/build-info-extractor-gradle-*)",
+      "pattern": "ecosys-oss-release-local/(org/jfrog/buildinfo/build-info-extractor-gradle/${version}/build-info-extractor-gradle-*)",
       "target": "oss-release-local/{1}"
     }
   ]
