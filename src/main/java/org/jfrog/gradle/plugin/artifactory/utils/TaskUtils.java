@@ -108,6 +108,7 @@ public class TaskUtils {
      * Get a list of all the ArtifactoryTask tasks of a given project and its submodules
      *
      * @param project - project to get its related tasks
+     * @return list of all the ArtifactoryTask that ran
      */
     public static List<ArtifactoryTask> getAllArtifactoryPublishTasks(Project project) {
         TaskExecutionGraph graph = project.getGradle().getTaskGraph();
