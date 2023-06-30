@@ -38,7 +38,7 @@ jobs:
         if: ${{ env.SHOULD_NOT_PUBLISH == 'TRUE'}}
       - uses: actions/checkout@v2
         with:
-          ref: refs/tags/build-info-gradle-extractor-${{ env.LATEST_MVN_CENTRAL_VERSION }}
+          ref: refs/tags/${{ env.LATEST_MVN_CENTRAL_VERSION }}
         if: ${{ env.SHOULD_NOT_PUBLISH != 'TRUE'}}
       - uses: actions/setup-java@v2
         with:
