@@ -8,6 +8,7 @@ plugins {
     `maven-publish`
     signing
     id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
+    id("com.gradle.plugin-publish") version "1.1.0"
 }
 
 repositories {
@@ -48,7 +49,6 @@ dependencies {
 }
 
 gradlePlugin {
-    isAutomatedPublishing = false
     plugins {
         create("artifactoryGradlePlugin") {
             displayName = "JFrog Artifactory Gradle Plugin"
@@ -67,13 +67,13 @@ tasks.compileJava {
 
 // Build configurations
 val sourcesJar by tasks.registering(Jar::class) {
-    from(sourceSets.main.get().allJava)
     archiveClassifier.set("sources")
+    from(sourceSets.main.get().allJava)
 }
 
 val javadocJar by tasks.registering(Jar::class) {
-    from(tasks.named("javadoc"))
     archiveClassifier.set("javadoc")
+    from(tasks.named("javadoc"))
 }
 
 val uberJar by tasks.register<Jar>("uberJar") {
@@ -130,7 +130,6 @@ publishing {
                 url.set("https://github.com/jfrog/artifactory-gradle-plugin")
             }
         }
-        from(components["java"])
     }
 
     extensions.configure(SigningExtension::class.java) {
