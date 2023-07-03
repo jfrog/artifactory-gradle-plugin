@@ -1,14 +1,15 @@
-group = "org.jfrog.buildinfo"
-
+val groupVal = "org.jfrog.buildinfo"
 val pluginDescription = "JFrog Gradle plugin publishes artifacts to Artifactory and handles the collection and publishing of Build Info."
 val functionalTest by sourceSets.creating
+
+group = groupVal
 
 plugins {
     `java-gradle-plugin`
     `maven-publish`
     signing
     id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
-    id("com.gradle.plugin-publish") version "1.1.0"
+    id("com.gradle.plugin-publish") version "0.+"
 }
 
 repositories {
@@ -32,6 +33,10 @@ dependencies {
     implementation("org.apache.ivy", "ivy", "2.5.1")
     implementation("com.google.guava", "guava", "32.0.1-jre")
 
+    // dependencies that are used by the buildinfo dependencies and needs to be included for the UberJar
+    implementation("com.fasterxml.jackson.core", "jackson-databind", "2.14.1")
+    implementation("commons-io", "commons-io", "2.11.0")
+
     testImplementation("org.testng", "testng", testNgVersion)
     testImplementation("org.mockito", "mockito-core", "3.+")
 
@@ -48,7 +53,14 @@ dependencies {
 
 }
 
+pluginBundle {
+    website = "https://github.com/jfrog/artifactory-gradle-plugin"
+    vcsUrl = "https://github.com/jfrog/artifactory-gradle-plugin"
+    tags = listOf("gradle", "publication", "artifactory", "build-info")
+}
+
 gradlePlugin {
+    isAutomatedPublishing = false
     plugins {
         create("artifactoryGradlePlugin") {
             displayName = "JFrog Artifactory Gradle Plugin"
@@ -82,14 +94,13 @@ val uberJar by tasks.register<Jar>("uberJar") {
     from(sourceSets.main.get().output)
     // Include all dependencies
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    dependsOn(configurations.runtimeClasspath)
-    from({ configurations.runtimeClasspath.get().filter { it.name.endsWith(".jar") }.map { zipTree(it) } })
+    dependsOn(configurations.compileClasspath)
+    from({
+        configurations.compileClasspath.get().filter {
+            it.name.endsWith(".jar") && !it.name.contains("gradle") && !it.name.contains("groovy")
+        }.map { zipTree(it) }
+    })
     // Exclude META-INF files from dependencies
-    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
-}
-
-tasks.named<Jar>("jar") {
-    dependsOn("uberJar")
     exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
@@ -101,10 +112,14 @@ nexusPublishing {
 
 publishing {
     val publication = publications.create<MavenPublication>("mavenJava") {
+        groupId = groupVal
         artifactId = project.name
+        version = project.findProperty("version").toString()
 
-        artifact(javadocJar)
+        from(components["java"])
+
         artifact(sourcesJar)
+        artifact(javadocJar)
         artifact(uberJar)
 
         pom {

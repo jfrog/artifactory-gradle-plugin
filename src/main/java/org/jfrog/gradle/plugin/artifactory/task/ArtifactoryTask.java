@@ -45,6 +45,9 @@ import java.util.concurrent.Callable;
 public class ArtifactoryTask extends DefaultTask {
     private static final Logger log = Logging.getLogger(ArtifactoryTask.class);
 
+    @SuppressWarnings("unused")
+    public static final String ARTIFACTORY_PUBLISH_TASK_NAME = Constant.ARTIFACTORY_PUBLISH_TASK_NAME;
+
     // Publication containers input
     private final Set<Object> publications = new HashSet<>();
     // Properties input
