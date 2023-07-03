@@ -225,10 +225,10 @@ artifactoryPublish {
             'ALL_PUBLICATIONS'
     )
 
-    // Optionally, properties to be attached to the published artifacts.
+    // Optionally, configure properties to be attached to the published artifacts.
     setProperties(mapOf(
-            'qa.level' to 'basic',
-            'dev.team' to 'core'
+            'key1' to 'value1',
+            'key2' to 'value2'
     ))
     // (default: false) Skip this task for the project (don't include its artifacts when publishing) 
     skip = true
