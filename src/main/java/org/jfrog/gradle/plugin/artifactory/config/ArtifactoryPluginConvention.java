@@ -24,6 +24,11 @@ public class ArtifactoryPluginConvention {
         clientConfig = new ArtifactoryClientConfiguration(new GradleClientLogger(project.getLogger()));
     }
 
+    @SuppressWarnings("unused")
+    public void setContextUrl(String contextUrl) {
+        clientConfig.publisher.setContextUrl(contextUrl);
+    }
+
     public void publish(Closure<PublisherConfig> closure) {
         publish(ConfigureUtil.configureUsing(closure));
     }
