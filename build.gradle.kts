@@ -22,6 +22,7 @@ val commonsLangVersion = "3.12.0"
 val commonsIoVersion = "2.11.0"
 val commonsTxtVersion = "1.10.0"
 val testNgVersion = "7.7.1"
+val httpclientVersion = "4.5.14"
 
 dependencies {
     implementation("org.jfrog.buildinfo", "build-info-extractor", buildInfoVersion)
@@ -35,7 +36,8 @@ dependencies {
 
     // dependencies that are used by the buildinfo dependencies and needs to be included for the UberJar
     implementation("com.fasterxml.jackson.core", "jackson-databind", "2.14.1")
-    implementation("commons-io", "commons-io", "2.11.0")
+    implementation("commons-io", "commons-io", commonsIoVersion)
+    implementation("org.apache.httpcomponents", "httpclient", httpclientVersion)
 
     testImplementation("org.testng", "testng", testNgVersion)
     testImplementation("org.mockito", "mockito-core", "3.+")
@@ -48,7 +50,7 @@ dependencies {
     "functionalTestImplementation"("org.apache.commons", "commons-lang3", commonsLangVersion)
     "functionalTestImplementation"("org.apache.commons", "commons-text", commonsTxtVersion)
     "functionalTestImplementation"("commons-io", "commons-io", commonsIoVersion)
-    "functionalTestImplementation"("org.apache.httpcomponents", "httpclient", "4.5.14")
+    "functionalTestImplementation"("org.apache.httpcomponents", "httpclient", httpclientVersion)
     "functionalTestImplementation"(project(mapOf("path" to ":")))
 
 }
@@ -56,7 +58,7 @@ dependencies {
 pluginBundle {
     website = "https://github.com/jfrog/artifactory-gradle-plugin"
     vcsUrl = "https://github.com/jfrog/artifactory-gradle-plugin"
-    tags = listOf("gradle", "publication", "artifactory", "build-info")
+    tags = listOf("JFrog", "gradle", "publication", "artifactory", "build-info")
 }
 
 gradlePlugin {
@@ -86,6 +88,11 @@ val sourcesJar by tasks.registering(Jar::class) {
 val javadocJar by tasks.registering(Jar::class) {
     archiveClassifier.set("javadoc")
     from(tasks.named("javadoc"))
+}
+
+tasks.named<Jar>("jar") {
+    dependsOn("uberJar")
+    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
 val uberJar by tasks.register<Jar>("uberJar") {
