@@ -9,6 +9,7 @@
 <div align="center">
 
 [![Test](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/test.yml?query=branch%3Amain)
+[![Test](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/gradle.yml/badge.svg?branch=main)](https://github.com/jfrog/artifactory-gradle-plugin/actions/workflows/gradle.yml??query=branch%3Amain)
 [![Scanned by Frogbot](https://raw.github.com/jfrog/frogbot/master/images/frogbot-badge.svg)](https://github.com/jfrog/frogbot#readme)
 
 </div>
@@ -50,7 +51,15 @@ The task performs the following actions on the project and its submodules:
 
 ## 📦 Installation
 
-To use the Artifactory Gradle Plugin, add the following snippet to your build script:
+<details>
+
+<summary>Step 1 - Add the plugin to your project</summary>
+
+---
+
+Add the following snippet to your build script:
+
+Kotlin Format:
 
 ```kotlin
 // Replace <plugin version> with the version of the Gradle Artifactory Plugin.
@@ -72,80 +81,49 @@ plugins {
 
 ---
 
-## 🚀 Usage
-
-Deploy the project artifacts and build info to Artifactory by running:
-
-```bash
-./gradlew artifactoryPublish
-```
-
-To use the `artifactoryPublish` task, you need to define the `artifactory` convention in the root project build script.
-
-<details>
-<summary>Using CI Server</summary>
-
-The task configurations or the Artifactory convention, when using CI Server on a Gradle project, is done from the CI
-client UI. You can still add the `artifactory` closure to the build script and have default values configured there, but
-the values configured in the CI Server will override them.
 </details>
 
-### ⚙️ Task Configurations
+<details>
 
-You can configure the attributes for your root project and/or its submodules (projects) to control the task operation
-for specific projects. Configure the attributes as follows:
+<summary>Step 2 - Configure the plugin with your Artifactory</summary>
+
+---
+
+Add the following basic minimal artifactory convention snippet to your build script and adjust it with your platform
+information:
 
 ```kotlin
-artifactoryPublish {
-    // Specify what publications to include when collecting artifacts to publish to Artifactory
-    publifications(
-            // Publication can be specified as an Object
-            publishing.publications.ivyJava,
-            // Publication can be specified as a String
-            'mavenJava',
-            // If this plugin constant string is specified, the plugin will try to apply all the known publications
-            'ALL_PUBLICATIONS'
-    )
-
-    // Optionally, properties to be attached to the published artifacts.
-    setProperties(mapOf(
-            'qa.level' to 'basic',
-            'dev.team' to 'core'
-    ))
-    // (default: false) Skip this task for the project (don't include its artifacts when publishing) 
-    skip = true
-    // (default: true) Publish generated artifacts to Artifactory, can be specified as boolean/string
-    publishArtifacts = false
-    // (default: true) Publish generated POM files to Artifactory, can be specified as boolean/string
-    publishPom = false
-    // (default: true) Publish generated Ivy descriptor files to Artifactory, can be specified as boolean/string
-    publishIvy = false
-}
-```
-
-<details>
-<summary>Groovy Format</summary>
-
-```groovy
-artifactoryPublish {
-    publifications('ALL_PUBLICATIONS')
-
-    properties = ['qa.level': 'basic', 'dev.team': 'core']
-    // Properties can also be defined with a closure in the format: configName artifactSpec, key1:val1, key2:val2
-    properties {
-        simpleFile '**:**:**:*@*', simpleFile: 'only on settings file'
+artifactory {
+    publish {
+        // Define the Artifactory URL to publish the artifacts
+        contextUrl = uri('http://127.0.0.1:8081/artifactory')
+        // Define the project repository to which the artifacts will be published
+        repository {
+            // The Artifactory repository key
+            repoKey = 'libs-snapshot-local'
+            // The publisher username
+            username = "${artifactory_user}"
+            // The publisher password
+            password = "${artifactory_password}"
+        }
     }
 
-    skip = true
-    publishArtifacts = false
-    publishPom = false
-    publishIvy = false
+    // Include all configured publications for all the module tasks
+    defaults {
+        publifications('ALL_PUBLICATIONS')
+    }
 }
 ```
 
-</details>
+### ⚙️ Advance Configurations
 
-### ⚙️ Artifactory Convention
+Documentations about all the configuration options that the plugin offers allowing more advance control on the
+operations the plugin executes:
+
+<details>
+<summary>Artifactory Configurations</summary>
+
+---
 
 This configuration defines the information needed by the tasks to access the Artifactory instance to which the artifacts
 will be published.
@@ -220,6 +198,83 @@ artifactory {
     clientConfig.setEnvVarsExcludePatterns('*password*,*secret*')
     clientConfig.setEnvVarsIncludePatterns('*not-secret*')
 }
+```
+
+---
+
+</details>
+
+<details>
+
+<summary>Project Task Configurations</summary>
+
+---
+
+You can configure the attributes for your root project and/or its submodules (projects) to control the task operation
+for specific projects. Configure the attributes as follows:
+
+```kotlin
+artifactoryPublish {
+    // Specify what publications to include when collecting artifacts to publish to Artifactory
+    publifications(
+            // Publication can be specified as an Object
+            publishing.publications.ivyJava,
+            // Publication can be specified as a String
+            'mavenJava',
+            // If this plugin constant string is specified, the plugin will try to apply all the known publications
+            'ALL_PUBLICATIONS'
+    )
+
+    // Optionally, properties to be attached to the published artifacts.
+    setProperties(mapOf(
+            'qa.level' to 'basic',
+            'dev.team' to 'core'
+    ))
+    // (default: false) Skip this task for the project (don't include its artifacts when publishing) 
+    skip = true
+    // (default: true) Publish generated artifacts to Artifactory, can be specified as boolean/string
+    publishArtifacts = false
+    // (default: true) Publish generated POM files to Artifactory, can be specified as boolean/string
+    publishPom = false
+    // (default: true) Publish generated Ivy descriptor files to Artifactory, can be specified as boolean/string
+    publishIvy = false
+}
+```
+
+<details>
+<summary>Groovy Format</summary>
+
+```groovy
+artifactoryPublish {
+    publifications('ALL_PUBLICATIONS')
+
+    properties = ['qa.level': 'basic', 'dev.team': 'core']
+    // Properties can also be defined with a closure in the format: configName artifactSpec, key1:val1, key2:val2
+    properties {
+        simpleFile '**:**:**:*@*', simpleFile: 'only on settings file'
+    }
+
+    skip = true
+    publishArtifacts = false
+    publishPom = false
+    publishIvy = false
+}
+```
+
+</details>
+
+</details>
+
+</details>
+
+---
+
+## 🚀 Usage
+
+Deploy the project artifacts and build info to Artifactory by running the following gradle task:
+
+```bash
+./gradlew artifactoryPublish
 ```
 
 ---
