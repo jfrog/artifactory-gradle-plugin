@@ -34,7 +34,7 @@ dependencies {
     implementation("org.apache.ivy", "ivy", "2.5.1")
     implementation("com.google.guava", "guava", "32.0.1-jre")
 
-    // dependencies that are used by the buildinfo dependencies and needs to be included for the UberJar
+    // Dependencies that are used by the build-info dependencies and need to be included in the UberJar
     implementation("com.fasterxml.jackson.core", "jackson-databind", "2.14.1")
     implementation("commons-io", "commons-io", commonsIoVersion)
     implementation("org.apache.httpcomponents", "httpclient", httpclientVersion)
