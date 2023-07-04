@@ -1,13 +1,15 @@
-group = "org.jfrog.buildinfo"
-
+val groupVal = "org.jfrog.buildinfo"
 val pluginDescription = "JFrog Gradle plugin publishes artifacts to Artifactory and handles the collection and publishing of Build Info."
 val functionalTest by sourceSets.creating
+
+group = groupVal
 
 plugins {
     `java-gradle-plugin`
     `maven-publish`
     signing
     id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
+    id("com.gradle.plugin-publish") version "0.+"
 }
 
 repositories {
@@ -20,6 +22,7 @@ val commonsLangVersion = "3.12.0"
 val commonsIoVersion = "2.11.0"
 val commonsTxtVersion = "1.10.0"
 val testNgVersion = "7.7.1"
+val httpclientVersion = "4.5.14"
 
 dependencies {
     implementation("org.jfrog.buildinfo", "build-info-extractor", buildInfoVersion)
@@ -30,6 +33,11 @@ dependencies {
     implementation("org.apache.commons", "commons-lang3", commonsLangVersion)
     implementation("org.apache.ivy", "ivy", "2.5.1")
     implementation("com.google.guava", "guava", "32.0.1-jre")
+
+    // Dependencies that are used by the build-info dependencies and need to be included in the UberJar
+    implementation("com.fasterxml.jackson.core", "jackson-databind", "2.14.1")
+    implementation("commons-io", "commons-io", commonsIoVersion)
+    implementation("org.apache.httpcomponents", "httpclient", httpclientVersion)
 
     testImplementation("org.testng", "testng", testNgVersion)
     testImplementation("org.mockito", "mockito-core", "3.+")
@@ -42,9 +50,15 @@ dependencies {
     "functionalTestImplementation"("org.apache.commons", "commons-lang3", commonsLangVersion)
     "functionalTestImplementation"("org.apache.commons", "commons-text", commonsTxtVersion)
     "functionalTestImplementation"("commons-io", "commons-io", commonsIoVersion)
-    "functionalTestImplementation"("org.apache.httpcomponents", "httpclient", "4.5.14")
+    "functionalTestImplementation"("org.apache.httpcomponents", "httpclient", httpclientVersion)
     "functionalTestImplementation"(project(mapOf("path" to ":")))
 
+}
+
+pluginBundle {
+    website = "https://github.com/jfrog/artifactory-gradle-plugin"
+    vcsUrl = "https://github.com/jfrog/artifactory-gradle-plugin"
+    tags = listOf("JFrog", "gradle", "publication", "artifactory", "build-info")
 }
 
 gradlePlugin {
@@ -67,13 +81,18 @@ tasks.compileJava {
 
 // Build configurations
 val sourcesJar by tasks.registering(Jar::class) {
-    from(sourceSets.main.get().allJava)
     archiveClassifier.set("sources")
+    from(sourceSets.main.get().allJava)
 }
 
 val javadocJar by tasks.registering(Jar::class) {
-    from(tasks.named("javadoc"))
     archiveClassifier.set("javadoc")
+    from(tasks.named("javadoc"))
+}
+
+tasks.named<Jar>("jar") {
+    dependsOn("uberJar")
+    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
 val uberJar by tasks.register<Jar>("uberJar") {
@@ -82,14 +101,13 @@ val uberJar by tasks.register<Jar>("uberJar") {
     from(sourceSets.main.get().output)
     // Include all dependencies
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    dependsOn(configurations.runtimeClasspath)
-    from({ configurations.runtimeClasspath.get().filter { it.name.endsWith(".jar") }.map { zipTree(it) } })
+    dependsOn(configurations.compileClasspath)
+    from({
+        configurations.compileClasspath.get().filter {
+            it.name.endsWith(".jar") && !it.name.contains("gradle") && !it.name.contains("groovy")
+        }.map { zipTree(it) }
+    })
     // Exclude META-INF files from dependencies
-    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
-}
-
-tasks.named<Jar>("jar") {
-    dependsOn("uberJar")
     exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
@@ -101,10 +119,14 @@ nexusPublishing {
 
 publishing {
     val publication = publications.create<MavenPublication>("mavenJava") {
+        groupId = groupVal
         artifactId = project.name
+        version = project.findProperty("version").toString()
 
-        artifact(javadocJar)
+        from(components["java"])
+
         artifact(sourcesJar)
+        artifact(javadocJar)
         artifact(uberJar)
 
         pom {
@@ -130,7 +152,6 @@ publishing {
                 url.set("https://github.com/jfrog/artifactory-gradle-plugin")
             }
         }
-        from(components["java"])
     }
 
     extensions.configure(SigningExtension::class.java) {
