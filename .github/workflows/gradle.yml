@@ -6,7 +6,7 @@ name: "Publish to Gradle Gallery"
 # To solve this out, this workflow runs every 4 hours to check if the Gradle plugin should be published to the Gradle
 # Gallery and publish the Gradle plugin if needed.
 on:
-  # Manual start
+  # Manual start action
   workflow_dispatch:
   # Once per 4 hours
   schedule:
