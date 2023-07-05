@@ -6,8 +6,10 @@ name: "Publish to Gradle Gallery"
 # To solve this out, this workflow runs every 4 hours to check if the Gradle plugin should be published to the Gradle
 # Gallery and publish the Gradle plugin if needed.
 on:
+  # Manual start action
+  workflow_dispatch:
+  # Run once per 4 hours
   schedule:
-    # Once per 4 hours
     - cron: "0 */4 * * *"
 jobs:
   Publish_if_needed:
@@ -36,14 +38,14 @@ jobs:
       - name: "Log if Already Exist"
         run: echo "::warning::Version $LATEST_MVN_CENTRAL_VERSION already exist in the Gradle Gallery."
         if: ${{ env.SHOULD_NOT_PUBLISH == 'TRUE'}}
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: refs/tags/${{ env.LATEST_MVN_CENTRAL_VERSION }}
         if: ${{ env.SHOULD_NOT_PUBLISH != 'TRUE'}}
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v3
         with:
-          distribution: "adopt"
-          java-version: "8"
+          distribution: "temurin"
+          java-version: "11"
         if: ${{ env.SHOULD_NOT_PUBLISH != 'TRUE'}}
       - name: "Publish to Gradle Gallery"
         run: ./gradlew clean build -x test publishPlugins
