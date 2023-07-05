@@ -38,7 +38,7 @@ jobs:
       - name: "Log if Already Exist"
         run: echo "::warning::Version $LATEST_MVN_CENTRAL_VERSION already exist in the Gradle Gallery."
         if: ${{ env.SHOULD_NOT_PUBLISH == 'TRUE'}}
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: refs/tags/${{ env.LATEST_MVN_CENTRAL_VERSION }}
         if: ${{ env.SHOULD_NOT_PUBLISH != 'TRUE'}}
