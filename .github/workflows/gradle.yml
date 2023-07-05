@@ -48,7 +48,7 @@ jobs:
           java-version: "11"
         if: ${{ env.SHOULD_NOT_PUBLISH != 'TRUE'}}
       - name: "Publish to Gradle Gallery"
-        run: ./gradlew clean build -x test publishPlugins
+        run: ./gradlew clean build -x test -x functionalTest publishPlugins
         if: ${{ env.SHOULD_NOT_PUBLISH != 'TRUE'}}
         env:
           GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
