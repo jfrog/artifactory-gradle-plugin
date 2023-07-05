@@ -8,7 +8,7 @@ name: "Publish to Gradle Gallery"
 on:
   # Manual start action
   workflow_dispatch:
-  # Once per 4 hours
+  # Run once per 4 hours
   schedule:
     - cron: "0 */4 * * *"
 jobs:
