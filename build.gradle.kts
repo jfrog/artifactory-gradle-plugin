@@ -58,7 +58,7 @@ dependencies {
 pluginBundle {
     website = "https://github.com/jfrog/artifactory-gradle-plugin"
     vcsUrl = "https://github.com/jfrog/artifactory-gradle-plugin"
-    tags = listOf("JFrog", "gradle", "publication", "artifactory", "build-info")
+    tags = listOf("JFrog", "publication", "artifactory", "build-info")
 }
 
 gradlePlugin {
