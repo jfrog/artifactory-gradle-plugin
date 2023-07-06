@@ -89,7 +89,7 @@ public class TaskUtils {
     }
 
     /**
-     * Adds a task to deploy the artifacts of a given project, extract information on the build and export/deploy it.
+     * Adds a task to deploy the artifacts of a given project, extract information on the build and deploy it.
      *
      * @param project - project to add the task to, should be the root project
      */
