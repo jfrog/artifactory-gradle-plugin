@@ -44,21 +44,20 @@ following actions on the project and its submodules:
 
 > **_NOTE:_** The minimum supported Gradle version to use this plugin is v6.9
 
-
 <details>
 <summary> 🚚 Migrating from v4 </summary>
 
 ### Breaking Changes 🚨
+
 * The minimum version of Gradle required to use this plugin has been upgraded to version 6.9.
 * Artifactory's convention attributes have been removed:
 
-    | Attribute |                                                                                     migration action                                                                                     |
-    |:---------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-    |  parent   |                                                                       no longer supporting legacy configurations.                                                                        |
-    |  resolve  | Refer to the [documentation](https://docs.gradle.org/current/userguide/declaring_repositories.html#declaring-repositories) for different ways to configure your repositories with Gradle |
+  | Attribute |                                                                                     migration action                                                                                     |
+      |:---------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+  |  parent   |                                                                       no longer supporting legacy configurations.                                                                        |
+  |  resolve  | Refer to the [documentation](https://docs.gradle.org/current/userguide/declaring_repositories.html#declaring-repositories) for different ways to configure your repositories with Gradle |
 
 </details>
-
 
 ---
 
@@ -208,7 +207,7 @@ configure<ArtifactoryPluginConvention> {
         defaults {
             // artifactoryPublish task attributes...
         }
-       
+
         // (default: true) Publish the generated build-info file to Artifactory
         publishBuildInfo(false)
         // (default: 3) Number of threads that will work and deploy artifacts to Artifactory
