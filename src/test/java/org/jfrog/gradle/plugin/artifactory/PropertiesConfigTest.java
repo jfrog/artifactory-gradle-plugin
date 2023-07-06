@@ -8,7 +8,7 @@ import org.gradle.api.logging.Logging;
 import org.gradle.internal.metaobject.DynamicInvokeResult;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpec;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
-import org.jfrog.gradle.plugin.artifactory.config.PropertiesConfig;
+import org.jfrog.gradle.plugin.artifactory.dsl.PropertiesConfig;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

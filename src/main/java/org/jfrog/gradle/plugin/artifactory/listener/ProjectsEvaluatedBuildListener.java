@@ -12,7 +12,7 @@ import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.publish.PublishingExtension;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
-import org.jfrog.gradle.plugin.artifactory.config.ArtifactoryPluginConvention;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;

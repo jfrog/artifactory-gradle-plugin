@@ -1,4 +1,4 @@
-package org.jfrog.gradle.plugin.artifactory.config;
+package org.jfrog.gradle.plugin.artifactory.dsl;
 
 import groovy.lang.Closure;
 import org.gradle.api.Action;
