@@ -6,7 +6,7 @@ import org.gradle.api.Project;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.jfrog.build.client.Version;
-import org.jfrog.gradle.plugin.artifactory.config.ArtifactoryPluginConvention;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
 import org.jfrog.gradle.plugin.artifactory.listener.ProjectsEvaluatedBuildListener;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;

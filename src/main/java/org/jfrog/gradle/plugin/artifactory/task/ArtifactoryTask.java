@@ -27,10 +27,10 @@ import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.Constant;
-import org.jfrog.gradle.plugin.artifactory.config.ArtifactoryPluginConvention;
-import org.jfrog.gradle.plugin.artifactory.config.PropertiesConfig;
-import org.jfrog.gradle.plugin.artifactory.config.PublisherConfig;
-import org.jfrog.gradle.plugin.artifactory.extractor.details.GradleDeployDetails;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
+import org.jfrog.gradle.plugin.artifactory.dsl.PropertiesConfig;
+import org.jfrog.gradle.plugin.artifactory.dsl.PublisherConfig;
+import org.jfrog.gradle.plugin.artifactory.extractor.GradleDeployDetails;
 import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils;
 

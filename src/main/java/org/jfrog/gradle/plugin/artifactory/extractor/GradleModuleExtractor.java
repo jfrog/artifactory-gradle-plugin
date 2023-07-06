@@ -18,8 +18,6 @@ import org.jfrog.build.extractor.ci.Module;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin;
-import org.jfrog.gradle.plugin.artifactory.extractor.details.GradleDeployDetails;
-import org.jfrog.gradle.plugin.artifactory.extractor.details.PublishArtifactInfo;
 import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;

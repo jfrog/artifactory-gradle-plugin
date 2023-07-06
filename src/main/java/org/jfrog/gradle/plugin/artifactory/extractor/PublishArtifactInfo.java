@@ -1,4 +1,4 @@
-package org.jfrog.gradle.plugin.artifactory.extractor.details;
+package org.jfrog.gradle.plugin.artifactory.extractor;
 
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.GradleException;

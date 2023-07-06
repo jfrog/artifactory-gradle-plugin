@@ -7,7 +7,7 @@ import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.IncludeExcludePatterns;
 import org.jfrog.build.extractor.clientConfiguration.PatternMatcher;
-import org.jfrog.gradle.plugin.artifactory.extractor.details.GradleDeployDetails;
+import org.jfrog.gradle.plugin.artifactory.extractor.GradleDeployDetails;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;

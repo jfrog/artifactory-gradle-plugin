@@ -1,4 +1,4 @@
-import org.jfrog.gradle.plugin.artifactory.config.ArtifactoryPluginConvention
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask
 
 plugins {

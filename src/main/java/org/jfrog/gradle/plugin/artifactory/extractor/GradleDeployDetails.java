@@ -1,4 +1,4 @@
-package org.jfrog.gradle.plugin.artifactory.extractor.details;
+package org.jfrog.gradle.plugin.artifactory.extractor;
 
 import org.gradle.api.Project;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
