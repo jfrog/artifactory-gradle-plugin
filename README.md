@@ -52,10 +52,10 @@ following actions on the project and its submodules:
 * The minimum version of Gradle required to use this plugin has been upgraded to version 6.9.
 * Artifactory's convention attributes have been removed:
 
-  | Attribute |                                                                                     migration action                                                                                     |
-  |:---------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-  |  parent   |                                                                       no longer supporting legacy configurations.                                                                        |
-  |  resolve  | Refer to the [documentation](https://docs.gradle.org/current/userguide/declaring_repositories.html#declaring-repositories) for different ways to configure your repositories with Gradle |
+  | Attribute |                                                                                     Migration action                                                                                      |
+  |:---------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+  |  parent   |                                                                        No longer supporting legacy configurations.                                                                        |
+  |  resolve  | Refer to the [documentation](https://docs.gradle.org/current/userguide/declaring_repositories.html#declaring-repositories) for different ways to configure your repositories with Gradle. |
 
 </details>
 
