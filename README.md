@@ -44,6 +44,22 @@ following actions on the project and its submodules:
 
 > **_NOTE:_** The minimum supported Gradle version to use this plugin is v6.9
 
+
+<details>
+<summary> 🚚 Migrating from v4 </summary>
+
+### Breaking Changes 🚨
+* The minimum version of Gradle required to use this plugin has been upgraded to version 6.9.
+* Artifactory's convention attributes have been removed:
+
+    | Attribute |                                                                                     migration action                                                                                     |
+    |:---------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+    |  parent   |                                                                       no longer supporting legacy configurations.                                                                        |
+    |  resolve  | Refer to the [documentation](https://docs.gradle.org/current/userguide/declaring_repositories.html#declaring-repositories) for different ways to configure your repositories with Gradle |
+
+</details>
+
+
 ---
 
 ## 📦 Installation
@@ -60,9 +76,8 @@ Add the following snippet to your build script:
 <summary>Kotlin Format</summary>
 
 ```kotlin
-// Replace <plugin version> with the version of the Gradle Artifactory Plugin.
 plugins {
-    id("com.jfrog.artifactory") version "<plugin version>"
+    id("com.jfrog.artifactory") version "5.+"
 }
 ```
 
@@ -73,7 +88,7 @@ plugins {
 
 ```groovy
 plugins {
-    id "com.jfrog.artifactory" version "<plugin version>"
+    id "com.jfrog.artifactory" version "5.+"
 }
 ```
 
