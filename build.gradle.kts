@@ -80,13 +80,38 @@ pluginBundle {
     }
 }
 
+val uberJar by tasks.register<Jar>("uberJar") {
+    archiveClassifier.set("uber")
+    // Include the project classes
+    from(sourceSets.main.get().output)
+    // Include all dependencies
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    dependsOn(configurations.runtimeClasspath)
+    from({
+        configurations.runtimeClasspath.get().filter {
+            it.name.endsWith(".jar")
+                    && !it.name.contains("gradle") && !it.name.contains("groovy")
+        }.map { zipTree(it) }
+    })
+    // Exclude META-INF files from dependencies
+    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
+}
+
+tasks.named<Jar>("jar") {
+    dependsOn(uberJar)
+    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
+}
+
+publishing.publications.withType<MavenPublication>().configureEach {
+    artifact(uberJar)
+}
+
 afterEvaluate {
+
     publishing.publications.named("pluginMaven", MavenPublication::class) {
         artifactId = rootProject.name
         groupId = groupVal
         version = project.findProperty("version").toString()
-
-        artifact(uberJar)
 
         pom {
             name.set(rootProject.name)
@@ -113,28 +138,6 @@ afterEvaluate {
             }
         }
     }
-}
-
-val uberJar by tasks.register<Jar>("uberJar") {
-    archiveClassifier.set("uber")
-    // Include the project classes
-    from(sourceSets.main.get().output)
-    // Include all dependencies
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    dependsOn(configurations.runtimeClasspath)
-    from({
-        configurations.runtimeClasspath.get().filter {
-            it.name.endsWith(".jar")
-                    && !it.name.contains("gradle") && !it.name.contains("groovy")
-        }.map { zipTree(it) }
-    })
-    // Exclude META-INF files from dependencies
-    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
-}
-
-tasks.named<Jar>("jar") {
-    dependsOn(uberJar)
-    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
 nexusPublishing {
