@@ -1,3 +1,5 @@
+import org.gradle.api.publish.maven.MavenPom
+
 val groupVal = "org.jfrog.buildinfo"
 val pluginDescription = "JFrog Gradle plugin publishes artifacts to Artifactory and handles the collection and publishing of Build Info."
 val functionalTest by sourceSets.creating
@@ -104,38 +106,28 @@ tasks.named<Jar>("jar") {
 
 publishing.publications.withType<MavenPublication>().configureEach {
     artifact(uberJar)
-}
+    pom {
+        name.set(rootProject.name)
+        description.set(pluginDescription)
+        url.set("https://github.com/jfrog/artifactory-gradle-plugin")
 
-afterEvaluate {
-
-    publishing.publications.named("pluginMaven", MavenPublication::class) {
-        artifactId = rootProject.name
-        groupId = groupVal
-        version = project.findProperty("version").toString()
-
-        pom {
-            name.set(rootProject.name)
-            description.set(pluginDescription)
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+            }
+        }
+        developers {
+            developer {
+                id.set("JFrog")
+                name.set("JFrog")
+                email.set("eco-system@jfrog.com")
+            }
+        }
+        scm {
+            connection.set("scm:git:git://github.com/jfrog/artifactory-gradle-plugin.git")
+            developerConnection.set("scm:git:git@github.com/jfrog/artifactory-gradle-plugin.git")
             url.set("https://github.com/jfrog/artifactory-gradle-plugin")
-
-            licenses {
-                license {
-                    name.set("The Apache License, Version 2.0")
-                    url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
-                }
-            }
-            developers {
-                developer {
-                    id.set("JFrog")
-                    name.set("JFrog")
-                    email.set("eco-system@jfrog.com")
-                }
-            }
-            scm {
-                connection.set("scm:git:git://github.com/jfrog/artifactory-gradle-plugin.git")
-                developerConnection.set("scm:git:git@github.com/jfrog/artifactory-gradle-plugin.git")
-                url.set("https://github.com/jfrog/artifactory-gradle-plugin")
-            }
         }
     }
 }
