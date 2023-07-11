@@ -1,5 +1,3 @@
-import com.gradle.publish.PublishTask
-
 val groupVal = "org.jfrog.buildinfo"
 val pluginDescription = "JFrog Gradle plugin publishes artifacts to Artifactory and handles the collection and publishing of Build Info."
 val functionalTest by sourceSets.creating
@@ -82,27 +80,6 @@ pluginBundle {
     }
 }
 
-val uberJar by tasks.register<Jar>("uberJar") {
-    archiveClassifier.set("uber")
-    // Include the project classes
-    from(sourceSets.main.get().output)
-    // Include all dependencies
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    dependsOn(configurations.compileClasspath)
-    from({
-        configurations.compileClasspath.get().filter {
-            it.name.endsWith(".jar") && !it.name.contains("gradle") && !it.name.contains("groovy")
-        }.map { zipTree(it) }
-    })
-    // Exclude META-INF files from dependencies
-    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
-}
-
-tasks.named<Jar>("jar") {
-    dependsOn(uberJar)
-    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
-}
-
 afterEvaluate {
     publishing.publications.named("pluginMaven", MavenPublication::class) {
         artifactId = rootProject.name
@@ -136,6 +113,28 @@ afterEvaluate {
             }
         }
     }
+}
+
+val uberJar by tasks.register<Jar>("uberJar") {
+    archiveClassifier.set("uber")
+    // Include the project classes
+    from(sourceSets.main.get().output)
+    // Include all dependencies
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    dependsOn(configurations.runtimeClasspath)
+    from({
+        configurations.runtimeClasspath.get().filter {
+            it.name.endsWith(".jar")
+                    && !it.name.contains("gradle") && !it.name.contains("groovy")
+        }.map { zipTree(it) }
+    })
+    // Exclude META-INF files from dependencies
+    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
+}
+
+tasks.named<Jar>("jar") {
+    dependsOn(uberJar)
+    exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
 nexusPublishing {
