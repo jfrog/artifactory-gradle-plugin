@@ -1,5 +1,3 @@
-import org.gradle.api.publish.maven.MavenPom
-
 val groupVal = "org.jfrog.buildinfo"
 val pluginDescription = "JFrog Gradle plugin publishes artifacts to Artifactory and handles the collection and publishing of Build Info."
 val functionalTest by sourceSets.creating
