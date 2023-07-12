@@ -44,6 +44,23 @@ following actions on the project and its submodules:
 
 > **_NOTE:_** The minimum supported Gradle version to use this plugin is v6.9
 
+<details>
+<summary> 🚚 Migrating from Version 4 to Version 5 of the Plugin</summary>
+
+---
+
+#### Version 5 of the Gradle Artifactory Plugin includes the following breaking changes compared to version 4
+
+* The minimum version of Gradle required to use this plugin has been upgraded to version 6.9.
+* The below convention attributes have been removed:
+
+  | Attribute | Migration action                                                                                                                                                                                                                             |
+  |:---------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+  |  parent   | No longer supported.                                                                                                                                                                                                                         |
+  |  resolve  | To define the Artifactory resolution repositories for your build, declare the repositories under the repositories section as described [here](https://docs.gradle.org/current/userguide/declaring_repositories.html#declaring-repositories). |
+
+</details>
+
 ---
 
 ## 📦 Installation
@@ -60,9 +77,8 @@ Add the following snippet to your build script:
 <summary>Kotlin Format</summary>
 
 ```kotlin
-// Replace <plugin version> with the version of the Gradle Artifactory Plugin.
 plugins {
-    id("com.jfrog.artifactory") version "<plugin version>"
+    id("com.jfrog.artifactory") version "5.+"
 }
 ```
 
@@ -73,7 +89,7 @@ plugins {
 
 ```groovy
 plugins {
-    id "com.jfrog.artifactory" version "<plugin version>"
+    id "com.jfrog.artifactory" version "5.+"
 }
 ```
 
@@ -193,7 +209,7 @@ configure<ArtifactoryPluginConvention> {
         defaults {
             // artifactoryPublish task attributes...
         }
-       
+
         // (default: true) Publish the generated build-info file to Artifactory
         publishBuildInfo(false)
         // (default: 3) Number of threads that will work and deploy artifacts to Artifactory
