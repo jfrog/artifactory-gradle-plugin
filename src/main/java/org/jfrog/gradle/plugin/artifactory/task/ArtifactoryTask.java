@@ -4,10 +4,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import groovy.lang.Closure;
 import org.apache.commons.lang3.StringUtils;
-import org.gradle.api.Action;
-import org.gradle.api.DefaultTask;
-import org.gradle.api.Project;
-import org.gradle.api.Task;
+import org.gradle.api.*;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.publish.Publication;
@@ -19,10 +16,8 @@ import org.gradle.api.publish.ivy.IvyPublication;
 import org.gradle.api.publish.ivy.internal.publication.IvyPublicationInternal;
 import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal;
-import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.*;
 import org.gradle.api.tasks.Optional;
-import org.gradle.api.tasks.TaskAction;
 import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
@@ -89,9 +84,11 @@ public class ArtifactoryTask extends DefaultTask {
 
         // Depends on Information Collection tasks from all the subprojects
         for (Project sub : project.getSubprojects()) {
-            Task subCollectInfoTask = sub.getTasks().findByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME);
-            if (subCollectInfoTask != null) {
+            try {
+                TaskProvider<Task> subCollectInfoTask = sub.getTasks().named(Constant.ARTIFACTORY_PUBLISH_TASK_NAME);
                 dependsOn(subCollectInfoTask);
+            } catch (UnknownTaskException e) {
+                log.debug("Can't find sub projects configured for {}", getPath());
             }
         }
 
@@ -334,11 +331,12 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     public void finalizeByDeployTask(Project project) {
-        Task deployTask = project.getRootProject().getTasks().findByName(Constant.DEPLOY_TASK_NAME);
-        if (deployTask == null) {
-            throw new IllegalStateException(String.format("Could not find %s in the root project", Constant.DEPLOY_TASK_NAME));
+        try {
+            TaskProvider<Task> deployTask = project.getRootProject().getTasks().named(Constant.DEPLOY_TASK_NAME);
+            finalizedBy(deployTask);
+        } catch (UnknownTaskException e) {
+            throw new IllegalStateException(String.format("Could not find %s in the root project", Constant.DEPLOY_TASK_NAME), e);
         }
-        finalizedBy(deployTask);
     }
 
     public void properties(Closure<PropertiesConfig> closure) {
