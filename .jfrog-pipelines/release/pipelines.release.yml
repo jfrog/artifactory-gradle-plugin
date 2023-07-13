@@ -57,15 +57,15 @@ pipelines:
             - git commit -am "[artifactory-release] Release version ${NEXT_VERSION} [skipRun]" --allow-empty
             - git tag ${NEXT_VERSION}
 
-            # Run build and publish
+            # Run validations, build and publish
             - >
-              jf gradle clean build artifactoryPublish -x test -x functionalTest
+              jf gradle clean validatePlugins build artifactoryPublish -x test -x functionalTest
             - jf rt bag && jf rt bce
             - jf rt bp
 
             # Distribute release bundle
-            #- jf ds rbc ecosystem-artifactory-gradle-plugin $NEXT_VERSION --spec=./.jfrog-pipelines/release/specs/prod-rbc-filespec.json --spec-vars="version=$NEXT_VERSION" --sign
-            #- jf ds rbd ecosystem-artifactory-gradle-plugin $NEXT_VERSION --site="releases.jfrog.io" --sync
+            - jf ds rbc ecosystem-artifactory-gradle-plugin $NEXT_VERSION --spec=./.jfrog-pipelines/release/specs/prod-rbc-filespec.json --spec-vars="version=$NEXT_VERSION" --sign
+            - jf ds rbd ecosystem-artifactory-gradle-plugin $NEXT_VERSION --site="releases.jfrog.io" --sync
 
             # Publish to Maven Central
             - >
