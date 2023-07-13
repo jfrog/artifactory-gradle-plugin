@@ -102,6 +102,10 @@ tasks.named<Jar>("jar") {
     exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
+tasks.matching{ task -> task.name.contains("PluginMarker") }.configureEach {
+    enabled = false
+}
+
 publishing.publications.withType<MavenPublication>().configureEach {
     artifact(uberJar)
     pom {
