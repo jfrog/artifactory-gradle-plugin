@@ -1,3 +1,5 @@
+[![](https://github.com/jfrog/artifactory-gradle-plugin/assets/29822394/151248d7-8e7b-4bae-98ff-9fd4976e5e8d)](#readme)
+
 <div align="center">
 
 # 🐸 Artifactory Gradle Plugin 🐘
