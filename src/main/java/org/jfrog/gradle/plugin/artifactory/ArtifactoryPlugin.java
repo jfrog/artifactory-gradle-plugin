@@ -5,6 +5,7 @@ import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.api.tasks.TaskProvider;
 import org.jfrog.build.client.Version;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
@@ -26,8 +27,8 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         // Get / Add an Artifactory plugin convention to the project module
         ArtifactoryPluginConvention convention = ConventionUtils.getOrCreateArtifactoryConvention(project);
         // Add the collect publications for deploy details and extract module-info tasks to the project module
-        ArtifactoryTask collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
-        TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask);
+        TaskProvider<ArtifactoryTask> collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
+        TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask, project);
 
         if (ProjectUtils.isRootProject(project)) {
             // Add extract build-info and deploy task for the root to only deploy one time
