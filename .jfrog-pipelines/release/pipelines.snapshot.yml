@@ -42,13 +42,13 @@ pipelines:
             # Delete former snapshots to make sure the release bundle will not contain the same artifacts
             - jf rt del "ecosys-oss-snapshot-local/com/jfrog/buildinfo/build-info-extractor-gradle/*" --quiet
 
-            # Run test, build and publish snapshot
+            # Build and publish snapshot
             - >
               env -i PATH=$PATH HOME=$HOME
               JFROG_CLI_BUILD_NAME=$JFROG_CLI_BUILD_NAME
               JFROG_CLI_BUILD_NUMBER=$JFROG_CLI_BUILD_NUMBER
               JFROG_CLI_BUILD_PROJECT=$JFROG_CLI_BUILD_PROJECT
-              jf gradle clean build artifactoryPublish -x functionalTest
+              jf gradle clean validatePlugins build artifactoryPublish -x test -x functionalTest
             - jf rt bag && jf rt bce
             - jf rt bp
 

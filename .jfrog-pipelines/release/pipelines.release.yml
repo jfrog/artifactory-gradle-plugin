@@ -57,9 +57,9 @@ pipelines:
             - git commit -am "[artifactory-release] Release version ${NEXT_VERSION} [skipRun]" --allow-empty
             - git tag ${NEXT_VERSION}
 
-            # Run build and publish
+            # Run validations, build and publish
             - >
-              jf gradle clean build artifactoryPublish -x test -x functionalTest
+              jf gradle clean validatePlugins build artifactoryPublish -x test -x functionalTest
             - jf rt bag && jf rt bce
             - jf rt bp
 
