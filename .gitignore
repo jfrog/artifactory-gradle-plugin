@@ -8,5 +8,8 @@
 /build
 *.iml
 
-## IOS
+# IOS
 .DS_Store
+
+# Misc
+.java-version
