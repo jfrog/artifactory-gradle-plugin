@@ -29,7 +29,7 @@ public class TaskUtils {
      * @param taskDescription - the task description
      * @param project         - the project to create the task inside
      * @param publishGroup    - if true this task will be added to publish, else will be added to 'other'
-     * @return the task that was created in the project
+     * @return the taskProvider that was created in the project
      */
     private static <T extends Task> TaskProvider<T> registerTaskInProject(String taskName, Class<T> taskClass, String taskDescription, Project project, boolean publishGroup) {
         log.debug("Configuring {} task for project (is root: {}) {}", taskName, ProjectUtils.isRootProject(project), project.getPath());
@@ -47,7 +47,7 @@ public class TaskUtils {
      * Adds to a given project a task to collect all the publications and information to be deployed.
      *
      * @param project - the module to collect information from
-     * @return - task that was created for the given module
+     * @return - taskProvider that was created for the given module
      */
     public static TaskProvider<ArtifactoryTask> addCollectDeployDetailsTask(Project project) {
         try {
