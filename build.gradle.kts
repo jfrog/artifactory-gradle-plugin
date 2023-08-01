@@ -33,10 +33,10 @@ java {
 }
 
 dependencies {
-    implementation("org.jfrog.buildinfo", "build-info-extractor", buildInfoVersion)
-    implementation("org.jfrog.buildinfo", "build-info-api", buildInfoVersion)
-    implementation("org.jfrog.buildinfo", "build-info-client", buildInfoVersion)
-    implementation("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
+    api("org.jfrog.buildinfo", "build-info-extractor", buildInfoVersion)
+    api("org.jfrog.buildinfo", "build-info-api", buildInfoVersion)
+    api("org.jfrog.buildinfo", "build-info-client", buildInfoVersion)
+    api("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
 
     implementation("org.apache.commons", "commons-lang3", commonsLangVersion)
     implementation("org.apache.ivy", "ivy", "2.5.1")
