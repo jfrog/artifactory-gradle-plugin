@@ -1,9 +1,15 @@
 package org.jfrog.gradle.plugin.artifactory.extractor;
 
 import com.google.common.collect.Sets;
+import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.artifacts.ResolvedArtifact;
+import org.gradle.api.artifacts.component.ComponentIdentifier;
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
+import org.gradle.api.artifacts.result.DependencyResult;
+import org.gradle.api.artifacts.result.ResolvedArtifactResult;
+import org.gradle.api.artifacts.result.ResolvedComponentResult;
+import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.jfrog.build.api.builder.ModuleType;
@@ -126,8 +132,9 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
                 log.info("Artifacts for configuration '{}' were not all resolved, skipping", configuration.getName());
                 continue;
             }
-            for (final ResolvedArtifact artifact : configuration.getResolvedConfiguration().getResolvedArtifacts()) {
-                Dependency extractedDependency = extractDependencyFromResolvedArtifact(configuration, artifact, requestedByMap, dependencies);
+            Set<? extends DependencyResult> dependencyResults = configuration.getIncoming().getResolutionResult().getAllDependencies();
+            for (ResolvedArtifactResult artifact : configuration.getIncoming().artifactView(view -> view.setLenient(true)).getArtifacts()) {
+                Dependency extractedDependency = extractDependencyFromResolvedArtifact(configuration, artifact, dependencyResults, requestedByMap, dependencies);
                 if (extractedDependency == null) {
                     continue;
                 }
@@ -137,12 +144,13 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
         return dependencies;
     }
 
-    private Dependency extractDependencyFromResolvedArtifact(Configuration configuration, final ResolvedArtifact artifact, Map<String, String[][]> requestedByMap, List<Dependency> dependencies) throws NoSuchAlgorithmException, IOException {
+    private Dependency extractDependencyFromResolvedArtifact(Configuration configuration, ResolvedArtifactResult artifact, Set<? extends DependencyResult> dependencyResults,
+                                                             Map<String, String[][]> requestedByMap, List<Dependency> dependencies) throws NoSuchAlgorithmException, IOException {
         File file = artifact.getFile();
         if (!file.exists()) {
             return null;
         }
-        final String depId = ProjectUtils.getId(artifact.getModuleVersion().getId());
+        String depId = extractDependencyId(artifact, dependencyResults);
         Dependency existingDependency = dependencies.stream()
                 .filter(input -> input.getId().equals(depId)).findAny().orElse(null);
         if (existingDependency != null) {
@@ -154,8 +162,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
         }
         // New dependency to extract
         DependencyBuilder dependencyBuilder = new DependencyBuilder()
-                .type(getTypeString(artifact.getType(),
-                        artifact.getClassifier(), artifact.getExtension()))
+                .type(StringUtils.substringAfterLast(file.getName(), "."))
                 .id(depId)
                 .scopes(Sets.newHashSet(configuration.getName()));
         if (requestedByMap != null) {
@@ -167,5 +174,29 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
             dependencyBuilder.md5(checksums.get(MD5_ALGORITHM)).sha1(checksums.get(SHA1_ALGORITHM)).sha256(checksums.get(SHA256_ALGORITHM));
         }
         return dependencyBuilder.build();
+    }
+
+    /**
+     * Extract the dependency ID from the resolved artifact and the set of resolved dependencies.
+     *
+     * @param artifact          - The resolved artifact
+     * @param dependencyResults - The set of resolved dependencies
+     * @return the dependency ID.
+     */
+    private String extractDependencyId(ResolvedArtifactResult artifact, Set<? extends DependencyResult> dependencyResults) {
+        ComponentIdentifier identifier = artifact.getId().getComponentIdentifier();
+        if (!(identifier instanceof ProjectComponentIdentifier)) {
+            return identifier.getDisplayName();
+        }
+        ResolvedComponentResult resolvedDependencyResult = dependencyResults.stream()
+                .filter(dependencyResult -> dependencyResult instanceof ResolvedDependencyResult)
+                .map(dependencyResult -> (ResolvedDependencyResult) dependencyResult)
+                .map(ResolvedDependencyResult::getSelected)
+                .filter(dependencyResult -> (dependencyResult.getId().equals(identifier))).findAny().orElse(null);
+        if (resolvedDependencyResult == null) {
+            log.warn("Couldn't find project '{}' inside the list of projects", identifier.getDisplayName());
+            return null;
+        }
+        return ProjectUtils.getId(resolvedDependencyResult.getModuleVersion());
     }
 }
