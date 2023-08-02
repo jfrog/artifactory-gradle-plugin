@@ -20,6 +20,7 @@ public class TestConstant {
     public static final Path BUILD_INFO_PROPERTIES_SOURCE_RESOLVER = PROJECTS_ROOT.resolve(Paths.get("settings", "buildinfo.properties.resolver"));
 
     // Test/Example Projects
+    public static final Path ANDROID_GRADLE_EXAMPLE = PROJECTS_ROOT.resolve("gradle-android-example");
     public static final Path GRADLE_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-example-publish");
     public static final Path GRADLE_KTS_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-kts-example-publish");
     public static final Path GRADLE_EXAMPLE_CI_SERVER = PROJECTS_ROOT.resolve("gradle-example-ci-server");
@@ -50,6 +51,9 @@ public class TestConstant {
     // Build info json path if not published
     public static final Path BUILD_INFO_JSON = TEST_DIR.toPath().resolve(Paths.get("build", "build-info.json"));
 
+    // Android
+    public static final String GRADLE_ANDROID_VERSION = "8.2.1";
+
     // Results
     public static final String ARTIFACTS_GROUP_ID = "/org/jfrog/test/gradle/publish/";
     public static final String[] EXPECTED_ARTIFACTS = {
@@ -73,4 +77,11 @@ public class TestConstant {
                             "shared/1.0-SNAPSHOT/shared-1.0-SNAPSHOT.module",
                             "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.module")).
             toArray(String[]::new);
+
+    public static final String[] EXPECTED_ANDROID_ARTIFACTS = {
+            "library/1.0-SNAPSHOT/library-1.0-SNAPSHOT.aar",
+            "app/1.0-SNAPSHOT/app-1.0-SNAPSHOT.apk",
+            "library/1.0-SNAPSHOT/library-1.0-SNAPSHOT.pom",
+            "app/1.0-SNAPSHOT/app-1.0-SNAPSHOT.pom"
+    };
 }
