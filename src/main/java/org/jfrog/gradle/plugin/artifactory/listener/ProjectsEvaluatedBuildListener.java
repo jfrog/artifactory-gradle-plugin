@@ -12,8 +12,8 @@ import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.publish.PublishingExtension;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
-import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.Constant;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
@@ -63,15 +63,15 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
 
     private void addCiAttributesToTask(ArtifactoryTask collectDeployDetailsTask, ArtifactoryClientConfiguration clientConfiguration) {
         PublishingExtension publishingExtension = (PublishingExtension) collectDeployDetailsTask.getProject().getExtensions().findByName(Constant.PUBLISHING);
-        if (publishingExtension == null) {
-            log.debug("Can't find publishing extensions that is defined for the project {}", collectDeployDetailsTask.getProject().getPath());
-            return;
-        }
         String publicationsNames = clientConfiguration.publisher.getPublications();
         if (StringUtils.isNotBlank(publicationsNames)) {
-            collectDeployDetailsTask.publications((Object[]) publicationsNames.split(","));
+            if (publishingExtension == null) {
+                log.debug("Can't find publishing extensions that is defined for the project {}", collectDeployDetailsTask.getProject().getPath());
+            } else {
+                collectDeployDetailsTask.publications((Object[]) publicationsNames.split(","));
+            }
         } else if (ProjectUtils.hasOneOfComponents(collectDeployDetailsTask.getProject(), Constant.JAVA, Constant.JAVA_PLATFORM)) {
-            PublicationUtils.addDefaultPublications(collectDeployDetailsTask, publishingExtension);
+            PublicationUtils.addDefaultPublicationsOrArchiveConfigurations(collectDeployDetailsTask, publishingExtension);
         }
     }
 
