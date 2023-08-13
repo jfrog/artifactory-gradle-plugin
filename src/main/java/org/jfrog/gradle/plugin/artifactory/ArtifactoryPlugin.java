@@ -34,7 +34,8 @@ public class ArtifactoryPlugin implements Plugin<Project> {
             // Add extract build-info and deploy task for the root to only deploy one time
             TaskUtils.addDeploymentTask(project);
             // Add a DependencyResolutionListener, to populate the dependency hierarchy map.
-            project.getGradle().addListener(resolutionListener);
+            project.getAllprojects().forEach(subproject ->
+                    subproject.getConfigurations().all(config -> config.getIncoming().afterResolve(resolutionListener::afterResolve)));
         } else {
             // Makes sure the plugin is applied in the root project
             project.getRootProject().getPluginManager().apply(ArtifactoryPlugin.class);

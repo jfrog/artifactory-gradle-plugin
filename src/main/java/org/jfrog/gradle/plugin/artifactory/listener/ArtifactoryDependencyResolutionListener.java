@@ -1,6 +1,5 @@
 package org.jfrog.gradle.plugin.artifactory.listener;
 
-import org.gradle.api.artifacts.DependencyResolutionListener;
 import org.gradle.api.artifacts.ResolvableDependencies;
 import org.gradle.api.artifacts.result.DependencyResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
@@ -10,17 +9,12 @@ import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 import java.util.*;
 
 /**
- * Represents a DependencyResolutionListener, used to populate a dependency hierarchy map for each dependency in each module,
+ * Populate a dependency hierarchy map for each dependency in each module,
  * which is used in the 'requestedBy' field of every dependency in the build info, by listening to the 'afterResolve' event of every module.
  */
-public class ArtifactoryDependencyResolutionListener implements DependencyResolutionListener {
+public class ArtifactoryDependencyResolutionListener {
     private final Map<String, Map<String, String[][]>> modulesHierarchyMap = new HashMap<>();
 
-    @Override
-    public void beforeResolve(ResolvableDependencies dependencies) {
-    }
-
-    @Override
     public void afterResolve(ResolvableDependencies dependencies) {
         if (!dependencies.getResolutionResult().getAllDependencies().isEmpty()) {
             updateModulesMap(dependencies);
