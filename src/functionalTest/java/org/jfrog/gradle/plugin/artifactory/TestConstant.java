@@ -21,6 +21,7 @@ public class TestConstant {
 
     // Test/Example Projects
     public static final Path ANDROID_GRADLE_EXAMPLE = PROJECTS_ROOT.resolve("gradle-android-example");
+    public static final Path ANDROID_GRADLE_CI_EXAMPLE = PROJECTS_ROOT.resolve("gradle-android-ci-example");
     public static final Path GRADLE_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-example-publish");
     public static final Path GRADLE_KTS_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-kts-example-publish");
     public static final Path GRADLE_EXAMPLE_CI_SERVER = PROJECTS_ROOT.resolve("gradle-example-ci-server");

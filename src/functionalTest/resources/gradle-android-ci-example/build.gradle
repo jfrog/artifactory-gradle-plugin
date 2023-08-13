@@ -1,0 +1,56 @@
+allprojects {
+    apply plugin: 'maven-publish'
+    version = currentVersion
+    repositories {
+        maven {
+            url "${System.env.BITESTS_PLATFORM_URL}/artifactory/${System.env.BITESTS_ARTIFACTORY_VIRTUAL_REPO}"
+            credentials {
+                username "${System.env.BITESTS_PLATFORM_USERNAME}"
+                password "${System.env.BITESTS_PLATFORM_ADMIN_TOKEN}"
+            }
+        }
+        google()
+    }
+}
+
+// Setting this property to true will make the artifactoryPublish task
+// skip this module (in our case, the root module):
+artifactoryPublish.skip = true
+
+project('app') {
+    artifactoryPublish.dependsOn('build')
+    publishing {
+        publications {
+            app(MavenPublication) {
+                groupId = group
+                artifactId = project.getName()
+                version = currentVersion
+
+                artifact("$buildDir/outputs/apk/release/app-release-unsigned.apk")
+            }
+        }
+    }
+
+    artifactoryPublish {
+        publications(publishing.publications.app)
+    }
+}
+
+project('library') {
+    artifactoryPublish.dependsOn('build')
+    publishing {
+        publications {
+            aar(MavenPublication) {
+                groupId = group
+                artifactId = project.getName()
+                version = currentVersion
+                // Tell maven to prepare the generated "*.aar" file for publishing
+                artifact("$buildDir/outputs/aar/${project.getName()}-release.aar")
+            }
+        }
+    }
+
+    artifactoryPublish {
+        publications(publishing.publications.aar)
+    }
+}
