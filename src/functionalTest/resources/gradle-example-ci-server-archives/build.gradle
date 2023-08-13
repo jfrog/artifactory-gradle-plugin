@@ -1,0 +1,32 @@
+def javaProjects() {
+  subprojects.findAll { new File(it.projectDir, 'src').directory }
+}
+
+allprojects {
+  group = 'org.jfrog.test.gradle.publish'
+  version = currentVersion
+  status = 'Integration'
+  repositories {
+    maven {
+      url "${System.env.BITESTS_PLATFORM_URL}/artifactory/${System.env.BITESTS_ARTIFACTORY_VIRTUAL_REPO}"
+      credentials {
+        username "${System.env.BITESTS_PLATFORM_USERNAME}"
+        password "${System.env.BITESTS_PLATFORM_ADMIN_TOKEN}"
+      }
+    }
+  }
+}
+
+artifactoryPublish.skip = true
+
+project('services') {
+  artifactoryPublish.skip = true
+}
+
+configure(javaProjects()) {
+  apply plugin: 'java'
+
+  dependencies {
+    testImplementation 'junit:junit:4.7'
+  }
+}

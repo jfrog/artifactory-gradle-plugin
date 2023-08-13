@@ -40,4 +40,12 @@ public class PluginCiPublishTest extends GradleFunctionalTestBase {
                 buildResult -> ValidationUtils.checkLocalBuild(buildResult, TestConstant.BUILD_INFO_JSON.toFile(), 3, 5)
         );
     }
+
+    @Test(dataProvider = "gradleVersions")
+    public void ciServerArchivesTest(String gradleVersion) throws IOException {
+        runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_CI_SERVER_ARCHIVES, true,
+                () -> Utils.generateBuildInfoProperties(this, "", true, true),
+                buildResult -> ValidationUtils.checkArchivesBuildResults(artifactoryManager, buildResult, localRepo)
+        );
+    }
 }
