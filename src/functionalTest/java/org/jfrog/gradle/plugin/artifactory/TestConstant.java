@@ -25,6 +25,7 @@ public class TestConstant {
     public static final Path GRADLE_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-example-publish");
     public static final Path GRADLE_KTS_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-kts-example-publish");
     public static final Path GRADLE_EXAMPLE_CI_SERVER = PROJECTS_ROOT.resolve("gradle-example-ci-server");
+    public static final Path GRADLE_EXAMPLE_CI_SERVER_ARCHIVES = PROJECTS_ROOT.resolve("gradle-example-ci-server-archives");
     public static final Path GRADLE_EXAMPLE_DEFAULT_BOM = PROJECTS_ROOT.resolve("gradle-example-default-bom");
     public static final Path GRADLE_EXAMPLE_CUSTOM_BOM = PROJECTS_ROOT.resolve("gradle-example-custom-bom");
 
@@ -70,6 +71,11 @@ public class TestConstant {
             "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.jar",
             "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.pom",
             "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.properties"
+    };
+    public static final String[] EXPECTED_ARCHIVE_ARTIFACTS = {
+            "api/1.0-SNAPSHOT/api-1.0-SNAPSHOT.jar",
+            "shared/1.0-SNAPSHOT/shared-1.0-SNAPSHOT.jar",
+            "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.war",
     };
     public static final String[] EXPECTED_MODULE_ARTIFACTS = Stream.concat(
                     Stream.of(EXPECTED_ARTIFACTS),

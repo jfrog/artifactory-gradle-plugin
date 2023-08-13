@@ -5,6 +5,8 @@ import com.google.common.collect.Multimap;
 import groovy.lang.Closure;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
+import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.publish.Publication;
@@ -16,8 +18,8 @@ import org.gradle.api.publish.ivy.IvyPublication;
 import org.gradle.api.publish.ivy.internal.publication.IvyPublicationInternal;
 import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal;
-import org.gradle.api.tasks.*;
 import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.*;
 import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
@@ -60,6 +62,7 @@ public class ArtifactoryTask extends DefaultTask {
     // Internal attributes
     public Set<IvyPublication> ivyPublications = new HashSet<>();
     public Set<MavenPublication> mavenPublications = new HashSet<>();
+    private final Set<Configuration> archiveConfigurations = new HashSet<>();
     // This project has specified publications to the task
     private boolean publishPublicationsSpecified = false;
     @Internal
@@ -123,6 +126,7 @@ public class ArtifactoryTask extends DefaultTask {
         try {
             collectDetailsFromIvyPublications();
             collectDetailsFromMavenPublications();
+            collectDetailsFromConfigurations();
         } catch (Exception e) {
             throw new RuntimeException("Cannot collect deploy details for " + getPath(), e);
         }
@@ -151,6 +155,17 @@ public class ArtifactoryTask extends DefaultTask {
                 continue;
             }
             PublicationUtils.extractMavenDeployDetails((MavenPublicationInternal) mavenPublication, this);
+        }
+    }
+
+    private void collectDetailsFromConfigurations() {
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(getProject());
+        if (publisher == null) {
+            return;
+        }
+
+        for (Configuration configuration : archiveConfigurations) {
+            PublicationUtils.extractArchivesDeployDetails(configuration, publisher, this);
         }
     }
 
@@ -270,6 +285,18 @@ public class ArtifactoryTask extends DefaultTask {
         checkDependsOnArtifactsToPublish();
     }
 
+    public void addDefaultArchiveConfigurations() {
+        Project project = getProject();
+        Configuration archiveConfig = project.getConfigurations().findByName(Dependency.ARCHIVES_CONFIGURATION);
+        if (archiveConfig == null) {
+            log.debug("No publish configurations specified for project '{}' and the default '{}' " +
+                    "configuration does not exist.", project.getPath(), Dependency.ARCHIVES_CONFIGURATION);
+            return;
+        }
+        archiveConfigurations.add(archiveConfig);
+        dependsOn(archiveConfig.getArtifacts());
+    }
+
     private void addPublicationIfExists(PublishingExtension publishingExtension, String publicationName) {
         Publication publication = publishingExtension.getPublications().findByName(publicationName);
         if (publication != null) {
@@ -327,7 +354,7 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     public boolean hasPublications() {
-        return !ivyPublications.isEmpty() || !mavenPublications.isEmpty();
+        return !ivyPublications.isEmpty() || !mavenPublications.isEmpty() || !archiveConfigurations.isEmpty();
     }
 
     public void finalizeByDeployTask(Project project) {

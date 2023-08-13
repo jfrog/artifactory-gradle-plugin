@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import static org.apache.commons.lang3.StringUtils.equalsAny;
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS;
 import static org.jfrog.build.extractor.BuildInfoExtractorUtils.jsonStringToBuildInfo;
 import static org.testng.Assert.*;
@@ -27,12 +28,36 @@ public class ValidationUtils {
         void validate(BuildResult buildResult) throws IOException;
     }
 
+    /**
+     * Check build results of a Gradle project with publications.
+     *
+     * @param artifactoryManager - The ArtifactoryManager client
+     * @param buildResult        - The build results
+     * @param localRepo          - Local Maven repository in Artifactory
+     * @throws IOException - In case of any IO error
+     */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConstant.EXPECTED_MODULE_ARTIFACTS, 5);
+    }
+
+    /**
+     * Check build results of a Gradle project without publications.
+     *
+     * @param artifactoryManager - The ArtifactoryManager client
+     * @param buildResult        - The build results
+     * @param localRepo          - Local Maven repository in Artifactory
+     * @throws IOException - In case of any IO error
+     */
+    public static void checkArchivesBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConstant.EXPECTED_ARCHIVE_ARTIFACTS, 1);
+    }
+
+    private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
+                                          String[] expectedArtifacts, int expectedArtifactsPerModule) throws IOException {
         // Assert all tasks ended with success outcome
         assertProjectsSuccess(buildResult);
 
         // Check that all expected artifacts uploaded to Artifactory
-        String[] expectedArtifacts = TestConstant.EXPECTED_MODULE_ARTIFACTS;
         for (String expectedArtifact : expectedArtifacts) {
             artifactoryManager.downloadHeaders(localRepo + TestConstant.ARTIFACTS_GROUP_ID + expectedArtifact);
         }
@@ -40,11 +65,11 @@ public class ValidationUtils {
         // Check buildInfo info
         BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
         assertNotNull(buildInfo);
-        checkBuildInfoModules(buildInfo, 3, 5);
+        checkBuildInfoModules(buildInfo, 3, expectedArtifactsPerModule);
 
         // Check build info properties on published Artifacts
         PropertySearchResult artifacts = artifactoryManager.searchArtifactsByProperties(String.format("build.name=%s;build.number=%s", buildInfo.getName(), buildInfo.getNumber()));
-        assertTrue(artifacts.getResults().size() >= 12);
+        assertTrue(artifacts.getResults().size() >= expectedArtifacts.length);
     }
 
     private static void assertProjectsSuccess(BuildResult buildResult) {
@@ -117,17 +142,19 @@ public class ValidationUtils {
     }
 
     /**
-     * Check webservice-1.0-SNAPSHOT.jar artifact under webservice module.
+     * Check webservice-1.0-SNAPSHOT.jar artifact under webservice module in publications mode.
+     * Check webservice-1.0-SNAPSHOT.war artifact under webservice module in archives mode.
      *
      * @param webservice - The webservice module
      */
     private static void checkWebserviceArtifact(Module webservice) {
         Artifact webServiceJar = webservice.getArtifacts().stream()
-                .filter(artifact -> StringUtils.equals(artifact.getName(), "webservice-1.0-SNAPSHOT.jar"))
+                .filter(artifact -> equalsAny(artifact.getName(), "webservice-1.0-SNAPSHOT.jar", "webservice-1.0-SNAPSHOT.war"))
                 .findAny().orElse(null);
         assertNotNull(webServiceJar);
-        assertEquals(webServiceJar.getType(), "jar");
-        assertEquals(webServiceJar.getRemotePath(), "org/jfrog/test/gradle/publish/webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.jar");
+        equalsAny(webServiceJar.getType(), "jar", "war");
+        equalsAny(webServiceJar.getRemotePath(), "org/jfrog/test/gradle/publish/webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.jar",
+                "org/jfrog/test/gradle/publish/webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.war");
         assertTrue(StringUtils.isNotBlank(webServiceJar.getMd5()));
         assertTrue(StringUtils.isNotBlank(webServiceJar.getSha1()));
         assertTrue(StringUtils.isNotBlank(webServiceJar.getSha256()));
