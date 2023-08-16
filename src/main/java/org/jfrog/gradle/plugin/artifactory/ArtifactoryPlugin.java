@@ -1,12 +1,10 @@
 package org.jfrog.gradle.plugin.artifactory;
 
-import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.tasks.TaskProvider;
-import org.jfrog.build.client.Version;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
 import org.jfrog.gradle.plugin.artifactory.listener.ProjectsEvaluatedBuildListener;
@@ -14,6 +12,8 @@ import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
+
+import static org.jfrog.gradle.plugin.artifactory.utils.PluginUtils.assertGradleVersionSupported;
 
 public class ArtifactoryPlugin implements Plugin<Project> {
     private static final Logger log = Logging.getLogger(ArtifactoryPlugin.class);
@@ -57,14 +57,8 @@ public class ArtifactoryPlugin implements Plugin<Project> {
             log.debug("Artifactory Plugin disabled for {}", project.getPath());
             return false;
         }
-        if (!isGradleVersionSupported(project)) {
-            throw new GradleException("Can't apply Artifactory Plugin on Gradle version " + project.getGradle().getGradleVersion() + ". Minimum supported Gradle version is " + Constant.MIN_GRADLE_VERSION);
-        }
+        assertGradleVersionSupported(project.getGradle());
         return true;
-    }
-
-    public boolean isGradleVersionSupported(Project project) {
-        return new Version(project.getGradle().getGradleVersion()).isAtLeast(Constant.MIN_GRADLE_VERSION);
     }
 
     public ArtifactoryDependencyResolutionListener getResolutionListener() {

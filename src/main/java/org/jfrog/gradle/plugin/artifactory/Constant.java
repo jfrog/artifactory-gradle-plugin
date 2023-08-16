@@ -8,7 +8,7 @@ public class Constant {
     public static final String PUBLISHING = "publishing";
 
     // Minimum Gradle version to use the plugin
-    public static final Version MIN_GRADLE_VERSION = new Version("6.9");
+    public static final Version MIN_GRADLE_VERSION = new Version("6.8.1");
 
     // Plugin tasks
     public static final String ARTIFACTORY_PUBLISH_TASK_NAME = "artifactoryPublish";
@@ -42,4 +42,9 @@ public class Constant {
     // Plugin generated file names
     public static final String MODULE_INFO_FILE_NAME = "moduleInfo.json";
     public static final String BUILD_INFO_FILE_NAME = "build-info.json";
+
+    // Resolution environment variables
+    public static final String RESOLUTION_URL_ENV = "ORG_GRADLE_PROJECT_artifactoryResolutionRepositoryUrl";
+    public static final String RESOLUTION_USERNAME_ENV = "ORG_GRADLE_PROJECT_artifactoryResolutionRepositoryUsername";
+    public static final String RESOLUTION_PASSWORD_ENV = "ORG_GRADLE_PROJECT_artifactoryResolutionRepositoryPassword";
 }

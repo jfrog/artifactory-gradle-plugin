@@ -1,4 +1,5 @@
 # Resolver settings
+buildInfoConfig.includeEnvVars = true
 resolve.contextUrl=${contextUrl}
 resolve.repoKey=${virtualRepo}
 resolve.username=${username}
