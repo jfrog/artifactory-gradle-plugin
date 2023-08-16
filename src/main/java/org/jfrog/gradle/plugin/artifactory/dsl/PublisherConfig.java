@@ -52,7 +52,7 @@ public class PublisherConfig {
     }
 
     @SuppressWarnings("unused")
-    public void publishBuildInfo(boolean publishBuildInfo) {
+    public void setPublishBuildInfo(boolean publishBuildInfo) {
         this.publisher.setPublishBuildInfo(publishBuildInfo);
     }
 
