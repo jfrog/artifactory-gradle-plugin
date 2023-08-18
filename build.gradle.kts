@@ -8,6 +8,7 @@ plugins {
     id("com.gradle.plugin-publish") version "1.2.0"
     id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
     id("signing")
+    id("com.github.spotbugs-base") version "4.8.0"
 }
 
 repositories {
@@ -60,6 +61,9 @@ dependencies {
     "functionalTestImplementation"("commons-io", "commons-io", commonsIoVersion)
     "functionalTestImplementation"("org.apache.httpcomponents", "httpclient", httpclientVersion)
     "functionalTestImplementation"(project(mapOf("path" to ":")))
+
+    spotbugs("com.github.spotbugs:spotbugs:4.7.1")
+    spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.12.0")
 }
 
 pluginBundle {
@@ -102,7 +106,7 @@ tasks.named<Jar>("jar") {
     exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
-tasks.matching{ task -> task.name.contains("PluginMarker") }.configureEach {
+tasks.matching { task -> task.name.contains("PluginMarker") }.configureEach {
     enabled = false
 }
 
@@ -169,4 +173,23 @@ val functionalTestTask = tasks.register<Test>("functionalTest") {
 
 tasks.check {
     dependsOn(functionalTestTask)
+}
+
+tasks.register<com.github.spotbugs.snom.SpotBugsTask>("spotBugs") {
+    classDirs = files(sourceSets.main.get().output)
+    sourceDirs = files(sourceSets.main.get().allSource.srcDirs)
+    auxClassPaths = files(sourceSets.main.get().compileClasspath)
+
+    reports {
+        create("text") {
+            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.txt"))
+        }
+        create("html") {
+            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.html"))
+            setStylesheet("fancy-hist.xsl")
+        }
+    }
+    excludeFilter.set(
+            file("${projectDir}/spotbugs-filter.xml")
+    )
 }

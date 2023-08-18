@@ -1,0 +1,37 @@
+<FindBugsFilter>
+    <!-- Handling EI_EXPOSE_REP and EI_EXPOSE_REP2 is memory-intensive due to the need for cloning large maps. -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <!-- The constructed file path cannot be controlled by the user. -->
+    <Match>
+        <Class name="org.jfrog.gradle.plugin.artifactory.task.DeployTask"/>
+        <Method name="deleteBuildInfoPropertiesFile"/>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Priority value="2"/>
+    </Match>
+    <!-- The constructed file path cannot be controlled by the user. -->
+    <Match>
+        <Class name="org.jfrog.gradle.plugin.artifactory.task.DeployTask"/>
+        <Method name="exportBuildInfoToFileSystem"/>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Priority value="2"/>
+    </Match>
+    <!-- The constructed file path cannot be controlled by the user. -->
+    <Match>
+        <Class name="org.jfrog.gradle.plugin.artifactory.task.DeployTask"/>
+        <Method name="getExportFile"/>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Priority value="2"/>
+    </Match>
+    <!-- The constructed file path cannot be controlled by the user. -->
+    <Match>
+        <Class name="org.jfrog.gradle.plugin.artifactory.utils.DeployUtils"/>
+        <Method name="exportDeployedArtifacts"/>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Priority value="2"/>
+    </Match>
+</FindBugsFilter>
