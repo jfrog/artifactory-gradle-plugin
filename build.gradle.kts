@@ -62,7 +62,13 @@ dependencies {
     "functionalTestImplementation"("org.apache.httpcomponents", "httpclient", httpclientVersion)
     "functionalTestImplementation"(project(mapOf("path" to ":")))
 
-    spotbugs("com.github.spotbugs:spotbugs:4.7.1")
+    // Static code analysis
+    spotbugs("com.github.spotbugs:spotbugs:4.7.1") {
+        exclude("org.apache.bcel", "bcel")
+        exclude("org.apache.commons", "commons-text")
+    }
+    spotbugs("org.apache.bcel", "bcel", "6.5.0")
+    spotbugs("org.apache.commons", "commons-text", "1.10.0")
     spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.12.0")
 }
 
