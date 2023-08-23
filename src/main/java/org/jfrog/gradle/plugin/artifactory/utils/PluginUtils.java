@@ -15,9 +15,8 @@ public class PluginUtils {
      */
     public static void assertGradleVersionSupported(Gradle gradle) throws GradleException {
         String gradleVersion = gradle.getGradleVersion();
-        if (new Version(gradleVersion).isAtLeast(Constant.MIN_GRADLE_VERSION)) {
-            return;
+        if (!new Version(gradleVersion).isAtLeast(Constant.MIN_GRADLE_VERSION)) {
+            throw new GradleException("Can't apply Artifactory Plugin on Gradle version " + gradleVersion + ". Minimum supported Gradle version is " + Constant.MIN_GRADLE_VERSION);
         }
-        throw new GradleException("Can't apply Artifactory Plugin on Gradle version " + gradleVersion + ". Minimum supported Gradle version is " + Constant.MIN_GRADLE_VERSION);
     }
 }

@@ -248,6 +248,9 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
 
     /**
      * Remove the injected resolution repository environment variables from the build-info.
+     * There are two distinct rationales for this:
+     * 1. Eliminating the internal metadata of the Gradle Artifactory plugin from the build-info.
+     * 2. Preventing the inclusion of confidential information in the build-info.
      *
      * @param buildInfo - The build info
      */
