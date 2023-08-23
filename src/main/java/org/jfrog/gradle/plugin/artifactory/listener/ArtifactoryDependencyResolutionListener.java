@@ -7,13 +7,14 @@ import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Populate a dependency hierarchy map for each dependency in each module,
  * which is used in the 'requestedBy' field of every dependency in the build info, by listening to the 'afterResolve' event of every module.
  */
 public class ArtifactoryDependencyResolutionListener {
-    private final Map<String, Map<String, String[][]>> modulesHierarchyMap = new HashMap<>();
+    private final Map<String, Map<String, String[][]>> modulesHierarchyMap = new ConcurrentHashMap<>();
 
     public void afterResolve(ResolvableDependencies dependencies) {
         if (!dependencies.getResolutionResult().getAllDependencies().isEmpty()) {
