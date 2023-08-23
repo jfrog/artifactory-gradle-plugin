@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 
+import static org.jfrog.gradle.plugin.artifactory.Constant.*;
+
 public class GradleFunctionalTestBase {
     // ArtifactoryManager
     protected ArtifactoryManager artifactoryManager;
@@ -44,7 +46,7 @@ public class GradleFunctionalTestBase {
 
     @DataProvider
     public Object[][] gradleVersions() {
-        return new Object[][]{{"6.9.3"}, {"7.5.1"}, {"7.6"}, {"8.1"}};
+        return new Object[][]{{"6.8.1"}, {"7.5.1"}, {"7.6"}, {"8.1"}};
     }
 
     @BeforeClass
@@ -97,6 +99,9 @@ public class GradleFunctionalTestBase {
         testEnvCreator.create();
         Map<String, String> extendedEnv = new HashMap<>(envVars) {{
             put(BuildInfoConfigProperties.PROP_PROPS_FILE, TestConstant.BUILD_INFO_PROPERTIES_TARGET.toString());
+            put(RESOLUTION_URL_ENV, getArtifactoryUrl() + virtualRepo);
+            put(RESOLUTION_USERNAME_ENV, getUsername());
+            put(RESOLUTION_PASSWORD_ENV, getAdminToken());
         }};
         // Run Gradle
         BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, extendedEnv, true);

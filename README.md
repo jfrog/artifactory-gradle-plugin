@@ -44,7 +44,7 @@ following actions on the project and its submodules:
    artifacts, which are the output of the build process, and the accompanying build-info file are stored and organized
    in your Artifactory repository for easy access and management.
 
-> **_NOTE:_** The minimum supported Gradle version to use this plugin is v6.9
+> **_NOTE:_** The minimum supported Gradle version to use this plugin is v6.8.1
 
 <details>
 <summary> 🚚 Migrating from Version 4 to Version 5 of the Plugin</summary>

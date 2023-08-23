@@ -21,6 +21,9 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.jfrog.build.extractor.ci.BuildInfoProperties.BUILD_INFO_ENVIRONMENT_PREFIX;
+import static org.jfrog.gradle.plugin.artifactory.Constant.*;
+
 public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
 
     private static final Logger log = Logging.getLogger(GradleBuildInfoExtractor.class);
@@ -37,6 +40,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
     public BuildInfo extract(Project rootProject) {
         BuildInfo buildInfo = createBuildInfoBuilder().build();
         PackageManagerUtils.collectEnvAndFilterProperties(clientConf, buildInfo);
+        removeResolutionProperties(buildInfo);
         log.debug("BuildInfo extracted = " + buildInfo);
         return buildInfo;
     }
@@ -240,5 +244,23 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
                     .comment(comment).repository(stagingRepository)
                     .ciUser(principal).user(artifactoryPrincipal).build());
         }
+    }
+
+    /**
+     * Remove the injected resolution repository environment variables from the build-info.
+     * There are two distinct rationales for this:
+     * 1. Eliminating the internal metadata of the Gradle Artifactory plugin from the build-info.
+     * 2. Preventing the inclusion of confidential information in the build-info.
+     *
+     * @param buildInfo - The build info
+     */
+    private void removeResolutionProperties(BuildInfo buildInfo) {
+        Properties properties = buildInfo.getProperties();
+        if (properties == null) {
+            return;
+        }
+        properties.remove(BUILD_INFO_ENVIRONMENT_PREFIX + RESOLUTION_URL_ENV);
+        properties.remove(BUILD_INFO_ENVIRONMENT_PREFIX + RESOLUTION_USERNAME_ENV);
+        properties.remove(BUILD_INFO_ENVIRONMENT_PREFIX + RESOLUTION_PASSWORD_ENV);
     }
 }

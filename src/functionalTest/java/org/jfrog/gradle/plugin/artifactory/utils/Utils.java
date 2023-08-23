@@ -72,7 +72,7 @@ public class Utils {
      * @return result of the task
      */
     public static BuildResult runPluginTask(String gradleVersion, File projectDir, String taskName, Map<String, String> envVars, boolean applyInitScript) throws IOException {
-        List<String> arguments = new ArrayList<>(Arrays.asList("clean", taskName, "--stacktrace"));
+        List<String> arguments = new ArrayList<>(Arrays.asList("clean", "build", taskName, "--stacktrace"));
         if (applyInitScript) {
             generateInitScript();
             arguments.add("--init-script=gradle.init");

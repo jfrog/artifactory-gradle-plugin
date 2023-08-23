@@ -21,6 +21,8 @@ import java.util.List;
 import static org.apache.commons.lang3.StringUtils.equalsAny;
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS;
 import static org.jfrog.build.extractor.BuildInfoExtractorUtils.jsonStringToBuildInfo;
+import static org.jfrog.gradle.plugin.artifactory.Constant.*;
+import static org.jfrog.gradle.plugin.artifactory.TestConstant.EXPECTED_VERSION_CATALOG_CONSUMER_ARTIFACTS;
 import static org.testng.Assert.*;
 
 public class ValidationUtils {
@@ -52,24 +54,72 @@ public class ValidationUtils {
         checkBuildResults(artifactoryManager, buildResult, localRepo, TestConstant.EXPECTED_ARCHIVE_ARTIFACTS, 1);
     }
 
+    /**
+     * Check build results of a Gradle project that uses Gradle Version Catalog to resolve a dependency.
+     *
+     * @param artifactoryManager - The ArtifactoryManager client
+     * @param buildResult        - The build results
+     * @param virtualRepo        - Virtual Maven repository in Artifactory
+     * @throws IOException In case of any IO error
+     */
+    public static void checkVersionCatalogResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String virtualRepo) throws IOException {
+        verifyArtifacts(artifactoryManager, virtualRepo + "/", EXPECTED_VERSION_CATALOG_CONSUMER_ARTIFACTS);
+
+        // Check build info
+        BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
+        assertNotNull(buildInfo);
+        Module module = buildInfo.getModule("com.jfrog:gradle_tests_space:1.0.0");
+        assertNotNull(module);
+
+        // Check commons-lang3 in the dependencies list
+        List<Dependency> dependencies = module.getDependencies();
+        assertEquals(dependencies.size(), 1);
+        Dependency dependency = dependencies.get(0);
+        assertEquals(dependency.getId(), "org.apache.commons:commons-lang3:3.9");
+    }
+
     private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
                                           String[] expectedArtifacts, int expectedArtifactsPerModule) throws IOException {
         // Assert all tasks ended with success outcome
         assertProjectsSuccess(buildResult);
 
         // Check that all expected artifacts uploaded to Artifactory
-        for (String expectedArtifact : expectedArtifacts) {
-            artifactoryManager.downloadHeaders(localRepo + TestConstant.ARTIFACTS_GROUP_ID + expectedArtifact);
-        }
+        verifyArtifacts(artifactoryManager, localRepo + TestConstant.ARTIFACTS_GROUP_ID, expectedArtifacts);
 
-        // Check buildInfo info
+        // Check build info
         BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
         assertNotNull(buildInfo);
+        checkFilteredEnv(buildInfo);
         checkBuildInfoModules(buildInfo, 3, expectedArtifactsPerModule);
 
         // Check build info properties on published Artifacts
         PropertySearchResult artifacts = artifactoryManager.searchArtifactsByProperties(String.format("build.name=%s;build.number=%s", buildInfo.getName(), buildInfo.getNumber()));
         assertTrue(artifacts.getResults().size() >= expectedArtifacts.length);
+    }
+
+    /**
+     * Make sure the generated build info does not contain any secret environment variables.
+     *
+     * @param buildInfo - The build info
+     */
+    private static void checkFilteredEnv(BuildInfo buildInfo) {
+        buildInfo.getProperties().forEach((key, value) -> assertFalse(StringUtils.containsAny(key.toString(),
+                RESOLUTION_URL_ENV, RESOLUTION_USERNAME_ENV, RESOLUTION_PASSWORD_ENV,
+                "password", "psw", "secret", "key", "token")));
+    }
+
+    /**
+     * Check that all expected artifacts uploaded to Artifactory
+     *
+     * @param artifactoryManager - The ArtifactoryManager client
+     * @param repoPath           - Path prefix including the repository name
+     * @param expectedArtifacts  - Expected artifacts relatively to the repoPath
+     * @throws IOException In case of any IO error
+     */
+    public static void verifyArtifacts(ArtifactoryManager artifactoryManager, String repoPath, String[] expectedArtifacts) throws IOException {
+        for (String expectedArtifact : expectedArtifacts) {
+            artifactoryManager.downloadHeaders(repoPath + expectedArtifact);
+        }
     }
 
     private static void assertProjectsSuccess(BuildResult buildResult) {
@@ -123,7 +173,7 @@ public class ValidationUtils {
 
             switch (module.getId()) {
                 case "org.jfrog.test.gradle.publish:webservice:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 7);
+                    assertEquals(module.getDependencies().size(), 12);
                     if (expectedArtifactsPerModule > 0) {
                         checkWebserviceArtifact(module);
                     }
