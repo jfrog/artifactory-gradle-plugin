@@ -22,7 +22,9 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 
+import static org.jfrog.build.api.BuildInfoFields.DEPLOYABLE_ARTIFACTS;
 import static org.jfrog.build.extractor.BuildInfoExtractorUtils.BUILD_BROWSE_URL;
+import static org.jfrog.build.extractor.ci.BuildInfoProperties.BUILD_INFO_PREFIX;
 import static org.testng.Assert.assertTrue;
 
 public class Utils {
@@ -47,6 +49,16 @@ public class Utils {
      */
     public static void createTestDir(Path sourceDir) throws IOException {
         FileUtils.copyDirectory(sourceDir.toFile(), TestConstant.TEST_DIR);
+    }
+
+    /**
+     * Create the deployable artifacts file.
+     *
+     * @return the path to the generated deployable artifacts file.
+     * @throws IOException - In case of any IO error
+     */
+    public static Path createDeployableArtifactsFile() throws IOException {
+        return Files.createFile(TestConstant.TEST_DIR.toPath().resolve("deployable.artifacts")).toAbsolutePath();
     }
 
     /**
@@ -105,17 +117,21 @@ public class Utils {
     /**
      * Generate buildinfo.properties file with publisher and other properties base on the given inputs.
      *
-     * @param testBase         - the test that hold the Artifactory properties that the user/CI server needs to provide
-     * @param publications     - the publications to add into the properties
-     * @param publishBuildInfo - property that decide if to publish the build info
-     * @param setDeployer      - if true it will set the deployer properties for the build info
+     * @param testBase            - the test that hold the Artifactory properties that the user/CI server needs to provide
+     * @param publications        - the publications to add into the properties
+     * @param publishBuildInfo    - property that decide if to publish the build info
+     * @param setDeployer         - if true it will set the deployer properties for the build info
+     * @param deployableArtifacts - path to deployable artifacts file, or empty if not necessary
      * @throws IOException - In case of any IO error
      */
-    public static void generateBuildInfoProperties(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, boolean setDeployer) throws IOException {
+    public static void generateBuildInfoProperties(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, boolean setDeployer, String deployableArtifacts) throws IOException {
         String content = generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConstant.BUILD_INFO_PROPERTIES_SOURCE_RESOLVER);
         if (setDeployer) {
             content += "\n";
             content += generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConstant.BUILD_INFO_PROPERTIES_SOURCE_DEPLOYER);
+        }
+        if (StringUtils.isNotBlank(deployableArtifacts)) {
+            content += String.format("\n%s%s=%s", BUILD_INFO_PREFIX, DEPLOYABLE_ARTIFACTS, deployableArtifacts.replaceAll("\\\\", "\\\\\\\\"));
         }
         Files.write(TestConstant.BUILD_INFO_PROPERTIES_TARGET, content.getBytes(StandardCharsets.UTF_8));
     }

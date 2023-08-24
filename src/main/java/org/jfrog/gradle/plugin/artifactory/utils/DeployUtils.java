@@ -56,14 +56,14 @@ public class DeployUtils {
                 log.debug("Task '{}' does not have publisher configured with contextUrl attribute", artifactoryTask.getPath());
                 return;
             }
+            mergeRootAndModuleProps(taskPublisher, propsRoot);
+            // Add the task deployed details to the container of all deployed details
+            allDeployDetails.put(artifactoryTask.getProject().getName(), getTaskDeployDetails(artifactoryTask));
             if (!taskPublisher.isPublishArtifacts()) {
                 log.debug("Task '{}' configured not to deploy artifacts", artifactoryTask.getPath());
                 return;
             }
-            mergeRootAndModuleProps(taskPublisher, propsRoot);
             configureArtifactoryManagerAndDeploy(accRoot, taskPublisher, artifactoryTask.getDeployDetails(), logPrefix);
-            // Add the task deployed details to the container of all deployed details
-            allDeployDetails.put(artifactoryTask.getProject().getName(), getTaskDeployDetails(artifactoryTask));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

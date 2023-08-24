@@ -17,6 +17,7 @@ import org.testng.annotations.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 
 import static org.jfrog.gradle.plugin.artifactory.Constant.*;
+import static org.jfrog.gradle.plugin.artifactory.utils.Utils.createDeployableArtifactsFile;
 
 public class GradleFunctionalTestBase {
     // ArtifactoryManager
@@ -90,13 +92,14 @@ public class GradleFunctionalTestBase {
     }
 
     public interface TestEnvCreator {
-        void create() throws IOException;
+        void create(String deployableArtifacts) throws IOException;
     }
 
-    public void runPublishCITest(String gradleVersion, Path sourceDir, boolean cleanUp, TestEnvCreator testEnvCreator, ValidationUtils.BuildResultValidation validation) throws IOException {
+    public void runPublishCITest(String gradleVersion, Path sourceDir, boolean cleanUp, TestEnvCreator testEnvCreator, ValidationUtils.CiBuildResultValidation validation) throws IOException {
         // Create test environment
         Utils.createTestDir(sourceDir);
-        testEnvCreator.create();
+        Path deployableArtifacts = createDeployableArtifactsFile();
+        testEnvCreator.create(deployableArtifacts.toString());
         Map<String, String> extendedEnv = new HashMap<>(envVars) {{
             put(BuildInfoConfigProperties.PROP_PROPS_FILE, TestConstant.BUILD_INFO_PROPERTIES_TARGET.toString());
             put(RESOLUTION_URL_ENV, getArtifactoryUrl() + virtualRepo);
@@ -105,12 +108,13 @@ public class GradleFunctionalTestBase {
         }};
         // Run Gradle
         BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, extendedEnv, true);
-        validation.validate(buildResult);
+        validation.validate(buildResult, deployableArtifacts);
         // Cleanup
         if (cleanUp) {
             Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
             Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
         }
+        Files.deleteIfExists(deployableArtifacts);
     }
 
     private void initArtifactoryManager() {
