@@ -16,16 +16,16 @@ public class PluginBomPublishTest extends GradleFunctionalTestBase {
     @Test(dataProvider = "gradleVersions")
     public void publishDefaultBomTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_DEFAULT_BOM, true,
-                () -> Utils.generateBuildInfoProperties(this, "", true, true),
-                buildResult -> ValidationUtils.checkBomBuild(buildResult, TestConstant.BUILD_INFO_JSON.toFile(), 2)
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", true, true, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkBomBuild(buildResult, TestConstant.BUILD_INFO_JSON.toFile(), 2)
         );
     }
 
     @Test(dataProvider = "gradleVersions")
     public void publishCustomBomTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_CUSTOM_BOM, true,
-                () -> Utils.generateBuildInfoProperties(this, "customMavenJavaPlatform", true, true),
-                buildResult -> ValidationUtils.checkBomBuild(buildResult, TestConstant.BUILD_INFO_JSON.toFile(), 2)
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "customMavenJavaPlatform", true, true, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkBomBuild(buildResult, TestConstant.BUILD_INFO_JSON.toFile(), 2)
         );
     }
 }

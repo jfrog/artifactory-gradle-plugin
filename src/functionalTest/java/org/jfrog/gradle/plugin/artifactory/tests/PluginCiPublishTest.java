@@ -17,40 +17,40 @@ public class PluginCiPublishTest extends GradleFunctionalTestBase {
     @Test(dataProvider = "gradleVersions")
     public void ciServerTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_CI_SERVER, true,
-                () -> Utils.generateBuildInfoProperties(this, "", true, true),
-                buildResult -> ValidationUtils.checkBuildResults(artifactoryManager, buildResult, localRepo)
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", true, true, deployableArtifacts),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkBuildResults(artifactoryManager, buildResult, localRepo, deployableArtifacts)
         );
     }
 
     @Test(dataProvider = "gradleVersions")
     public void ciServerResolverOnlyTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_CI_SERVER, false,
-                () -> Utils.generateBuildInfoProperties(this, "", false, false),
-                buildResult -> ValidationUtils.checkLocalBuild(buildResult, TestConstant.BUILD_INFO_JSON.toFile(), 2, 0)
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", false, false, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkLocalBuild(buildResult, TestConstant.BUILD_INFO_JSON.toFile(), 2, 0)
         );
     }
 
     @Test(dataProvider = "gradleVersions")
     public void ciServerPublicationsTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_CI_SERVER, true,
-                () -> Utils.generateBuildInfoProperties(this, "mavenJava,customIvyPublication", true, true),
-                buildResult -> ValidationUtils.checkBuildResults(artifactoryManager, buildResult, localRepo)
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "mavenJava,customIvyPublication", true, true, deployableArtifacts),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkBuildResults(artifactoryManager, buildResult, localRepo, deployableArtifacts)
         );
     }
 
     @Test(dataProvider = "gradleVersions")
     public void ciRequestedByTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_CI_SERVER, false,
-                () -> Utils.generateBuildInfoProperties(this, "mavenJava,customIvyPublication", false, true),
-                buildResult -> ValidationUtils.checkLocalBuild(buildResult, TestConstant.BUILD_INFO_JSON.toFile(), 3, 5)
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "mavenJava,customIvyPublication", false, true, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkLocalBuild(buildResult, TestConstant.BUILD_INFO_JSON.toFile(), 3, 5)
         );
     }
 
     @Test(dataProvider = "gradleVersions")
     public void ciServerArchivesTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_CI_SERVER_ARCHIVES, true,
-                () -> Utils.generateBuildInfoProperties(this, "", true, true),
-                buildResult -> ValidationUtils.checkArchivesBuildResults(artifactoryManager, buildResult, localRepo)
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", true, true, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkArchivesBuildResults(artifactoryManager, buildResult, localRepo)
         );
     }
 
@@ -60,13 +60,13 @@ public class PluginCiPublishTest extends GradleFunctionalTestBase {
             throw new SkipException("Version catalog test requires at least Gradle version " + MIN_GRADLE_VERSION_CATALOG_VERSION);
         }
         runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_VERSION_CATALOG_PRODUCER, false,
-                () -> Utils.generateBuildInfoProperties(this, "versionCatalogProducer", false, true),
-                buildResult -> ValidationUtils.verifyArtifacts(artifactoryManager, localRepo + "/", EXPECTED_VERSION_CATALOG_PRODUCER_ARTIFACTS)
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "versionCatalogProducer", false, true, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.verifyArtifacts(artifactoryManager, localRepo + "/", EXPECTED_VERSION_CATALOG_PRODUCER_ARTIFACTS)
         );
 
         runPublishCITest(gradleVersion, TestConstant.GRADLE_EXAMPLE_VERSION_CATALOG_CONSUMER, true,
-                () -> Utils.generateBuildInfoProperties(this, "versionCatalogConsumer", true, true),
-                buildResult -> ValidationUtils.checkVersionCatalogResults(artifactoryManager, buildResult, virtualRepo)
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "versionCatalogConsumer", true, true, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkVersionCatalogResults(artifactoryManager, buildResult, virtualRepo)
         );
     }
 }

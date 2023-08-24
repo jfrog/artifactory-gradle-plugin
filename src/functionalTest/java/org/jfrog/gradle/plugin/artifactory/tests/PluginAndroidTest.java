@@ -26,8 +26,8 @@ public class PluginAndroidTest extends GradleFunctionalTestBase {
 
     @Test
     public void androidCiTest() throws IOException {
-        runPublishCITest(GRADLE_ANDROID_VERSION, TestConstant.ANDROID_GRADLE_CI_EXAMPLE, true, () -> Utils.generateBuildInfoProperties(this, "", true, true),
-                this::checkBuildResults);
+        runPublishCITest(GRADLE_ANDROID_VERSION, TestConstant.ANDROID_GRADLE_CI_EXAMPLE, true, (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", true, true, ""),
+                (buildResult, deployableArtifacts) -> checkBuildResults(buildResult));
     }
 
     /**
