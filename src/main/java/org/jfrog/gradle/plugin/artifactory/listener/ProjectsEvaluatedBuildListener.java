@@ -1,11 +1,8 @@
 package org.jfrog.gradle.plugin.artifactory.listener;
 
 import org.apache.commons.lang3.StringUtils;
-import org.gradle.BuildAdapter;
 import org.gradle.StartParameter;
 import org.gradle.api.Project;
-import org.gradle.api.ProjectEvaluationListener;
-import org.gradle.api.ProjectState;
 import org.gradle.api.Task;
 import org.gradle.api.invocation.Gradle;
 import org.gradle.api.logging.Logger;
@@ -32,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 3) Apply default action to projects
  * 4) Adding default attributes that are used in CI mode
  */
-public class ProjectsEvaluatedBuildListener extends BuildAdapter implements ProjectEvaluationListener {
+public class ProjectsEvaluatedBuildListener {
     private static final Logger log = Logging.getLogger(ProjectsEvaluatedBuildListener.class);
     private final Set<Task> detailsCollectingTasks = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
@@ -80,11 +77,8 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
      * If the configure-on-demand mode is active, Evaluates the ArtifactoryTask tasks
      *
      * @param project The project which was evaluated. Never null.
-     * @param state   The project evaluation state. If project evaluation failed, the exception is available in this
-     *                state. Never null.
      */
-    @Override
-    public void afterEvaluate(Project project, ProjectState state) {
+    public void afterEvaluate(Project project) {
         StartParameter startParameter = project.getGradle().getStartParameter();
         Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
         tasks.forEach(task -> {
@@ -106,7 +100,6 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
      *
      * @param gradle The build which has been evaluated. Never null.
      */
-    @Override
     public void projectsEvaluated(Gradle gradle) {
         Set<Task> tasks = gradle.getRootProject().getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
         detailsCollectingTasks.addAll(tasks);
@@ -117,9 +110,5 @@ public class ProjectsEvaluatedBuildListener extends BuildAdapter implements Proj
                 collectDeployDetailsTask.finalizeByDeployTask(collectDeployDetailsTask.getProject());
             }
         });
-    }
-
-    @Override
-    public void beforeEvaluate(Project project) {
     }
 }

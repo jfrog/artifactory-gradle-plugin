@@ -14,7 +14,6 @@ import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.GradleFunctionalTestBase;
 import org.jfrog.gradle.plugin.artifactory.TestConstant;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -64,35 +63,49 @@ public class Utils {
     /**
      * Run 'ArtifactoryPublish' task with specific context.
      *
-     * @param gradleVersion   - run the tasks with this given gradle version
-     * @param envVars         - environment variable that will be used in the task
-     * @param applyInitScript - apply the template init script to add the plugin
+     * @param gradleVersion   - Run the tasks with this given gradle version
+     * @param envVars         - Environment variable that will be used in the task
+     * @param applyInitScript - Apply the template init script to add the plugin
      * @return result of the task
      */
     public static BuildResult runGradleArtifactoryPublish(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
-        return runPluginTask(gradleVersion, TestConstant.TEST_DIR, Constant.ARTIFACTORY_PUBLISH_TASK_NAME, envVars, applyInitScript);
+        List<String> arguments = new ArrayList<>(Arrays.asList("clean", "build", Constant.ARTIFACTORY_PUBLISH_TASK_NAME, "--stacktrace"));
+        return runPluginTasks(gradleVersion, arguments, envVars, applyInitScript);
+    }
+
+    /**
+     * Run 'gradle --configuration-cache' with specific context.
+     *
+     * @param gradleVersion   - Run the tasks with this given gradle version
+     * @param envVars         - Environment variable that will be used in the task
+     * @param applyInitScript - Apply the template init script to add the plugin
+     * @return result of the task
+     * @throws IOException in case of any IO error
+     */
+    public static BuildResult runConfigurationCache(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
+        List<String> arguments = new ArrayList<>(List.of("--configuration-cache"));
+        return runPluginTasks(gradleVersion, arguments, envVars, applyInitScript);
     }
 
     /**
      * Run Gradle task with specific context.
      *
-     * @param gradleVersion   - run the tasks with this given gradle version
-     * @param projectDir      - the gradle project to run the tasks on
-     * @param taskName        - task name to run
-     * @param envVars         - environment variable that will be used in the task
-     * @param applyInitScript - apply the template init script to add the plugin
+     * @param gradleVersion   - Run the tasks with this given gradle version
+     * @param arguments       - Arguments to run
+     * @param envVars         - Environment variable that will be used in the task
+     * @param applyInitScript - Apply the template init script to add the plugin
      * @return result of the task
      */
-    public static BuildResult runPluginTask(String gradleVersion, File projectDir, String taskName, Map<String, String> envVars, boolean applyInitScript) throws IOException {
-        List<String> arguments = new ArrayList<>(Arrays.asList("clean", "build", taskName, "--stacktrace"));
+    public static BuildResult runPluginTasks(String gradleVersion, List<String> arguments, Map<String, String> envVars, boolean applyInitScript) throws IOException {
         if (applyInitScript) {
             generateInitScript();
             arguments.add("--init-script=gradle.init");
+//            arguments.add("-Dorg.gradle.jvmargs=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005");
         }
         //noinspection UnstableApiUsage
         return GradleRunner.create()
                 .withGradleVersion(gradleVersion)
-                .withProjectDir(projectDir)
+                .withProjectDir(TestConstant.TEST_DIR)
                 .withPluginClasspath()
                 .withArguments(arguments)
                 .withEnvironment(envVars)

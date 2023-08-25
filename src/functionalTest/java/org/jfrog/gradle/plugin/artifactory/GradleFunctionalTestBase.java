@@ -6,8 +6,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.text.StringSubstitutor;
 import org.gradle.testkit.runner.BuildResult;
+import org.gradle.testkit.runner.BuildTask;
+import org.gradle.testkit.runner.TaskOutcome;
 import org.jfrog.build.api.BuildInfoConfigProperties;
 import org.jfrog.build.api.util.Log;
+import org.jfrog.build.client.Version;
 import org.jfrog.build.extractor.clientConfiguration.client.artifactory.ArtifactoryManager;
 import org.jfrog.gradle.plugin.artifactory.utils.TestingLog;
 import org.jfrog.gradle.plugin.artifactory.utils.Utils;
@@ -25,7 +28,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 
 import static org.jfrog.gradle.plugin.artifactory.Constant.*;
+import static org.jfrog.gradle.plugin.artifactory.TestConstant.MIN_GRADLE_VERSION_CONFIG_CACHE;
 import static org.jfrog.gradle.plugin.artifactory.utils.Utils.createDeployableArtifactsFile;
+import static org.testng.Assert.assertEquals;
 
 public class GradleFunctionalTestBase {
     // ArtifactoryManager
@@ -83,6 +88,8 @@ public class GradleFunctionalTestBase {
     public void runPublishTest(String gradleVersion, Path sourceDir, ValidationUtils.BuildResultValidation validation) throws IOException {
         // Create test environment
         Utils.createTestDir(sourceDir);
+        // Run configuration cache
+        runConfigCacheIfSupported(gradleVersion, envVars, false);
         // Run Gradle
         BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, envVars, false);
         validation.validate(buildResult);
@@ -98,6 +105,7 @@ public class GradleFunctionalTestBase {
     public void runPublishCITest(String gradleVersion, Path sourceDir, boolean cleanUp, TestEnvCreator testEnvCreator, ValidationUtils.CiBuildResultValidation validation) throws IOException {
         // Create test environment
         Utils.createTestDir(sourceDir);
+        // Create build info properties file
         Path deployableArtifacts = createDeployableArtifactsFile();
         testEnvCreator.create(deployableArtifacts.toString());
         Map<String, String> extendedEnv = new HashMap<>(envVars) {{
@@ -106,6 +114,8 @@ public class GradleFunctionalTestBase {
             put(RESOLUTION_USERNAME_ENV, getUsername());
             put(RESOLUTION_PASSWORD_ENV, getAdminToken());
         }};
+        // Run configuration cache
+        runConfigCacheIfSupported(gradleVersion, extendedEnv, true);
         // Run Gradle
         BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, extendedEnv, true);
         validation.validate(buildResult, deployableArtifacts);
@@ -115,6 +125,27 @@ public class GradleFunctionalTestBase {
             Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
         }
         Files.deleteIfExists(deployableArtifacts);
+    }
+
+    /**
+     * Execute the command "gradle --configuration-cache" in order to ensure the proper functioning of the configuration
+     * cache for the project.
+     * When dealing with Gradle versions that are earlier than 7.4.2, we have encountered issues related to reading system properties.
+     * As a result, we have made the decision to exclude versions that are prior to 7.4.2.
+     *
+     * @param gradleVersion   - The Gradle version
+     * @param envVars         - The extended environment variables
+     * @param applyInitScript - Apply the template init script to add the plugin
+     * @throws IOException In case of any IO error.
+     */
+    private void runConfigCacheIfSupported(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
+        if (!new Version(gradleVersion).isAtLeast(MIN_GRADLE_VERSION_CONFIG_CACHE)) {
+            return;
+        }
+        BuildResult buildResult = Utils.runConfigurationCache(gradleVersion, envVars, applyInitScript);
+        for (BuildTask buildTask : buildResult.getTasks()) {
+            assertEquals(buildTask.getOutcome(), TaskOutcome.SUCCESS);
+        }
     }
 
     private void initArtifactoryManager() {

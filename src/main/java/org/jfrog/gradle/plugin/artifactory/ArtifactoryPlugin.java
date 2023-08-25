@@ -18,6 +18,7 @@ import static org.jfrog.gradle.plugin.artifactory.utils.PluginUtils.assertGradle
 public class ArtifactoryPlugin implements Plugin<Project> {
     private static final Logger log = Logging.getLogger(ArtifactoryPlugin.class);
     private final ArtifactoryDependencyResolutionListener resolutionListener = new ArtifactoryDependencyResolutionListener();
+    private final ProjectsEvaluatedBuildListener projectsEvaluatedBuildListener = new ProjectsEvaluatedBuildListener();
 
     @Override
     public void apply(Project project) {
@@ -33,15 +34,18 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         if (ProjectUtils.isRootProject(project)) {
             // Add extract build-info and deploy task for the root to only deploy one time
             TaskUtils.addDeploymentTask(project);
-            // Add a DependencyResolutionListener, to populate the dependency hierarchy map.
-            project.getAllprojects().forEach(subproject ->
-                    subproject.getConfigurations().all(config -> config.getIncoming().afterResolve(resolutionListener::afterResolve)));
+            project.getAllprojects().forEach(subproject -> {
+                // Add a DependencyResolutionListener, to populate the dependency hierarchy map
+                subproject.getConfigurations().all(config -> config.getIncoming().afterResolve(resolutionListener::afterResolve));
+                // Add after evaluation listener to evaluate the ArtifactoryPublish task
+                subproject.afterEvaluate((projectsEvaluatedBuildListener::afterEvaluate));
+            });
+            // Add after all projects evaluated listener to evaluate all the ArtifactoryTask tasks that are not yet evaluated
+            project.getGradle().projectsEvaluated(projectsEvaluatedBuildListener::projectsEvaluated);
         } else {
             // Makes sure the plugin is applied in the root project
             project.getRootProject().getPluginManager().apply(ArtifactoryPlugin.class);
         }
-        // Add project evaluation listener to allow aggregation from module to one build-info and deploy
-        project.getGradle().addProjectEvaluationListener(new ProjectsEvaluatedBuildListener());
 
         // Set build started if not set
         String buildStarted = convention.getClientConfig().info.getBuildStarted();
