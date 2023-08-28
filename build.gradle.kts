@@ -19,12 +19,12 @@ val fileSpecsVersion = "1.1.2"
 val commonsLangVersion = "3.12.0"
 val commonsIoVersion = "2.11.0"
 val commonsTxtVersion = "1.10.0"
-val testNgVersion = "7.7.1"
+val testNgVersion = "7.5.1"
 val httpclientVersion = "4.5.14"
 
 tasks.compileJava {
-    sourceCompatibility = "11"
-    targetCompatibility = "11"
+    sourceCompatibility = "1.8"
+    targetCompatibility = "1.8"
 }
 
 java {

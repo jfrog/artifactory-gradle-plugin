@@ -105,7 +105,7 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     private static void generateInitScript() throws IOException {
-        String content = Files.readString(TestConstant.INIT_SCRIPT);
+        String content = FileUtils.readFileToString(TestConstant.INIT_SCRIPT.toFile(), StandardCharsets.UTF_8);
         // Insert the path to lib (Escape "/" in Windows machines)
         String libsDir = TestConstant.LIBS_DIR.toString().replaceAll("\\\\", "\\\\\\\\");
         content = content.replace("${pluginLibDir}", libsDir);
@@ -147,8 +147,8 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     private static String generateBuildInfoPropertiesForServer(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, Path source) throws IOException {
-        String content = Files.readString(source);
-        Map<String, String> valuesMap = new HashMap<>() {{
+        String content = FileUtils.readFileToString(source.toFile(), StandardCharsets.UTF_8);
+        Map<String, String> valuesMap = new HashMap<String, String>() {{
             put(ClientConfigurationFields.PUBLICATIONS, publications);
             put(ClientConfigurationFields.CONTEXT_URL, testBase.getArtifactoryUrl());
             put(ClientConfigurationFields.USERNAME, testBase.getUsername());
