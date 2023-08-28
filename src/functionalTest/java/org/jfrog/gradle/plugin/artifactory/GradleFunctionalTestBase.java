@@ -108,7 +108,7 @@ public class GradleFunctionalTestBase {
         // Create build info properties file
         Path deployableArtifacts = createDeployableArtifactsFile();
         testEnvCreator.create(deployableArtifacts.toString());
-        Map<String, String> extendedEnv = new HashMap<>(envVars) {{
+        Map<String, String> extendedEnv = new HashMap<String, String>(envVars) {{
             put(BuildInfoConfigProperties.PROP_PROPS_FILE, TestConstant.BUILD_INFO_PROPERTIES_TARGET.toString());
             put(RESOLUTION_URL_ENV, getArtifactoryUrl() + virtualRepo);
             put(RESOLUTION_USERNAME_ENV, getUsername());
@@ -223,7 +223,7 @@ public class GradleFunctionalTestBase {
 
     private void initGradleCmdEnvVars() {
         // Create env vars to pass for running gradle commands (var replacement in build.gradle files?
-        envVars = new HashMap<>(System.getenv()) {{
+        envVars = new HashMap<String, String>(System.getenv()) {{
             putIfAbsent(TestConstant.BITESTS_ENV_VAR_PREFIX + TestConstant.URL, getPlatformUrl());
             putIfAbsent(TestConstant.BITESTS_ENV_VAR_PREFIX + TestConstant.USERNAME, getUsername());
             putIfAbsent(TestConstant.BITESTS_ENV_VAR_PREFIX + TestConstant.ADMIN_TOKEN, getAdminToken());
