@@ -12,7 +12,7 @@ import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.Dependency;
 import org.jfrog.build.extractor.ci.Module;
 import org.jfrog.build.extractor.clientConfiguration.client.artifactory.ArtifactoryManager;
-import org.jfrog.gradle.plugin.artifactory.TestConstant;
+import org.jfrog.gradle.plugin.artifactory.TestConsts;
 import org.testng.collections.Sets;
 
 import java.io.File;
@@ -28,8 +28,8 @@ import static org.gradle.testkit.runner.TaskOutcome.SUCCESS;
 import static org.jfrog.build.extractor.BuildInfoExtractorUtils.jsonStringToBuildInfo;
 import static org.jfrog.build.extractor.clientConfiguration.deploy.DeployableArtifactsUtils.loadDeployableArtifactsFromFile;
 import static org.jfrog.gradle.plugin.artifactory.Constant.*;
-import static org.jfrog.gradle.plugin.artifactory.TestConstant.ARTIFACTS_GROUP_ID;
-import static org.jfrog.gradle.plugin.artifactory.TestConstant.EXPECTED_VERSION_CATALOG_CONSUMER_ARTIFACTS;
+import static org.jfrog.gradle.plugin.artifactory.TestConsts.ARTIFACTS_GROUP_ID;
+import static org.jfrog.gradle.plugin.artifactory.TestConsts.EXPECTED_VERSION_CATALOG_CONSUMER_ARTIFACTS;
 import static org.testng.Assert.*;
 import static org.testng.Assert.assertTrue;
 
@@ -51,7 +51,7 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConstant.EXPECTED_MODULE_ARTIFACTS, 5);
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5);
     }
 
     /**
@@ -65,7 +65,7 @@ public class ValidationUtils {
      */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo, Path deployableArtifacts) throws IOException {
         checkBuildResults(artifactoryManager, buildResult, localRepo);
-        checkDeployableArtifacts(deployableArtifacts, Sets.newHashSet(TestConstant.EXPECTED_MODULE_ARTIFACTS), localRepo);
+        checkDeployableArtifacts(deployableArtifacts, Sets.newHashSet(TestConsts.EXPECTED_MODULE_ARTIFACTS), localRepo);
     }
 
     /**
@@ -103,7 +103,7 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkArchivesBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConstant.EXPECTED_ARCHIVE_ARTIFACTS, 1);
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 1);
     }
 
     /**

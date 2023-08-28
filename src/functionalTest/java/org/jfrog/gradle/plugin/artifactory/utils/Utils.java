@@ -12,7 +12,7 @@ import org.jfrog.build.extractor.clientConfiguration.client.artifactory.Artifact
 import org.jfrog.build.extractor.clientConfiguration.client.response.GetAllBuildNumbersResponse;
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.GradleFunctionalTestBase;
-import org.jfrog.gradle.plugin.artifactory.TestConstant;
+import org.jfrog.gradle.plugin.artifactory.TestConsts;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -36,7 +36,7 @@ public class Utils {
      * @param defaultValue - value if env var not exists
      */
     public static String readParam(String paramName, String defaultValue) {
-        String paramValue = System.getenv(TestConstant.BITESTS_ENV_VAR_PREFIX + paramName.toUpperCase());
+        String paramValue = System.getenv(TestConsts.BITESTS_ENV_VAR_PREFIX + paramName.toUpperCase());
         return StringUtils.defaultIfBlank(paramValue, defaultValue);
     }
 
@@ -47,7 +47,7 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     public static void createTestDir(Path sourceDir) throws IOException {
-        FileUtils.copyDirectory(sourceDir.toFile(), TestConstant.TEST_DIR);
+        FileUtils.copyDirectory(sourceDir.toFile(), TestConsts.TEST_DIR);
     }
 
     /**
@@ -57,7 +57,7 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     public static Path createDeployableArtifactsFile() throws IOException {
-        return Files.createFile(TestConstant.TEST_DIR.toPath().resolve("deployable.artifacts")).toAbsolutePath();
+        return Files.createFile(TestConsts.TEST_DIR.toPath().resolve("deployable.artifacts")).toAbsolutePath();
     }
 
     /**
@@ -83,7 +83,7 @@ public class Utils {
      * @throws IOException in case of any IO error
      */
     public static BuildResult runConfigurationCache(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
-        List<String> arguments = new ArrayList<>(List.of("--configuration-cache"));
+        List<String> arguments = new ArrayList<>(Collections.singletonList("--configuration-cache"));
         return runPluginTasks(gradleVersion, arguments, envVars, applyInitScript);
     }
 
@@ -100,12 +100,11 @@ public class Utils {
         if (applyInitScript) {
             generateInitScript();
             arguments.add("--init-script=gradle.init");
-//            arguments.add("-Dorg.gradle.jvmargs=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005");
         }
         //noinspection UnstableApiUsage
         return GradleRunner.create()
                 .withGradleVersion(gradleVersion)
-                .withProjectDir(TestConstant.TEST_DIR)
+                .withProjectDir(TestConsts.TEST_DIR)
                 .withPluginClasspath()
                 .withArguments(arguments)
                 .withEnvironment(envVars)
@@ -118,12 +117,12 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     private static void generateInitScript() throws IOException {
-        String content = FileUtils.readFileToString(TestConstant.INIT_SCRIPT.toFile(), StandardCharsets.UTF_8);
+        String content = FileUtils.readFileToString(TestConsts.INIT_SCRIPT.toFile(), StandardCharsets.UTF_8);
         // Insert the path to lib (Escape "/" in Windows machines)
-        String libsDir = TestConstant.LIBS_DIR.toString().replaceAll("\\\\", "\\\\\\\\");
+        String libsDir = TestConsts.LIBS_DIR.toString().replaceAll("\\\\", "\\\\\\\\");
         content = content.replace("${pluginLibDir}", libsDir);
         // Write gradle.init file with the content
-        Path target = TestConstant.TEST_DIR.toPath().resolve("gradle.init");
+        Path target = TestConsts.TEST_DIR.toPath().resolve("gradle.init");
         Files.write(target, content.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -138,15 +137,15 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     public static void generateBuildInfoProperties(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, boolean setDeployer, String deployableArtifacts) throws IOException {
-        String content = generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConstant.BUILD_INFO_PROPERTIES_SOURCE_RESOLVER);
+        String content = generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConsts.BUILD_INFO_PROPERTIES_SOURCE_RESOLVER);
         if (setDeployer) {
             content += "\n";
-            content += generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConstant.BUILD_INFO_PROPERTIES_SOURCE_DEPLOYER);
+            content += generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConsts.BUILD_INFO_PROPERTIES_SOURCE_DEPLOYER);
         }
         if (StringUtils.isNotBlank(deployableArtifacts)) {
             content += String.format("\n%s%s=%s", BUILD_INFO_PREFIX, DEPLOYABLE_ARTIFACTS, deployableArtifacts.replaceAll("\\\\", "\\\\\\\\"));
         }
-        Files.write(TestConstant.BUILD_INFO_PROPERTIES_TARGET, content.getBytes(StandardCharsets.UTF_8));
+        Files.write(TestConsts.BUILD_INFO_PROPERTIES_TARGET, content.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -210,7 +209,7 @@ public class Utils {
                 .distinct()
 
                 // Match build number pattern.
-                .map(TestConstant.BUILD_NUMBER_PATTERN::matcher)
+                .map(TestConsts.BUILD_NUMBER_PATTERN::matcher)
                 .filter(Matcher::matches)
 
                 // Filter build numbers newer than 24 hours.

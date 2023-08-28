@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 
 import static org.jfrog.gradle.plugin.artifactory.Constant.*;
-import static org.jfrog.gradle.plugin.artifactory.TestConstant.MIN_GRADLE_VERSION_CONFIG_CACHE;
+import static org.jfrog.gradle.plugin.artifactory.TestConsts.MIN_GRADLE_VERSION_CONFIG_CACHE;
 import static org.jfrog.gradle.plugin.artifactory.utils.Utils.createDeployableArtifactsFile;
 import static org.testng.Assert.assertEquals;
 
@@ -42,9 +42,9 @@ public class GradleFunctionalTestBase {
     private String artifactoryUrl;
 
     // Test repositories
-    public final String localRepo = getKeyWithTimestamp(TestConstant.GRADLE_LOCAL_REPO);
-    public final String virtualRepo = getKeyWithTimestamp(TestConstant.GRADLE_VIRTUAL_REPO);
-    protected String remoteRepo = getKeyWithTimestamp(TestConstant.GRADLE_REMOTE_REPO);
+    public final String localRepo = getKeyWithTimestamp(TestConsts.GRADLE_LOCAL_REPO);
+    public final String virtualRepo = getKeyWithTimestamp(TestConsts.GRADLE_VIRTUAL_REPO);
+    protected String remoteRepo = getKeyWithTimestamp(TestConsts.GRADLE_REMOTE_REPO);
 
     // Test specific attributes
     private StringSubstitutor stringSubstitutor;
@@ -109,7 +109,7 @@ public class GradleFunctionalTestBase {
         Path deployableArtifacts = createDeployableArtifactsFile();
         testEnvCreator.create(deployableArtifacts.toString());
         Map<String, String> extendedEnv = new HashMap<String, String>(envVars) {{
-            put(BuildInfoConfigProperties.PROP_PROPS_FILE, TestConstant.BUILD_INFO_PROPERTIES_TARGET.toString());
+            put(BuildInfoConfigProperties.PROP_PROPS_FILE, TestConsts.BUILD_INFO_PROPERTIES_TARGET.toString());
             put(RESOLUTION_URL_ENV, getArtifactoryUrl() + virtualRepo);
             put(RESOLUTION_USERNAME_ENV, getUsername());
             put(RESOLUTION_PASSWORD_ENV, getAdminToken());
@@ -150,14 +150,14 @@ public class GradleFunctionalTestBase {
 
     private void initArtifactoryManager() {
         // URL
-        platformUrl = Utils.readParam(TestConstant.URL, TestConstant.DEFAULT_URL);
+        platformUrl = Utils.readParam(TestConsts.URL, TestConsts.DEFAULT_URL);
         if (!platformUrl.endsWith("/")) {
             platformUrl += "/";
         }
         artifactoryUrl = platformUrl + Constant.ARTIFACTORY + "/";
         // Credentials
-        username = Utils.readParam(TestConstant.USERNAME, TestConstant.DEFAULT_USERNAME);
-        adminToken = Utils.readParam(TestConstant.ADMIN_TOKEN, TestConstant.DEFAULT_PASS);
+        username = Utils.readParam(TestConsts.USERNAME, TestConsts.DEFAULT_USERNAME);
+        adminToken = Utils.readParam(TestConsts.ADMIN_TOKEN, TestConsts.DEFAULT_PASS);
         // Create
         artifactoryManager = createArtifactoryManager();
     }
@@ -181,8 +181,8 @@ public class GradleFunctionalTestBase {
 
     private void createStringSubstitutor() {
         Map<String, Object> textParameters = new HashMap<>();
-        textParameters.put(TestConstant.LOCAL_REPO, localRepo);
-        textParameters.put(TestConstant.REMOTE_REPO, remoteRepo);
+        textParameters.put(TestConsts.LOCAL_REPO, localRepo);
+        textParameters.put(TestConsts.REMOTE_REPO, remoteRepo);
         stringSubstitutor = new StringSubstitutor(textParameters);
     }
 
@@ -224,11 +224,11 @@ public class GradleFunctionalTestBase {
     private void initGradleCmdEnvVars() {
         // Create env vars to pass for running gradle commands (var replacement in build.gradle files?
         envVars = new HashMap<String, String>(System.getenv()) {{
-            putIfAbsent(TestConstant.BITESTS_ENV_VAR_PREFIX + TestConstant.URL, getPlatformUrl());
-            putIfAbsent(TestConstant.BITESTS_ENV_VAR_PREFIX + TestConstant.USERNAME, getUsername());
-            putIfAbsent(TestConstant.BITESTS_ENV_VAR_PREFIX + TestConstant.ADMIN_TOKEN, getAdminToken());
-            putIfAbsent(TestConstant.BITESTS_ARTIFACTORY_ENV_VAR_PREFIX + TestConstant.LOCAL_REPO, localRepo);
-            putIfAbsent(TestConstant.BITESTS_ARTIFACTORY_ENV_VAR_PREFIX + TestConstant.VIRTUAL_REPO, virtualRepo);
+            putIfAbsent(TestConsts.BITESTS_ENV_VAR_PREFIX + TestConsts.URL, getPlatformUrl());
+            putIfAbsent(TestConsts.BITESTS_ENV_VAR_PREFIX + TestConsts.USERNAME, getUsername());
+            putIfAbsent(TestConsts.BITESTS_ENV_VAR_PREFIX + TestConsts.ADMIN_TOKEN, getAdminToken());
+            putIfAbsent(TestConsts.BITESTS_ARTIFACTORY_ENV_VAR_PREFIX + TestConsts.LOCAL_REPO, localRepo);
+            putIfAbsent(TestConsts.BITESTS_ARTIFACTORY_ENV_VAR_PREFIX + TestConsts.VIRTUAL_REPO, virtualRepo);
         }};
     }
 
@@ -250,7 +250,7 @@ public class GradleFunctionalTestBase {
      * @throws IOException - In case of any IO error
      */
     protected static void deleteTestDir() throws IOException {
-        FileUtils.deleteDirectory(TestConstant.TEST_DIR);
+        FileUtils.deleteDirectory(TestConsts.TEST_DIR);
     }
 
     /**

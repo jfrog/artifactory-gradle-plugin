@@ -5,7 +5,7 @@ import org.jfrog.build.api.dependency.PropertySearchResult;
 import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.Module;
 import org.jfrog.gradle.plugin.artifactory.GradleFunctionalTestBase;
-import org.jfrog.gradle.plugin.artifactory.TestConstant;
+import org.jfrog.gradle.plugin.artifactory.TestConsts;
 import org.jfrog.gradle.plugin.artifactory.utils.Utils;
 import org.testng.annotations.Test;
 
@@ -13,20 +13,20 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.gradle.testkit.runner.TaskOutcome.FAILED;
-import static org.jfrog.gradle.plugin.artifactory.TestConstant.EXPECTED_ANDROID_ARTIFACTS;
-import static org.jfrog.gradle.plugin.artifactory.TestConstant.GRADLE_ANDROID_VERSION;
+import static org.jfrog.gradle.plugin.artifactory.TestConsts.EXPECTED_ANDROID_ARTIFACTS;
+import static org.jfrog.gradle.plugin.artifactory.TestConsts.GRADLE_ANDROID_VERSION;
 import static org.jfrog.gradle.plugin.artifactory.utils.ValidationUtils.getBuildInfo;
 import static org.testng.Assert.*;
 
 public class PluginAndroidTest extends GradleFunctionalTestBase {
     @Test
     public void androidTest() throws IOException {
-        runPublishTest(GRADLE_ANDROID_VERSION, TestConstant.ANDROID_GRADLE_EXAMPLE, this::checkBuildResults);
+        runPublishTest(GRADLE_ANDROID_VERSION, TestConsts.ANDROID_GRADLE_EXAMPLE, this::checkBuildResults);
     }
 
     @Test
     public void androidCiTest() throws IOException {
-        runPublishCITest(GRADLE_ANDROID_VERSION, TestConstant.ANDROID_GRADLE_CI_EXAMPLE, true, (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", true, true, ""),
+        runPublishCITest(GRADLE_ANDROID_VERSION, TestConsts.ANDROID_GRADLE_CI_EXAMPLE, true, (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", true, true, ""),
                 (buildResult, deployableArtifacts) -> checkBuildResults(buildResult));
     }
 

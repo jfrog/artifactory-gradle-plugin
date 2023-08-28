@@ -8,7 +8,7 @@ import java.nio.file.Paths;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-public class TestConstant {
+public class TestConsts {
     // Root paths
     public static final Path GRADLE_EXTRACTOR = Paths.get(".").normalize().toAbsolutePath();
     public static final Path GRADLE_EXTRACTOR_SRC = GRADLE_EXTRACTOR.resolve("src");
