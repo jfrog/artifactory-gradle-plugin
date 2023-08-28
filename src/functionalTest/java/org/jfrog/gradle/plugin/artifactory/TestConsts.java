@@ -1,12 +1,14 @@
 package org.jfrog.gradle.plugin.artifactory;
 
+import org.jfrog.build.client.Version;
+
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-public class TestConstant {
+public class TestConsts {
     // Root paths
     public static final Path GRADLE_EXTRACTOR = Paths.get(".").normalize().toAbsolutePath();
     public static final Path GRADLE_EXTRACTOR_SRC = GRADLE_EXTRACTOR.resolve("src");
@@ -60,6 +62,9 @@ public class TestConstant {
 
     // Version catalog
     public static final String MIN_GRADLE_VERSION_CATALOG_VERSION = "7.0";
+
+    // Configuration cache
+    public static final Version MIN_GRADLE_VERSION_CONFIG_CACHE = new Version("7.4.2");
 
     // Results
     public static final String ARTIFACTS_GROUP_ID = "/org/jfrog/test/gradle/publish/";
