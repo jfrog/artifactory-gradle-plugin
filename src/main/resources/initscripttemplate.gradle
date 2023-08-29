@@ -2,12 +2,15 @@ import org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryPluginSettings
 import org.jfrog.gradle.plugin.artifactory.Constant
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask
+import org.jfrog.gradle.plugin.artifactory.utils.PluginUtils;
 
 initscript {
     dependencies {
         classpath fileTree('${pluginLibDir}')
     }
 }
+
+PluginUtils.assertGradleVersionSupported(getGradle())
 
 beforeSettings { Settings settings ->
     settings.apply plugin: ArtifactoryPluginSettings
