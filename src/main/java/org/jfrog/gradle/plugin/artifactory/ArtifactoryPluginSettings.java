@@ -6,13 +6,11 @@ import org.gradle.api.credentials.PasswordCredentials;
 import org.gradle.api.initialization.Settings;
 
 import static org.jfrog.gradle.plugin.artifactory.Constant.*;
-import static org.jfrog.gradle.plugin.artifactory.utils.PluginUtils.assertGradleVersionSupported;
 
 @SuppressWarnings("unused")
 public class ArtifactoryPluginSettings implements Plugin<Settings> {
     @Override
     public void apply(Settings settings) {
-        assertGradleVersionSupported(settings.getGradle());
         String resolveContextUrl = System.getenv(RESOLUTION_URL_ENV);
         if (resolveContextUrl == null) {
             return;
