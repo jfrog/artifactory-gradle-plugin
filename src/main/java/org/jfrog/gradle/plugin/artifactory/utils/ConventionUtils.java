@@ -25,10 +25,9 @@ public class ConventionUtils {
      * @return project convention
      */
     public static ArtifactoryPluginConvention getOrCreateArtifactoryConvention(Project project) {
-        ArtifactoryPluginConvention con = project.getConvention().findPlugin(ArtifactoryPluginConvention.class);
+        ArtifactoryPluginConvention con = project.getExtensions().getByType(ArtifactoryPluginConvention.class);
         if (con == null) {
             con = project.getExtensions().create(Constant.ARTIFACTORY, ArtifactoryPluginConvention.class, project);
-            project.getConvention().getPlugins().put(Constant.ARTIFACTORY, con);
         }
         return con;
     }
@@ -40,7 +39,7 @@ public class ConventionUtils {
      * @return Artifactory's convention defined at the root project if exists
      */
     public static ArtifactoryPluginConvention getArtifactoryConvention(Project project) {
-        return project.getRootProject().getConvention().findPlugin(ArtifactoryPluginConvention.class);
+        return project.getRootProject().getExtensions().getByType(ArtifactoryPluginConvention.class);
     }
 
     /**
@@ -52,7 +51,7 @@ public class ConventionUtils {
      */
     public static ArtifactoryPluginConvention getConventionWithPublisher(Project project) {
         while (project != null) {
-            ArtifactoryPluginConvention acc = project.getConvention().findPlugin(ArtifactoryPluginConvention.class);
+            ArtifactoryPluginConvention acc = project.getExtensions().getByType(ArtifactoryPluginConvention.class);
             if (acc != null) {
                 ArtifactoryClientConfiguration.PublisherHandler publisher = acc.getClientConfig().publisher;
                 if (publisher.getContextUrl() != null && (publisher.getRepoKey() != null || publisher.getSnapshotRepoKey() != null)) {
