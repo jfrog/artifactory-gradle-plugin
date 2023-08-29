@@ -42,9 +42,4 @@ public class Constant {
     // Plugin generated file names
     public static final String MODULE_INFO_FILE_NAME = "moduleInfo.json";
     public static final String BUILD_INFO_FILE_NAME = "build-info.json";
-
-    // Resolution environment variables
-    public static final String RESOLUTION_URL_ENV = "ORG_GRADLE_PROJECT_artifactoryResolutionRepositoryUrl";
-    public static final String RESOLUTION_USERNAME_ENV = "ORG_GRADLE_PROJECT_artifactoryResolutionRepositoryUsername";
-    public static final String RESOLUTION_PASSWORD_ENV = "ORG_GRADLE_PROJECT_artifactoryResolutionRepositoryPassword";
 }
