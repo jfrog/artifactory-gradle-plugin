@@ -110,9 +110,6 @@ public class GradleFunctionalTestBase {
         testEnvCreator.create(deployableArtifacts.toString());
         Map<String, String> extendedEnv = new HashMap<String, String>(envVars) {{
             put(BuildInfoConfigProperties.PROP_PROPS_FILE, TestConsts.BUILD_INFO_PROPERTIES_TARGET.toString());
-            put(RESOLUTION_URL_ENV, getArtifactoryUrl() + virtualRepo);
-            put(RESOLUTION_USERNAME_ENV, getUsername());
-            put(RESOLUTION_PASSWORD_ENV, getAdminToken());
         }};
         // Run configuration cache
         runConfigCacheIfSupported(gradleVersion, extendedEnv, true);

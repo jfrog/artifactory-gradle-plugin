@@ -156,7 +156,6 @@ public class ValidationUtils {
      */
     private static void checkFilteredEnv(BuildInfo buildInfo) {
         buildInfo.getProperties().forEach((key, value) -> assertFalse(StringUtils.containsAny(key.toString(),
-                RESOLUTION_URL_ENV, RESOLUTION_USERNAME_ENV, RESOLUTION_PASSWORD_ENV,
                 "password", "psw", "secret", "key", "token")));
     }
 
