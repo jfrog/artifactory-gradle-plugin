@@ -213,7 +213,7 @@ configure<ArtifactoryPluginConvention> {
         }
 
         // (default: true) Publish the generated build-info file to Artifactory
-        publishBuildInfo(false)
+        publishBuildInfo = false
         // (default: 3) Number of threads that will work and deploy artifacts to Artifactory
         forkCount = 5
     }
@@ -290,7 +290,7 @@ artifactory {
         }
 
         // (default: true) Publish the generated build-info file to Artifactory
-        publishBuildInfo(false)
+        publishBuildInfo = false
         // (default: 3) Number of threads that will work and deploy artifacts to Artifactory
         forkCount = 5
     }
