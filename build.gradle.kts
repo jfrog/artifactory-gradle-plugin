@@ -14,7 +14,7 @@ repositories {
     mavenCentral()
 }
 
-val buildInfoVersion = "2.41.5"
+val buildInfoVersion = "2.41.6"
 val fileSpecsVersion = "1.1.2"
 val commonsLangVersion = "3.12.0"
 val commonsIoVersion = "2.11.0"
