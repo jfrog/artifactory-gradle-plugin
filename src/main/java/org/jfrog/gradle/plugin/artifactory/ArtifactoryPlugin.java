@@ -38,7 +38,9 @@ public class ArtifactoryPlugin implements Plugin<Project> {
                 // Add a DependencyResolutionListener, to populate the dependency hierarchy map
                 subproject.getConfigurations().all(config -> config.getIncoming().afterResolve(resolutionListener::afterResolve));
                 // Add after evaluation listener to evaluate the ArtifactoryPublish task
-                subproject.afterEvaluate((projectsEvaluatedBuildListener::afterEvaluate));
+                if (!subproject.getState().getExecuted()) {
+                    subproject.afterEvaluate((projectsEvaluatedBuildListener::afterEvaluate));
+                }
             });
             // Add after all projects evaluated listener to evaluate all the ArtifactoryTask tasks that are not yet evaluated
             project.getGradle().projectsEvaluated(projectsEvaluatedBuildListener::projectsEvaluated);
