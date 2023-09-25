@@ -12,7 +12,7 @@ import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfigurat
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
-import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils;
 
@@ -39,18 +39,18 @@ public class ProjectsEvaluatedBuildListener {
     private void evaluate(ArtifactoryTask collectDeployDetailsTask) {
         log.debug("Try to evaluate {}", collectDeployDetailsTask);
         Project project = collectDeployDetailsTask.getProject();
-        ArtifactoryPluginConvention convention = ConventionUtils.getArtifactoryConvention(project);
-        if (convention == null) {
-            log.debug("Can't find artifactory convention.");
+        ArtifactoryPluginConvention extension = ExtensionsUtils.getArtifactoryExtension(project);
+        if (extension == null) {
+            log.debug("Can't find artifactory extension.");
             return;
         }
-        ArtifactoryClientConfiguration clientConfiguration = convention.getClientConfig();
+        ArtifactoryClientConfiguration clientConfiguration = extension.getClientConfig();
         if (clientConfiguration == null) {
             log.debug("Client configuration not defined.");
             return;
         }
         // Fill-in the client config with current user/system properties for the given project
-        ConventionUtils.updateConfig(clientConfiguration, project);
+        ExtensionsUtils.updateConfig(clientConfiguration, project);
         // Set task attributes if running on CI Server
         if (collectDeployDetailsTask.isCiServerBuild()) {
             addCiAttributesToTask(collectDeployDetailsTask, clientConfiguration);

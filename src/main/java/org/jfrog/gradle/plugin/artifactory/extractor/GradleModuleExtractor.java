@@ -26,7 +26,7 @@ import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin;
 import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
-import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
@@ -86,7 +86,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
             // Extract the module's dependencies
             builder.dependencies(calculateDependencies(project, moduleId));
             // Extract the module's artifacts
-            ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(project);
+            ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(project);
             if (publisher == null) {
                 log.warn("No publisher config found for project: " + project.getName());
                 return builder;

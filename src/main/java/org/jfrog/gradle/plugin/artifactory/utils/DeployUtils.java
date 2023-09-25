@@ -47,7 +47,7 @@ public class DeployUtils {
                 log.debug("Task '{}' has nothing to deploy", artifactoryTask.getPath());
                 return;
             }
-            ArtifactoryClientConfiguration.PublisherHandler taskPublisher = ConventionUtils.getPublisherHandler(artifactoryTask.getProject());
+            ArtifactoryClientConfiguration.PublisherHandler taskPublisher = ExtensionsUtils.getPublisherHandler(artifactoryTask.getProject());
             if (taskPublisher == null) {
                 log.debug("Task '{}' does not have publisher configured", artifactoryTask.getPath());
                 return;

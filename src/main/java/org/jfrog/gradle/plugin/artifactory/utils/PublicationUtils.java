@@ -172,7 +172,7 @@ public class PublicationUtils {
      * Checks global publisher config if exists, if not exists checks specific task configuration
      */
     private static boolean isPublishIvy(ArtifactoryTask task) {
-        ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(task.getProject());
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(task.getProject());
         if (publisher == null) {
             return false;
         }
@@ -215,7 +215,7 @@ public class PublicationUtils {
     private static void addIvyArtifactToDeployDetails(ArtifactoryTask destination, String publicationName,
                                                       IvyPublicationIdentity projectIdentity, DeployDetails.Builder builder,
                                                       PublishArtifactInfo artifactInfo) {
-        ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(destination.getProject());
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(destination.getProject());
         if (publisher == null) {
             return;
         }
@@ -316,7 +316,7 @@ public class PublicationUtils {
      * Checks global publisher config if exists, if not exists checks specific task configuration
      */
     private static boolean isPublishMaven(ArtifactoryTask task) {
-        ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(task.getProject());
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(task.getProject());
         if (publisher == null) {
             return false;
         }
@@ -388,7 +388,7 @@ public class PublicationUtils {
     private static void addArtifactInfoToDeployDetails(ArtifactoryTask destination, String publicationName,
                                                        DeployDetails.Builder builder, PublishArtifactInfo artifactInfo, String artifactPath) {
         Project project = destination.getProject();
-        ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(project);
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(project);
         if (publisher != null) {
             builder.targetRepository(getTargetRepository(artifactPath, publisher));
             Map<String, String> propsToAdd = getPropsToAdd(destination, artifactInfo, publicationName);

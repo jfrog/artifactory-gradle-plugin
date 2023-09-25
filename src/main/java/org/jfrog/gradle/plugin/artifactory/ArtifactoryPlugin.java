@@ -9,7 +9,7 @@ import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
 import org.jfrog.gradle.plugin.artifactory.listener.ProjectsEvaluatedBuildListener;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
-import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
@@ -25,8 +25,8 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         if (!shouldApplyPluginOnProject(project)) {
             return;
         }
-        // Get / Add an Artifactory plugin convention to the project module
-        ArtifactoryPluginConvention convention = ConventionUtils.getOrCreateArtifactoryConvention(project);
+        // Get / Add an Artifactory plugin extension to the project module
+        ArtifactoryPluginConvention extension = ExtensionsUtils.getOrCreateArtifactoryExtension(project);
         // Add the collect publications for deploy details and extract module-info tasks to the project module
         TaskProvider<ArtifactoryTask> collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
         TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask, project);
@@ -50,9 +50,9 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         }
 
         // Set build started if not set
-        String buildStarted = convention.getClientConfig().info.getBuildStarted();
+        String buildStarted = extension.getClientConfig().info.getBuildStarted();
         if (buildStarted == null || buildStarted.isEmpty()) {
-            convention.getClientConfig().info.setBuildStarted(System.currentTimeMillis());
+            extension.getClientConfig().info.setBuildStarted(System.currentTimeMillis());
         }
 
         log.debug("Using Artifactory Plugin for " + project.getPath());
