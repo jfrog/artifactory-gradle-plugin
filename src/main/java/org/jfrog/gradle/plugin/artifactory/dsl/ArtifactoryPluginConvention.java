@@ -1,9 +1,7 @@
 package org.jfrog.gradle.plugin.artifactory.dsl;
 
-import groovy.lang.Closure;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
-import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.utils.GradleClientLogger;
 
@@ -29,29 +27,17 @@ public class ArtifactoryPluginConvention {
         clientConfig.publisher.setContextUrl(contextUrl);
     }
 
-    public void publish(Closure<PublisherConfig> closure) {
-        publish(ConfigureUtil.configureUsing(closure));
-    }
-
     public void publish(Action<PublisherConfig> publishAction) {
-        publisherConfig = new PublisherConfig(this);
+        publisherConfig = project.getObjects().newInstance(PublisherConfig.class, project.getObjects(), this);
         publishAction.execute(publisherConfig);
     }
 
     @SuppressWarnings("unused")
-    public void buildInfo(Closure<ArtifactoryClientConfiguration.BuildInfoHandler> closure) {
-        buildInfo(ConfigureUtil.configureUsing(closure));
-    }
-
     public void buildInfo(Action<ArtifactoryClientConfiguration.BuildInfoHandler> buildInfoAction) {
         buildInfoAction.execute(clientConfig.info);
     }
 
     @SuppressWarnings("unused")
-    public void proxy(Closure<ArtifactoryClientConfiguration.ProxyHandler> closure) {
-        proxy(ConfigureUtil.configureUsing(closure));
-    }
-
     public void proxy(Action<ArtifactoryClientConfiguration.ProxyHandler> buildInfoAction) {
         buildInfoAction.execute(clientConfig.proxy);
     }

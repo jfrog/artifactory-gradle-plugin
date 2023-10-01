@@ -17,7 +17,7 @@ import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleBuildInfoExtractor;
 import org.jfrog.gradle.plugin.artifactory.extractor.ModuleInfoFileProducer;
 import org.jfrog.gradle.plugin.artifactory.Constant;
-import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.DeployUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
@@ -51,7 +51,7 @@ public class DeployTask extends DefaultTask {
     @TaskAction
     public void extractBuildInfoAndDeploy() throws IOException {
         log.debug("Extracting build-info and deploying build details in task '{}'", getPath());
-        ArtifactoryClientConfiguration accRoot = ConventionUtils.getArtifactoryConvention(getProject()).getClientConfig();
+        ArtifactoryClientConfiguration accRoot = ExtensionsUtils.getArtifactoryExtension(getProject()).getClientConfig();
         // Deploy Artifacts to artifactory
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
         // Generate build-info and handle deployment (and artifact exports if configured)

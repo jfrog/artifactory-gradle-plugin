@@ -16,43 +16,42 @@ import java.util.Set;
 
 import static org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration.addDefaultPublisherAttributes;
 
-public class ConventionUtils {
+public class ExtensionsUtils {
 
     /**
-     * Get or create if not exists an artifactory convention for a given project
+     * Get or create if not exists an artifactory extension for a given project
      *
-     * @param project - the project to fetch/create its convention
-     * @return project convention
+     * @param project - the project to fetch/create its extension
+     * @return project extension
      */
-    public static ArtifactoryPluginConvention getOrCreateArtifactoryConvention(Project project) {
-        ArtifactoryPluginConvention con = project.getConvention().findPlugin(ArtifactoryPluginConvention.class);
+    public static ArtifactoryPluginConvention getOrCreateArtifactoryExtension(Project project) {
+        ArtifactoryPluginConvention con = project.getExtensions().findByType(ArtifactoryPluginConvention.class);
         if (con == null) {
             con = project.getExtensions().create(Constant.ARTIFACTORY, ArtifactoryPluginConvention.class, project);
-            project.getConvention().getPlugins().put(Constant.ARTIFACTORY, con);
         }
         return con;
     }
 
     /**
-     * Get the Artifactory convention that is defined at the root project of a given project
+     * Get the Artifactory extension that is defined at the root project of a given project
      *
-     * @param project - the project that will get its root's convention
-     * @return Artifactory's convention defined at the root project if exists
+     * @param project - the project that will get its root's extension
+     * @return Artifactory's extension defined at the root project if exists
      */
-    public static ArtifactoryPluginConvention getArtifactoryConvention(Project project) {
-        return project.getRootProject().getConvention().findPlugin(ArtifactoryPluginConvention.class);
+    public static ArtifactoryPluginConvention getArtifactoryExtension(Project project) {
+        return project.getRootProject().getExtensions().findByType(ArtifactoryPluginConvention.class);
     }
 
     /**
-     * Get a convention of a given project that configured a publisher with: contextUrl and repoKey/snapshotRepoKey
+     * Get an extension of a given project that configured a publisher with: contextUrl and repoKey/snapshotRepoKey
      * If the current project didn't configure a publisher tries the parent until one is found
      *
      * @param project - the project to fetch its publisher configurations
-     * @return an Artifactory convention with publisher configured or null if not found
+     * @return an Artifactory extension with publisher configured or null if not found
      */
-    public static ArtifactoryPluginConvention getConventionWithPublisher(Project project) {
+    public static ArtifactoryPluginConvention getExtensionWithPublisher(Project project) {
         while (project != null) {
-            ArtifactoryPluginConvention acc = project.getConvention().findPlugin(ArtifactoryPluginConvention.class);
+            ArtifactoryPluginConvention acc = project.getExtensions().findByType(ArtifactoryPluginConvention.class);
             if (acc != null) {
                 ArtifactoryClientConfiguration.PublisherHandler publisher = acc.getClientConfig().publisher;
                 if (publisher.getContextUrl() != null && (publisher.getRepoKey() != null || publisher.getSnapshotRepoKey() != null)) {
@@ -71,11 +70,11 @@ public class ConventionUtils {
      * @return a configured publisher handler or null if not found
      */
     public static ArtifactoryClientConfiguration.PublisherHandler getPublisherHandler(Project project) {
-        ArtifactoryPluginConvention convention = getConventionWithPublisher(project);
-        if (convention == null) {
+        ArtifactoryPluginConvention extension = getExtensionWithPublisher(project);
+        if (extension == null) {
             return null;
         }
-        return convention.getClientConfig().publisher;
+        return extension.getClientConfig().publisher;
     }
 
     /**
@@ -86,7 +85,7 @@ public class ConventionUtils {
      * 4) default publisher attributes
      *
      * @param configuration - configuration to update
-     * @param project - project to get parent information and start parameters
+     * @param project       - project to get parent information and start parameters
      */
     public static void updateConfig(ArtifactoryClientConfiguration configuration, Project project) {
         Properties props = new Properties();
