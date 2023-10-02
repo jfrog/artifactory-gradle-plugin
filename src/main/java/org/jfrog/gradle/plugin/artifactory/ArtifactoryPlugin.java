@@ -5,7 +5,7 @@ import org.gradle.api.Project;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.tasks.TaskProvider;
-import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginExtension;
 import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
 import org.jfrog.gradle.plugin.artifactory.listener.ProjectsEvaluatedBuildListener;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
@@ -26,7 +26,7 @@ public class ArtifactoryPlugin implements Plugin<Project> {
             return;
         }
         // Get / Add an Artifactory plugin extension to the project module
-        ArtifactoryPluginConvention extension = ExtensionsUtils.getOrCreateArtifactoryExtension(project);
+        ArtifactoryPluginExtension extension = ExtensionsUtils.getOrCreateArtifactoryExtension(project);
         // Add the collect publications for deploy details and extract module-info tasks to the project module
         TaskProvider<ArtifactoryTask> collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
         TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask, project);

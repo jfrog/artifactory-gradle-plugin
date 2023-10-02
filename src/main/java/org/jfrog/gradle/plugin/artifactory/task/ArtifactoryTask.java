@@ -22,7 +22,7 @@ import org.gradle.api.tasks.*;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.Constant;
-import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginExtension;
 import org.jfrog.gradle.plugin.artifactory.dsl.PropertiesConfig;
 import org.jfrog.gradle.plugin.artifactory.dsl.PublisherConfig;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleDeployDetails;
@@ -93,7 +93,7 @@ public class ArtifactoryTask extends DefaultTask {
             }
         }
 
-        ArtifactoryPluginConvention extension = ExtensionsUtils.getExtensionWithPublisher(project);
+        ArtifactoryPluginExtension extension = ExtensionsUtils.getExtensionWithPublisher(project);
         if (extension == null) {
             log.debug("Can't find extension configured for {}", getPath());
             return;
