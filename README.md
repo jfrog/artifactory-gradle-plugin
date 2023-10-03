@@ -114,7 +114,7 @@ make the necessary adjustments based on your platform information:
 <summary>Kotlin Format</summary>
 
 ```kotlin
-configure<ArtifactoryPluginExtension> {
+artifactory {
     publish {
         // Define the Artifactory URL for publishing artifacts
         contextUrl = "http://127.0.0.1:8081/artifactory"
@@ -185,7 +185,7 @@ artifacts will be published, and configure other global settings such as Proxy a
 <summary>Kotlin Format</summary>
 
 ```kotlin
-configure<ArtifactoryPluginExtension> {
+artifactory {
     publish {
         // Define the Artifactory URL for publishing artifacts
         contextUrl = "http://127.0.0.1:8081/artifactory"
