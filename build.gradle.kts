@@ -62,22 +62,19 @@ dependencies {
     "functionalTestImplementation"(project(mapOf("path" to ":")))
 }
 
-pluginBundle {
+gradlePlugin {
     website = "https://github.com/jfrog/artifactory-gradle-plugin"
     vcsUrl = "https://github.com/jfrog/artifactory-gradle-plugin"
-
-    gradlePlugin {
-        plugins {
-            create("artifactoryGradlePlugin") {
-                id = "com.jfrog.artifactory"
-                implementationClass = "org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin"
-                displayName = "JFrog Artifactory Gradle Plugin"
-                description = pluginDescription
-                tags = listOf("JFrog", "publication", "Artifactory", "build-info")
-            }
+    plugins {
+        create("artifactoryGradlePlugin") {
+            id = "com.jfrog.artifactory"
+            implementationClass = "org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin"
+            displayName = "JFrog Artifactory Gradle Plugin"
+            description = pluginDescription
+            tags = listOf("JFrog", "publication", "Artifactory", "build-info")
         }
-        testSourceSets(functionalTest)
     }
+    testSourceSets(functionalTest)
 }
 
 val uberJar by tasks.register<Jar>("uberJar") {
