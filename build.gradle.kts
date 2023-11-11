@@ -190,6 +190,9 @@ tasks.register<com.github.spotbugs.snom.SpotBugsTask>("spotBugs") {
             outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.html"))
             setStylesheet("fancy-hist.xsl")
         }
+        create("xml") {
+            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.xml"))
+        }
     }
     excludeFilter.set(
             file("${projectDir}/spotbugs-filter.xml")
