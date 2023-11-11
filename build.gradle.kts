@@ -15,7 +15,7 @@ repositories {
     mavenCentral()
 }
 
-val buildInfoVersion = "2.39.8"
+val buildInfoVersion = "2.41.7"
 val fileSpecsVersion = "1.1.2"
 val commonsLangVersion = "3.12.0"
 val commonsIoVersion = "2.11.0"
@@ -40,7 +40,7 @@ dependencies {
     api("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
 
     implementation("org.apache.commons", "commons-lang3", commonsLangVersion)
-    implementation("org.apache.ivy", "ivy", "2.5.1")
+    implementation("org.apache.ivy", "ivy", "2.5.2")
     implementation("com.google.guava", "guava", "32.0.1-jre")
 
     // Dependencies that are used by the build-info dependencies and need to be included in the UberJar
@@ -64,7 +64,7 @@ dependencies {
 
     // Static code analysis
     spotbugs("com.github.spotbugs:spotbugs:4.8.1")
-    spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.12.0")
+    implementation("com.github.spotbugs:spotbugs-annotations:4.8.1")
 }
 
 pluginBundle {
