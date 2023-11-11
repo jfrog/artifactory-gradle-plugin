@@ -15,19 +15,31 @@ To build the plugin sources, please follow these steps:
 ./gradlew clean build
 ```
 
-
 To build the code without running the tests, add to the "clean build" command the "-x test" option, for example:
+
 ```
 ./gradlew clean build -x test -x functionalTest
 ```
+
 ---
 
 # 🧪 Testing the plugin
+
+### Static code analysis
+
+In order to run the static code analysis, execute the following command:
+
+```bash
+./gradlew clean spotBugs
+```
+
+### Unit and integration tests
 
 In order to run tests, you should have an Artifactory instance running.
 
 The tests try to access with default values ('localHost:8081', 'admin', 'password')
 overriding those values can be done by using environment variables:
+
 ```bash
 export BITESTS_PLATFORM_URL='http://localhost:8081'
 export BITESTS_PLATFORM_USERNAME=admin
@@ -42,10 +54,14 @@ exeport BITESTS_ARTIFACTORY_VIRTUAL_REPO='some-virtual-repo'
 ```bash
 ./gradlew clean check
 ```
-* The above command run both unit and integration tests.
+
+- The above command run both unit and integration tests.
 
 ### Debugging the tests/plugin with the following command:
+
 ```
 ./gradlew aP -Dorg.gradle.jvmargs=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
 ```
-After running the above command, you should start a remote debugging session on port 5005 and wait until the code reaches the break point.
+
+After running the above command, you should start a remote debugging session on port 5005 and wait until the code
+reaches the break point.

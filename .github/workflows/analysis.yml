@@ -1,0 +1,42 @@
+name: "Static Analysis"
+
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+  pull_request:
+
+permissions:
+  checks: write
+
+jobs:
+  spotbugs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      # Install required tools
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: "temurin"
+          java-version: "8"
+
+      # Run tests
+      - name: Run Spotbugs
+        run: ./gradlew clean spotbugs
+
+      # Show Spotbugs report
+      - name: Show Spotbugs report
+        uses: jwgmeligmeyling/spotbugs-github-action@master
+        with:
+          path: "build/reports/spotbugs/main/spotbugs.xml"
+        if: failure()
+
+      # Stop Gradle daemon
+      - name: Stop Gradle
+        run: ./gradlew --stop
+        if: always()

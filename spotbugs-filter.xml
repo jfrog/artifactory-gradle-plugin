@@ -1,0 +1,9 @@
+<FindBugsFilter>
+    <!-- Handling EI_EXPOSE_REP and EI_EXPOSE_REP2 is memory-intensive due to the need for cloning large maps. -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+</FindBugsFilter>

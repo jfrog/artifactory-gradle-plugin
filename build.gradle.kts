@@ -8,19 +8,21 @@ plugins {
     id("com.gradle.plugin-publish") version "1.2.0"
     id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
     id("signing")
+    id("com.github.spotbugs-base") version "4.8.0"
 }
 
 repositories {
     mavenCentral()
 }
 
-val buildInfoVersion = "2.41.6"
+val buildInfoVersion = "2.41.7"
 val fileSpecsVersion = "1.1.2"
 val commonsLangVersion = "3.12.0"
 val commonsIoVersion = "2.11.0"
 val commonsTxtVersion = "1.10.0"
 val testNgVersion = "7.5.1"
 val httpclientVersion = "4.5.14"
+val spotBugsVersion = "4.8.1"
 
 tasks.compileJava {
     sourceCompatibility = "1.8"
@@ -60,6 +62,10 @@ dependencies {
     "functionalTestImplementation"("commons-io", "commons-io", commonsIoVersion)
     "functionalTestImplementation"("org.apache.httpcomponents", "httpclient", httpclientVersion)
     "functionalTestImplementation"(project(mapOf("path" to ":")))
+
+    // Static code analysis
+    spotbugs("com.github.spotbugs", "spotbugs", spotBugsVersion)
+    implementation("com.github.spotbugs", "spotbugs-annotations", spotBugsVersion)
 }
 
 pluginBundle {
@@ -102,7 +108,7 @@ tasks.named<Jar>("jar") {
     exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
-tasks.matching{ task -> task.name.contains("PluginMarker") }.configureEach {
+tasks.matching { task -> task.name.contains("PluginMarker") }.configureEach {
     enabled = false
 }
 
@@ -169,4 +175,26 @@ val functionalTestTask = tasks.register<Test>("functionalTest") {
 
 tasks.check {
     dependsOn(functionalTestTask)
+}
+
+tasks.register<com.github.spotbugs.snom.SpotBugsTask>("spotBugs") {
+    classDirs = files(sourceSets.main.get().output)
+    sourceDirs = files(sourceSets.main.get().allSource.srcDirs)
+    auxClassPaths = files(sourceSets.main.get().compileClasspath)
+
+    reports {
+        create("text") {
+            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.txt"))
+        }
+        create("html") {
+            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.html"))
+            setStylesheet("fancy-hist.xsl")
+        }
+        create("xml") {
+            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.xml"))
+        }
+    }
+    excludeFilter.set(
+            file("${projectDir}/spotbugs-filter.xml")
+    )
 }

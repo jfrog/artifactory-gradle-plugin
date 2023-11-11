@@ -356,9 +356,6 @@ public class PublicationUtils {
     private static void createPublishArtifactInfoAndAddToDeployDetails(MavenArtifact artifact, ArtifactoryTask destination, MavenPublication mavenPublication, String publicationName) {
         File file = artifact.getFile();
         DeployDetails.Builder builder = createArtifactBuilder(file, publicationName);
-        if (builder == null) {
-            return;
-        }
         PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
                 mavenPublication.getArtifactId(), artifact.getExtension(),
                 artifact.getExtension(), artifact.getClassifier(),

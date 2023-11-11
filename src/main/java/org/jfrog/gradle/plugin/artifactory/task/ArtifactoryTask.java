@@ -2,6 +2,7 @@ package org.jfrog.gradle.plugin.artifactory.task;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
 import org.gradle.api.artifacts.Configuration;
@@ -54,6 +55,8 @@ public class ArtifactoryTask extends DefaultTask {
     private final Map<String, Boolean> flags = new HashMap<>();
     // Is this task initiated from a build server
     private boolean ciServerBuild = false;
+
+    @SuppressFBWarnings(value = "PA_PUBLIC_PRIMITIVE_ATTRIBUTE", justification = "Input field should be public")
     @Input
     public boolean skip = false;
 
