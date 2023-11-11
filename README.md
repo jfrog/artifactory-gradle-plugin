@@ -44,7 +44,7 @@ following actions on the project and its submodules:
    artifacts, which are the output of the build process, and the accompanying build-info file are stored and organized
    in your Artifactory repository for easy access and management.
 
-> **_NOTE:_** The minimum supported Gradle version to use this plugin is v6.9
+> **_NOTE:_** The minimum supported Gradle version to use this plugin is v6.8.1
 
 <details>
 <summary> 🚚 Migrating from Version 4 to Version 5 of the Plugin</summary>
@@ -213,7 +213,7 @@ configure<ArtifactoryPluginConvention> {
         }
 
         // (default: true) Publish the generated build-info file to Artifactory
-        publishBuildInfo(false)
+        publishBuildInfo = false
         // (default: 3) Number of threads that will work and deploy artifacts to Artifactory
         forkCount = 5
     }
@@ -290,7 +290,7 @@ artifactory {
         }
 
         // (default: true) Publish the generated build-info file to Artifactory
-        publishBuildInfo(false)
+        publishBuildInfo = false
         // (default: 3) Number of threads that will work and deploy artifacts to Artifactory
         forkCount = 5
     }

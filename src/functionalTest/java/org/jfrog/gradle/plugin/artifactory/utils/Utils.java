@@ -12,9 +12,8 @@ import org.jfrog.build.extractor.clientConfiguration.client.artifactory.Artifact
 import org.jfrog.build.extractor.clientConfiguration.client.response.GetAllBuildNumbersResponse;
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.GradleFunctionalTestBase;
-import org.jfrog.gradle.plugin.artifactory.TestConstant;
+import org.jfrog.gradle.plugin.artifactory.TestConsts;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,7 +21,9 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 
+import static org.jfrog.build.api.BuildInfoFields.DEPLOYABLE_ARTIFACTS;
 import static org.jfrog.build.extractor.BuildInfoExtractorUtils.BUILD_BROWSE_URL;
+import static org.jfrog.build.extractor.ci.BuildInfoProperties.BUILD_INFO_PREFIX;
 import static org.testng.Assert.assertTrue;
 
 public class Utils {
@@ -35,7 +36,7 @@ public class Utils {
      * @param defaultValue - value if env var not exists
      */
     public static String readParam(String paramName, String defaultValue) {
-        String paramValue = System.getenv(TestConstant.BITESTS_ENV_VAR_PREFIX + paramName.toUpperCase());
+        String paramValue = System.getenv(TestConsts.BITESTS_ENV_VAR_PREFIX + paramName.toUpperCase());
         return StringUtils.defaultIfBlank(paramValue, defaultValue);
     }
 
@@ -46,33 +47,56 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     public static void createTestDir(Path sourceDir) throws IOException {
-        FileUtils.copyDirectory(sourceDir.toFile(), TestConstant.TEST_DIR);
+        FileUtils.copyDirectory(sourceDir.toFile(), TestConsts.TEST_DIR);
+    }
+
+    /**
+     * Create the deployable artifacts file.
+     *
+     * @return the path to the generated deployable artifacts file.
+     * @throws IOException - In case of any IO error
+     */
+    public static Path createDeployableArtifactsFile() throws IOException {
+        return Files.createFile(TestConsts.TEST_DIR.toPath().resolve("deployable.artifacts")).toAbsolutePath();
     }
 
     /**
      * Run 'ArtifactoryPublish' task with specific context.
      *
-     * @param gradleVersion   - run the tasks with this given gradle version
-     * @param envVars         - environment variable that will be used in the task
-     * @param applyInitScript - apply the template init script to add the plugin
+     * @param gradleVersion   - Run the tasks with this given gradle version
+     * @param envVars         - Environment variable that will be used in the task
+     * @param applyInitScript - Apply the template init script to add the plugin
      * @return result of the task
      */
     public static BuildResult runGradleArtifactoryPublish(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
-        return runPluginTask(gradleVersion, TestConstant.TEST_DIR, Constant.ARTIFACTORY_PUBLISH_TASK_NAME, envVars, applyInitScript);
+        List<String> arguments = new ArrayList<>(Arrays.asList("clean", "build", Constant.ARTIFACTORY_PUBLISH_TASK_NAME, "--stacktrace"));
+        return runPluginTasks(gradleVersion, arguments, envVars, applyInitScript);
+    }
+
+    /**
+     * Run 'gradle --configuration-cache' with specific context.
+     *
+     * @param gradleVersion   - Run the tasks with this given gradle version
+     * @param envVars         - Environment variable that will be used in the task
+     * @param applyInitScript - Apply the template init script to add the plugin
+     * @return result of the task
+     * @throws IOException in case of any IO error
+     */
+    public static BuildResult runConfigurationCache(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
+        List<String> arguments = new ArrayList<>(Collections.singletonList("--configuration-cache"));
+        return runPluginTasks(gradleVersion, arguments, envVars, applyInitScript);
     }
 
     /**
      * Run Gradle task with specific context.
      *
-     * @param gradleVersion   - run the tasks with this given gradle version
-     * @param projectDir      - the gradle project to run the tasks on
-     * @param taskName        - task name to run
-     * @param envVars         - environment variable that will be used in the task
-     * @param applyInitScript - apply the template init script to add the plugin
+     * @param gradleVersion   - Run the tasks with this given gradle version
+     * @param arguments       - Arguments to run
+     * @param envVars         - Environment variable that will be used in the task
+     * @param applyInitScript - Apply the template init script to add the plugin
      * @return result of the task
      */
-    public static BuildResult runPluginTask(String gradleVersion, File projectDir, String taskName, Map<String, String> envVars, boolean applyInitScript) throws IOException {
-        List<String> arguments = new ArrayList<>(Arrays.asList("clean", taskName, "--stacktrace"));
+    public static BuildResult runPluginTasks(String gradleVersion, List<String> arguments, Map<String, String> envVars, boolean applyInitScript) throws IOException {
         if (applyInitScript) {
             generateInitScript();
             arguments.add("--init-script=gradle.init");
@@ -80,7 +104,7 @@ public class Utils {
         //noinspection UnstableApiUsage
         return GradleRunner.create()
                 .withGradleVersion(gradleVersion)
-                .withProjectDir(projectDir)
+                .withProjectDir(TestConsts.TEST_DIR)
                 .withPluginClasspath()
                 .withArguments(arguments)
                 .withEnvironment(envVars)
@@ -93,31 +117,35 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     private static void generateInitScript() throws IOException {
-        String content = Files.readString(TestConstant.INIT_SCRIPT);
+        String content = FileUtils.readFileToString(TestConsts.INIT_SCRIPT.toFile(), StandardCharsets.UTF_8);
         // Insert the path to lib (Escape "/" in Windows machines)
-        String libsDir = TestConstant.LIBS_DIR.toString().replaceAll("\\\\", "\\\\\\\\");
+        String libsDir = TestConsts.LIBS_DIR.toString().replaceAll("\\\\", "\\\\\\\\");
         content = content.replace("${pluginLibDir}", libsDir);
         // Write gradle.init file with the content
-        Path target = TestConstant.TEST_DIR.toPath().resolve("gradle.init");
+        Path target = TestConsts.TEST_DIR.toPath().resolve("gradle.init");
         Files.write(target, content.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
      * Generate buildinfo.properties file with publisher and other properties base on the given inputs.
      *
-     * @param testBase         - the test that hold the Artifactory properties that the user/CI server needs to provide
-     * @param publications     - the publications to add into the properties
-     * @param publishBuildInfo - property that decide if to publish the build info
-     * @param setDeployer      - if true it will set the deployer properties for the build info
+     * @param testBase            - the test that hold the Artifactory properties that the user/CI server needs to provide
+     * @param publications        - the publications to add into the properties
+     * @param publishBuildInfo    - property that decide if to publish the build info
+     * @param setDeployer         - if true it will set the deployer properties for the build info
+     * @param deployableArtifacts - path to deployable artifacts file, or empty if not necessary
      * @throws IOException - In case of any IO error
      */
-    public static void generateBuildInfoProperties(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, boolean setDeployer) throws IOException {
-        String content = generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConstant.BUILD_INFO_PROPERTIES_SOURCE_RESOLVER);
+    public static void generateBuildInfoProperties(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, boolean setDeployer, String deployableArtifacts) throws IOException {
+        String content = generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConsts.BUILD_INFO_PROPERTIES_SOURCE_RESOLVER);
         if (setDeployer) {
             content += "\n";
-            content += generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConstant.BUILD_INFO_PROPERTIES_SOURCE_DEPLOYER);
+            content += generateBuildInfoPropertiesForServer(testBase, publications, publishBuildInfo, TestConsts.BUILD_INFO_PROPERTIES_SOURCE_DEPLOYER);
         }
-        Files.write(TestConstant.BUILD_INFO_PROPERTIES_TARGET, content.getBytes(StandardCharsets.UTF_8));
+        if (StringUtils.isNotBlank(deployableArtifacts)) {
+            content += String.format("\n%s%s=%s", BUILD_INFO_PREFIX, DEPLOYABLE_ARTIFACTS, deployableArtifacts.replaceAll("\\\\", "\\\\\\\\"));
+        }
+        Files.write(TestConsts.BUILD_INFO_PROPERTIES_TARGET, content.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -131,8 +159,8 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     private static String generateBuildInfoPropertiesForServer(GradleFunctionalTestBase testBase, String publications, boolean publishBuildInfo, Path source) throws IOException {
-        String content = Files.readString(source);
-        Map<String, String> valuesMap = new HashMap<>() {{
+        String content = FileUtils.readFileToString(source.toFile(), StandardCharsets.UTF_8);
+        Map<String, String> valuesMap = new HashMap<String, String>() {{
             put(ClientConfigurationFields.PUBLICATIONS, publications);
             put(ClientConfigurationFields.CONTEXT_URL, testBase.getArtifactoryUrl());
             put(ClientConfigurationFields.USERNAME, testBase.getUsername());
@@ -181,7 +209,7 @@ public class Utils {
                 .distinct()
 
                 // Match build number pattern.
-                .map(TestConstant.BUILD_NUMBER_PATTERN::matcher)
+                .map(TestConsts.BUILD_NUMBER_PATTERN::matcher)
                 .filter(Matcher::matches)
 
                 // Filter build numbers newer than 24 hours.

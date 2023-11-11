@@ -1,0 +1,7 @@
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+            from("com.jfrog:gradle-version-catalog:1.0.0")
+        }
+    }
+}

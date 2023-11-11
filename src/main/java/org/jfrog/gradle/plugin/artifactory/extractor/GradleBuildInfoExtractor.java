@@ -21,6 +21,9 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.jfrog.build.extractor.ci.BuildInfoProperties.BUILD_INFO_ENVIRONMENT_PREFIX;
+import static org.jfrog.gradle.plugin.artifactory.Constant.*;
+
 public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
 
     private static final Logger log = Logging.getLogger(GradleBuildInfoExtractor.class);

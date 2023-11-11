@@ -3,7 +3,6 @@ package org.jfrog.gradle.plugin.artifactory.task;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import groovy.lang.Closure;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
 import org.gradle.api.artifacts.Configuration;
@@ -21,7 +20,6 @@ import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.*;
-import org.gradle.util.ConfigureUtil;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.Constant;
@@ -29,7 +27,7 @@ import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.dsl.PropertiesConfig;
 import org.jfrog.gradle.plugin.artifactory.dsl.PublisherConfig;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleDeployDetails;
-import org.jfrog.gradle.plugin.artifactory.utils.ConventionUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils;
 
 import javax.annotation.Nullable;
@@ -98,16 +96,16 @@ public class ArtifactoryTask extends DefaultTask {
             }
         }
 
-        ArtifactoryPluginConvention convention = ConventionUtils.getConventionWithPublisher(project);
-        if (convention == null) {
-            log.debug("Can't find convention configured for {}", getPath());
+        ArtifactoryPluginConvention extension = ExtensionsUtils.getExtensionWithPublisher(project);
+        if (extension == null) {
+            log.debug("Can't find extension configured for {}", getPath());
             return;
         }
         // Add global properties to the specs
         artifactSpecs.clear();
-        artifactSpecs.addAll(convention.getClientConfig().publisher.getArtifactSpecs());
+        artifactSpecs.addAll(extension.getClientConfig().publisher.getArtifactSpecs());
         // Configure the task using the "defaults" action if exists (delegate to the task)
-        PublisherConfig config = convention.getPublisherConfig();
+        PublisherConfig config = extension.getPublisherConfig();
         if (config != null) {
             Action<ArtifactoryTask> defaultsAction = config.getDefaultsAction();
             if (defaultsAction != null) {
@@ -162,7 +160,7 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     private void collectDetailsFromConfigurations() {
-        ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(getProject());
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(getProject());
         if (publisher == null) {
             return;
         }
@@ -369,10 +367,6 @@ public class ArtifactoryTask extends DefaultTask {
         }
     }
 
-    public void properties(Closure<PropertiesConfig> closure) {
-        properties(ConfigureUtil.configureUsing(closure));
-    }
-
     public void properties(Action<PropertiesConfig> propertiesAction) {
         PropertiesConfig propertiesConfig = new PropertiesConfig(getProject());
         propertiesAction.execute(propertiesConfig);
@@ -439,7 +433,7 @@ public class ArtifactoryTask extends DefaultTask {
             defaultProps = new HashMap<>();
             PublicationUtils.addProps(defaultProps, getProperties());
             // Add the publisher properties
-            ArtifactoryClientConfiguration.PublisherHandler publisher = ConventionUtils.getPublisherHandler(getProject().getRootProject());
+            ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(getProject().getRootProject());
             if (publisher != null) {
                 defaultProps.putAll(publisher.getMatrixParams());
             }

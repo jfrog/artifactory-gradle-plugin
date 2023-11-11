@@ -6,26 +6,40 @@ import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.BuildTask;
 import org.jfrog.build.api.dependency.PropertySearchResult;
 import org.jfrog.build.api.util.CommonUtils;
+import org.jfrog.build.client.DeployableArtifactDetail;
 import org.jfrog.build.extractor.ci.Artifact;
 import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.Dependency;
 import org.jfrog.build.extractor.ci.Module;
 import org.jfrog.build.extractor.clientConfiguration.client.artifactory.ArtifactoryManager;
-import org.jfrog.gradle.plugin.artifactory.TestConstant;
+import org.jfrog.gradle.plugin.artifactory.TestConsts;
+import org.testng.collections.Sets;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import static org.apache.commons.lang3.StringUtils.equalsAny;
+import static org.apache.commons.lang3.StringUtils.*;
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS;
 import static org.jfrog.build.extractor.BuildInfoExtractorUtils.jsonStringToBuildInfo;
+import static org.jfrog.build.extractor.clientConfiguration.deploy.DeployableArtifactsUtils.loadDeployableArtifactsFromFile;
+import static org.jfrog.gradle.plugin.artifactory.Constant.*;
+import static org.jfrog.gradle.plugin.artifactory.TestConsts.ARTIFACTS_GROUP_ID;
+import static org.jfrog.gradle.plugin.artifactory.TestConsts.EXPECTED_VERSION_CATALOG_CONSUMER_ARTIFACTS;
 import static org.testng.Assert.*;
+import static org.testng.Assert.assertTrue;
 
 public class ValidationUtils {
     public interface BuildResultValidation {
         void validate(BuildResult buildResult) throws IOException;
+    }
+
+    public interface CiBuildResultValidation {
+        void validate(BuildResult buildResult, Path deployableArtifacts) throws IOException;
     }
 
     /**
@@ -37,7 +51,47 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConstant.EXPECTED_MODULE_ARTIFACTS, 5);
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5);
+    }
+
+    /**
+     * Check build results of a Gradle project with publications.
+     *
+     * @param artifactoryManager  - The ArtifactoryManager client
+     * @param buildResult         - The build results
+     * @param localRepo           - Local Maven repository in Artifactory
+     * @param deployableArtifacts - The local deployable artifacts file expected to be populated with the deployed artifacts
+     * @throws IOException - In case of any IO error
+     */
+    public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo, Path deployableArtifacts) throws IOException {
+        checkBuildResults(artifactoryManager, buildResult, localRepo);
+        checkDeployableArtifacts(deployableArtifacts, Sets.newHashSet(TestConsts.EXPECTED_MODULE_ARTIFACTS), localRepo);
+    }
+
+    /**
+     * Check deployable artifacts file content.
+     *
+     * @param deployableArtifacts - Path to the file containing the deployable artifacts
+     * @param expectedArtifacts   - Expected deployed artifacts
+     * @param localRepo           - Local repository in Artifactory
+     * @throws IOException - In case of any IO error
+     */
+    private static void checkDeployableArtifacts(Path deployableArtifacts, Set<String> expectedArtifacts, String localRepo) throws IOException {
+        Map<String, List<DeployableArtifactDetail>> deployableArtifactsDetails = loadDeployableArtifactsFromFile(deployableArtifacts.toFile(), deployableArtifacts.toFile());
+        assertTrue(deployableArtifactsDetails.containsKey("shared"));
+        assertTrue(deployableArtifactsDetails.containsKey("webservice"));
+        assertTrue(deployableArtifactsDetails.containsKey("api"));
+        for (Map.Entry<String, List<DeployableArtifactDetail>> entry : deployableArtifactsDetails.entrySet()) {
+            for (DeployableArtifactDetail deployableArtifact : entry.getValue()) {
+                assertFalse(isBlank(deployableArtifact.getSourcePath()));
+                assertTrue(expectedArtifacts.contains(removeStart("/" + deployableArtifact.getArtifactDest(), ARTIFACTS_GROUP_ID)));
+                assertFalse(isBlank(deployableArtifact.getSha1()));
+                assertFalse(isBlank(deployableArtifact.getSha256()));
+                assertTrue(deployableArtifact.isDeploySucceeded());
+                assertEquals(deployableArtifact.getTargetRepository(), localRepo);
+                assertEquals(deployableArtifact.getProperties().size(), 3);
+            }
+        }
     }
 
     /**
@@ -49,7 +103,31 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkArchivesBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConstant.EXPECTED_ARCHIVE_ARTIFACTS, 1);
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 1);
+    }
+
+    /**
+     * Check build results of a Gradle project that uses Gradle Version Catalog to resolve a dependency.
+     *
+     * @param artifactoryManager - The ArtifactoryManager client
+     * @param buildResult        - The build results
+     * @param virtualRepo        - Virtual Maven repository in Artifactory
+     * @throws IOException In case of any IO error
+     */
+    public static void checkVersionCatalogResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String virtualRepo) throws IOException {
+        verifyArtifacts(artifactoryManager, virtualRepo + "/", EXPECTED_VERSION_CATALOG_CONSUMER_ARTIFACTS);
+
+        // Check build info
+        BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
+        assertNotNull(buildInfo);
+        Module module = buildInfo.getModule("com.jfrog:gradle_tests_space:1.0.0");
+        assertNotNull(module);
+
+        // Check commons-lang3 in the dependencies list
+        List<Dependency> dependencies = module.getDependencies();
+        assertEquals(dependencies.size(), 1);
+        Dependency dependency = dependencies.get(0);
+        assertEquals(dependency.getId(), "org.apache.commons:commons-lang3:3.9");
     }
 
     private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
@@ -58,18 +136,41 @@ public class ValidationUtils {
         assertProjectsSuccess(buildResult);
 
         // Check that all expected artifacts uploaded to Artifactory
-        for (String expectedArtifact : expectedArtifacts) {
-            artifactoryManager.downloadHeaders(localRepo + TestConstant.ARTIFACTS_GROUP_ID + expectedArtifact);
-        }
+        verifyArtifacts(artifactoryManager, localRepo + ARTIFACTS_GROUP_ID, expectedArtifacts);
 
-        // Check buildInfo info
+        // Check build info
         BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
         assertNotNull(buildInfo);
+        checkFilteredEnv(buildInfo);
         checkBuildInfoModules(buildInfo, 3, expectedArtifactsPerModule);
 
         // Check build info properties on published Artifacts
         PropertySearchResult artifacts = artifactoryManager.searchArtifactsByProperties(String.format("build.name=%s;build.number=%s", buildInfo.getName(), buildInfo.getNumber()));
         assertTrue(artifacts.getResults().size() >= expectedArtifacts.length);
+    }
+
+    /**
+     * Make sure the generated build info does not contain any secret environment variables.
+     *
+     * @param buildInfo - The build info
+     */
+    private static void checkFilteredEnv(BuildInfo buildInfo) {
+        buildInfo.getProperties().forEach((key, value) -> assertFalse(StringUtils.containsAny(key.toString(),
+                "password", "psw", "secret", "key", "token")));
+    }
+
+    /**
+     * Check that all expected artifacts uploaded to Artifactory
+     *
+     * @param artifactoryManager - The ArtifactoryManager client
+     * @param repoPath           - Path prefix including the repository name
+     * @param expectedArtifacts  - Expected artifacts relatively to the repoPath
+     * @throws IOException In case of any IO error
+     */
+    public static void verifyArtifacts(ArtifactoryManager artifactoryManager, String repoPath, String[] expectedArtifacts) throws IOException {
+        for (String expectedArtifact : expectedArtifacts) {
+            artifactoryManager.downloadHeaders(repoPath + expectedArtifact);
+        }
     }
 
     private static void assertProjectsSuccess(BuildResult buildResult) {
@@ -123,7 +224,7 @@ public class ValidationUtils {
 
             switch (module.getId()) {
                 case "org.jfrog.test.gradle.publish:webservice:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 7);
+                    assertEquals(module.getDependencies().size(), 12);
                     if (expectedArtifactsPerModule > 0) {
                         checkWebserviceArtifact(module);
                     }

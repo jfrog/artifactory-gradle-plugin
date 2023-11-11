@@ -1,12 +1,14 @@
 package org.jfrog.gradle.plugin.artifactory;
 
+import org.jfrog.build.client.Version;
+
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-public class TestConstant {
+public class TestConsts {
     // Root paths
     public static final Path GRADLE_EXTRACTOR = Paths.get(".").normalize().toAbsolutePath();
     public static final Path GRADLE_EXTRACTOR_SRC = GRADLE_EXTRACTOR.resolve("src");
@@ -26,6 +28,8 @@ public class TestConstant {
     public static final Path GRADLE_KTS_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-kts-example-publish");
     public static final Path GRADLE_EXAMPLE_CI_SERVER = PROJECTS_ROOT.resolve("gradle-example-ci-server");
     public static final Path GRADLE_EXAMPLE_CI_SERVER_ARCHIVES = PROJECTS_ROOT.resolve("gradle-example-ci-server-archives");
+    public static final Path GRADLE_EXAMPLE_VERSION_CATALOG_PRODUCER = PROJECTS_ROOT.resolve("gradle-example-version-catalog").resolve("producer");
+    public static final Path GRADLE_EXAMPLE_VERSION_CATALOG_CONSUMER = PROJECTS_ROOT.resolve("gradle-example-version-catalog").resolve("consumer");
     public static final Path GRADLE_EXAMPLE_DEFAULT_BOM = PROJECTS_ROOT.resolve("gradle-example-default-bom");
     public static final Path GRADLE_EXAMPLE_CUSTOM_BOM = PROJECTS_ROOT.resolve("gradle-example-custom-bom");
 
@@ -56,6 +60,12 @@ public class TestConstant {
     // Android
     public static final String GRADLE_ANDROID_VERSION = "8.2.1";
 
+    // Version catalog
+    public static final String MIN_GRADLE_VERSION_CATALOG_VERSION = "7.0";
+
+    // Configuration cache
+    public static final Version MIN_GRADLE_VERSION_CONFIG_CACHE = new Version("7.4.2");
+
     // Results
     public static final String ARTIFACTS_GROUP_ID = "/org/jfrog/test/gradle/publish/";
     public static final String[] EXPECTED_ARTIFACTS = {
@@ -72,11 +82,25 @@ public class TestConstant {
             "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.pom",
             "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.properties"
     };
+
     public static final String[] EXPECTED_ARCHIVE_ARTIFACTS = {
             "api/1.0-SNAPSHOT/api-1.0-SNAPSHOT.jar",
             "shared/1.0-SNAPSHOT/shared-1.0-SNAPSHOT.jar",
             "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.war",
     };
+
+    public static final String[] EXPECTED_VERSION_CATALOG_PRODUCER_ARTIFACTS = {
+            "com/jfrog/gradle-version-catalog/1.0.0/gradle-version-catalog-1.0.0.module",
+            "com/jfrog/gradle-version-catalog/1.0.0/gradle-version-catalog-1.0.0.toml",
+            "com/jfrog/gradle-version-catalog/1.0.0/gradle-version-catalog-1.0.0.pom",
+    };
+
+    public static final String[] EXPECTED_VERSION_CATALOG_CONSUMER_ARTIFACTS = {
+            "com/jfrog/gradle-version-catalog-consumer/1.0.0/gradle-version-catalog-consumer-1.0.0.module",
+            "com/jfrog/gradle-version-catalog-consumer/1.0.0/gradle-version-catalog-consumer-1.0.0.jar",
+            "com/jfrog/gradle-version-catalog-consumer/1.0.0/gradle-version-catalog-consumer-1.0.0.pom",
+    };
+
     public static final String[] EXPECTED_MODULE_ARTIFACTS = Stream.concat(
                     Stream.of(EXPECTED_ARTIFACTS),
                     Stream.of(
