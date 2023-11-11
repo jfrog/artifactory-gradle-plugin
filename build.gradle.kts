@@ -22,6 +22,7 @@ val commonsIoVersion = "2.11.0"
 val commonsTxtVersion = "1.10.0"
 val testNgVersion = "7.5.1"
 val httpclientVersion = "4.5.14"
+val spotBugsVersion = "4.8.1"
 
 tasks.compileJava {
     sourceCompatibility = "1.8"
@@ -63,8 +64,8 @@ dependencies {
     "functionalTestImplementation"(project(mapOf("path" to ":")))
 
     // Static code analysis
-    spotbugs("com.github.spotbugs:spotbugs:4.8.1")
-    implementation("com.github.spotbugs:spotbugs-annotations:4.8.1")
+    spotbugs("com.github.spotbugs", "spotbugs", spotBugsVersion)
+    implementation("com.github.spotbugs", "spotbugs-annotations", spotBugsVersion)
 }
 
 pluginBundle {
