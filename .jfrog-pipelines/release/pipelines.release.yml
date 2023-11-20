@@ -50,7 +50,7 @@ pipelines:
             - jf gradlec --use-wrapper --repo-resolve ecosys-maven-remote --repo-deploy ecosys-oss-release-local --deploy-maven-desc
 
             # Run audit
-            - jf audit
+            - jf audit --exclusions "*node_modules*;*target*;*venv*;*test*;*functionalTest*"
 
             # Update version
             - sed -i -e "/version=/ s/=.*/=$NEXT_VERSION/" gradle.properties
