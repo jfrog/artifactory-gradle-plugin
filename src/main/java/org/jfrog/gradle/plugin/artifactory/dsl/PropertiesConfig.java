@@ -4,7 +4,6 @@ import groovy.lang.GroovyObjectSupport;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.UnknownConfigurationException;
-import org.gradle.internal.metaobject.DynamicInvokeResult;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpec;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 
@@ -41,13 +40,13 @@ public class PropertiesConfig extends GroovyObjectSupport {
             }
         }
 
-        Map<String, String> props = convertToMap((Map<?, ?>)arguments[0]);
+        Map<String, String> props = convertToMap((Map<?, ?>) arguments[0]);
         String artifactNotation = arguments[1].toString();
 
         ArtifactSpec spec = ArtifactSpec.builder().artifactNotation(artifactNotation).configuration(name).properties(props).build();
         artifactSpecs.add(spec);
 
-        return DynamicInvokeResult.found();
+        return null;
     }
 
     private Map<String, String> convertToMap(Map<?, ?> inputMap) {

@@ -5,7 +5,6 @@ import org.gradle.api.Project;
 import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.artifacts.UnknownConfigurationException;
 import org.gradle.api.logging.Logging;
-import org.gradle.internal.metaobject.DynamicInvokeResult;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpec;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.gradle.plugin.artifactory.dsl.PropertiesConfig;
@@ -20,6 +19,7 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class PropertiesConfigTest {
 
@@ -51,7 +51,7 @@ public class PropertiesConfigTest {
         // Invoke method on valid config scope to add properties
         Object result = propertiesConfig.invokeMethod(scope, args);
         // Validate scoped properties is added.
-        assertEquals(DynamicInvokeResult.found(), result);
+        assertNull(result);
         assertProperties(arguments, scope);
     }
 
@@ -64,7 +64,7 @@ public class PropertiesConfigTest {
         // Invoke method on valid config scope to add properties
         Object result = propertiesConfig.invokeMethod(ArtifactSpec.CONFIG_ALL, args);
         // Validate scoped properties is added.
-        assertEquals(DynamicInvokeResult.found(), result);
+        assertNull(result);
         assertProperties(arguments, "*");
     }
 
@@ -81,7 +81,7 @@ public class PropertiesConfigTest {
         // Invoke method on valid config scope to add properties
         Object result = propertiesConfig.invokeMethod(scope, args);
         // Validate scoped properties is added.
-        assertEquals(DynamicInvokeResult.found(), result);
+        assertNull(result);
         assertProperties(arguments, scope);
     }
 
@@ -110,5 +110,4 @@ public class PropertiesConfigTest {
         Object[] args = {VALID_ARTIFACT_NOTATION};
         propertiesConfig.invokeMethod("configName", args);
     }
-
 }

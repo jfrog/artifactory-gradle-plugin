@@ -10,14 +10,13 @@ import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.publish.Publication;
-import org.gradle.api.publish.PublicationArtifact;
 import org.gradle.api.publish.PublicationContainer;
 import org.gradle.api.publish.PublishingExtension;
-import org.gradle.api.publish.internal.PublicationInternal;
 import org.gradle.api.publish.ivy.IvyPublication;
-import org.gradle.api.publish.ivy.internal.publication.IvyPublicationInternal;
+import org.gradle.api.publish.ivy.tasks.GenerateIvyDescriptor;
 import org.gradle.api.publish.maven.MavenPublication;
-import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal;
+import org.gradle.api.publish.maven.tasks.GenerateMavenPom;
+import org.gradle.api.publish.tasks.GenerateModuleMetadata;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.*;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
@@ -29,10 +28,12 @@ import org.jfrog.gradle.plugin.artifactory.dsl.PublisherConfig;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleDeployDetails;
 import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils;
+import org.jfrog.gradle.plugin.artifactory.extractor.publication.IvyPublicationExtractor;
+import org.jfrog.gradle.plugin.artifactory.extractor.publication.MavenPublicationExtractor;
+import org.jfrog.gradle.plugin.artifactory.extractor.publication.PublicationExtractor;
 
 import javax.annotation.Nullable;
 import java.util.*;
-import java.util.concurrent.Callable;
 
 /**
  * Collect deploy details from publications in a project.
@@ -134,28 +135,18 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     private void collectDetailsFromIvyPublications() {
+        PublicationExtractor<IvyPublication> publicationExtractor = new IvyPublicationExtractor(this);
+        publicationExtractor.extractModuleInfo();
         for (IvyPublication ivyPublication : ivyPublications) {
-            String publicationName = ivyPublication.getName();
-            if (!(ivyPublication instanceof IvyPublicationInternal)) {
-                // TODO: Check how the descriptor file can be extracted without using asNormalisedPublication
-                log.warn("Ivy publication name '{}' is of unsupported type '{}'!",
-                        publicationName, ivyPublication.getClass());
-                continue;
-            }
-            PublicationUtils.extractIvyDeployDetails((IvyPublicationInternal) ivyPublication, this);
+            publicationExtractor.extractDeployDetails(ivyPublication);
         }
     }
 
     private void collectDetailsFromMavenPublications() {
+        PublicationExtractor<MavenPublication> publicationExtractor = new MavenPublicationExtractor(this);
+        publicationExtractor.extractModuleInfo();
         for (MavenPublication mavenPublication : mavenPublications) {
-            String publicationName = mavenPublication.getName();
-            if (!(mavenPublication instanceof MavenPublicationInternal)) {
-                // TODO: Check how the descriptor file can be extracted without using asNormalisedPublication
-                log.warn("Maven publication name '{}' is of unsupported type '{}'!",
-                        publicationName, mavenPublication.getClass());
-                continue;
-            }
-            PublicationUtils.extractMavenDeployDetails((MavenPublicationInternal) mavenPublication, this);
+            publicationExtractor.extractDeployDetails(mavenPublication);
         }
     }
 
@@ -202,6 +193,7 @@ public class ArtifactoryTask extends DefaultTask {
         }
         createDependencyOnIvyPublications();
         createDependencyOnMavenPublications();
+        dependsOn(getProject().getTasks().withType(GenerateModuleMetadata.class));
     }
 
     /**
@@ -312,18 +304,10 @@ public class ArtifactoryTask extends DefaultTask {
      */
     private void createDependencyOnIvyPublications() {
         for (IvyPublication ivyPublication : ivyPublications) {
-            if (!(ivyPublication instanceof IvyPublicationInternal)) {
-                log.warn("Ivy publication name '{}' is of unsupported type '{}'!",
-                        ivyPublication.getName(), ivyPublication.getClass());
-                continue;
-            }
             // Add 'dependsOn' to collect the artifacts from the publication
-            dependsOnPublishable(ivyPublication);
-            // Add 'dependsOn' the task that creates metadata/descriptors for the published artifacts
-            String capitalizedPublicationName = ivyPublication.getName().substring(0, 1).toUpperCase() + ivyPublication.getName().substring(1);
-            dependsOn(String.format("%s:generateDescriptorFileFor%sPublication",
-                    getProject().getPath(), capitalizedPublicationName));
+            dependsOn(ivyPublication.getArtifacts());
         }
+        dependsOn(getProject().getTasks().withType(GenerateIvyDescriptor.class));
     }
 
     /**
@@ -331,27 +315,10 @@ public class ArtifactoryTask extends DefaultTask {
      */
     private void createDependencyOnMavenPublications() {
         for (MavenPublication mavenPublication : mavenPublications) {
-            if (!(mavenPublication instanceof MavenPublicationInternal)) {
-                log.warn("Maven publication name '{}' is of unsupported type '{}'!",
-                        mavenPublication.getName(), mavenPublication.getClass());
-                continue;
-            }
             // Add 'dependsOn' to collect the artifacts from the publication
-            dependsOnPublishable(mavenPublication);
-            // Add 'dependsOn' the task that creates metadata/descriptors for the published artifacts
-            String capitalizedPublicationName = mavenPublication.getName().substring(0, 1).toUpperCase() +
-                    mavenPublication.getName().substring(1);
-            dependsOn(String.format("%s:generatePomFileFor%sPublication",
-                    getProject().getPath(), capitalizedPublicationName));
+            dependsOn(mavenPublication.getArtifacts());
         }
-    }
-
-    private void dependsOnPublishable(Publication publication) {
-        // TODO: Check how we can find the artifact dependencies without using internal api's.
-        // Based on org.gradle.plugins.signing.Sign#sign
-        PublicationInternal<?> publicationInternal = (PublicationInternal<?>) publication;
-        dependsOn((Callable<Set<? extends PublicationArtifact>>) publicationInternal::getPublishableArtifacts);
-        publicationInternal.allPublishableArtifacts(this::dependsOn);
+        dependsOn(getProject().getTasks().withType(GenerateMavenPom.class));
     }
 
     public boolean hasPublications() {
