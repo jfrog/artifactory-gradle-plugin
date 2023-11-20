@@ -37,7 +37,7 @@ pipelines:
             - jf gradlec --use-wrapper --repo-resolve ecosys-maven-remote --repo-deploy ecosys-oss-snapshot-local --deploy-maven-desc
 
             # Run audit
-            - jf audit --fail=false
+            - jf audit --fail=false --exclusions "*node_modules*;*target*;*venv*;*test*;*functionalTest*"
 
             # Delete former snapshots to make sure the release bundle will not contain the same artifacts
             - jf rt del "ecosys-oss-snapshot-local/com/jfrog/buildinfo/build-info-extractor-gradle/*" --quiet
