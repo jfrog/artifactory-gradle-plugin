@@ -4,8 +4,6 @@ resources:
     configuration:
       path: jfrog/artifactory-gradle-plugin
       gitProvider: il_automation
-      buildOn:
-        pullRequestCreate: true
       branches:
         include: master
       cancelPendingRunsOn:
