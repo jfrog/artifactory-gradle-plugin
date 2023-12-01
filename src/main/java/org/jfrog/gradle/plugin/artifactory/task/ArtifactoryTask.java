@@ -26,13 +26,15 @@ import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.dsl.PropertiesConfig;
 import org.jfrog.gradle.plugin.artifactory.dsl.PublisherConfig;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleDeployDetails;
-import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
-import org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils;
 import org.jfrog.gradle.plugin.artifactory.extractor.publication.IvyPublicationExtractor;
 import org.jfrog.gradle.plugin.artifactory.extractor.publication.MavenPublicationExtractor;
 import org.jfrog.gradle.plugin.artifactory.extractor.publication.PublicationExtractor;
+import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils;
 
 import javax.annotation.Nullable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 
 /**
@@ -193,7 +195,7 @@ public class ArtifactoryTask extends DefaultTask {
         }
         createDependencyOnIvyPublications();
         createDependencyOnMavenPublications();
-        dependsOn(getProject().getTasks().withType(GenerateModuleMetadata.class));
+        createDependencyOnModuleMetadata();
     }
 
     /**
@@ -319,6 +321,23 @@ public class ArtifactoryTask extends DefaultTask {
             dependsOn(mavenPublication.getArtifacts());
         }
         dependsOn(getProject().getTasks().withType(GenerateMavenPom.class));
+    }
+
+    /**
+     * Make sure task dependsOn only on module metadata generation tasks that have attached software components (e.g. from components.java)
+     */
+    public void createDependencyOnModuleMetadata() {
+        try {
+            Method component = GenerateModuleMetadata.class.getDeclaredMethod("component");
+            component.setAccessible(true);
+            for (GenerateModuleMetadata generateModuleMetadata : getProject().getTasks().withType(GenerateModuleMetadata.class)) {
+                if (component.invoke(generateModuleMetadata) != null) {
+                    dependsOn(generateModuleMetadata);
+                }
+            }
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            // Ignore
+        }
     }
 
     public boolean hasPublications() {

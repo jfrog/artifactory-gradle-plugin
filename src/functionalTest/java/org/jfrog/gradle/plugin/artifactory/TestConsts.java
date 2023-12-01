@@ -32,6 +32,7 @@ public class TestConsts {
     public static final Path GRADLE_EXAMPLE_VERSION_CATALOG_CONSUMER = PROJECTS_ROOT.resolve("gradle-example-version-catalog").resolve("consumer");
     public static final Path GRADLE_EXAMPLE_DEFAULT_BOM = PROJECTS_ROOT.resolve("gradle-example-default-bom");
     public static final Path GRADLE_EXAMPLE_CUSTOM_BOM = PROJECTS_ROOT.resolve("gradle-example-custom-bom");
+    public static final Path GRADLE_PLUGIN_PUBLISH = PROJECTS_ROOT.resolve("gradle-plugin");
 
     // Repositories
     public static final String LOCAL_REPO = "LOCAL_REPO";
@@ -114,5 +115,12 @@ public class TestConsts {
             "app/1.0-SNAPSHOT/app-1.0-SNAPSHOT.apk",
             "library/1.0-SNAPSHOT/library-1.0-SNAPSHOT.pom",
             "app/1.0-SNAPSHOT/app-1.0-SNAPSHOT.pom"
+    };
+
+    public static final String[] EXPECTED_GRADLE_PLUGIN_ARTIFACTS = {
+            "greeting/greeting.gradle.plugin/1.0.0/greeting.gradle.plugin-1.0.0.pom",
+            "org/example/gradle/publishing/gradle_tests_space/1.0.0/gradle_tests_space-1.0.0.jar",
+            "org/example/gradle/publishing/gradle_tests_space/1.0.0/gradle_tests_space-1.0.0.module",
+            "org/example/gradle/publishing/gradle_tests_space/1.0.0/gradle_tests_space-1.0.0.pom"
     };
 }

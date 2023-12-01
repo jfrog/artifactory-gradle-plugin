@@ -57,12 +57,12 @@ public abstract class PublicationExtractor<ActualPublication extends Publication
         for (GenerateModuleMetadata generateModuleMetadata : artifactoryTask.getProject().getTasks().withType(GenerateModuleMetadata.class)) {
             Publication publication = generateModuleMetadata.getPublication().get();
             if (!isApplicablePublication(publication)) {
-                return;
+                continue;
             }
 
             File moduleMetadata = generateModuleMetadata.getOutputFile().getAsFile().get();
             if (!moduleMetadata.exists()) {
-                return;
+                continue;
             }
 
             DeployDetails.Builder builder = createArtifactBuilder(moduleMetadata, generateModuleMetadata.getPublication().get().getName());
