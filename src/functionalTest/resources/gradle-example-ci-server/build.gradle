@@ -1,46 +1,45 @@
 def javaProjects() {
-  subprojects.findAll { new File(it.projectDir, 'src').directory }
+    subprojects.findAll { new File(it.projectDir, 'src').directory }
 }
 
 allprojects {
-  group = 'org.jfrog.test.gradle.publish'
-  version = currentVersion
-  status = 'Integration'
-  repositories {
-    maven {
-      url "${System.env.BITESTS_PLATFORM_URL}/artifactory/${System.env.BITESTS_ARTIFACTORY_VIRTUAL_REPO}"
-      credentials {
-        username "${System.env.BITESTS_PLATFORM_USERNAME}"
-        password "${System.env.BITESTS_PLATFORM_ADMIN_TOKEN}"
-      }
+    group = 'org.jfrog.test.gradle.publish'
+    version = currentVersion
+    status = 'Integration'
+    repositories {
+        maven {
+            url "should-override-me"
+            credentials {
+                password "should-override-me"
+            }
+        }
     }
-  }
 }
 
 artifactoryPublish.skip = true
 
 project('services') {
-  artifactoryPublish.skip = true
+    artifactoryPublish.skip = true
 }
 
 configure(javaProjects()) {
-  apply plugin: 'java'
-  apply plugin: 'maven-publish'
-  apply plugin: 'ivy-publish'
+    apply plugin: 'java'
+    apply plugin: 'maven-publish'
+    apply plugin: 'ivy-publish'
 
-  dependencies {
-    testImplementation 'junit:junit:4.7'
-  }
-
-  publishing {
-    publications {
-      mavenJava(MavenPublication) {
-        from components.java
-        artifact(file("$rootDir/gradle.properties"))
-      }
-      customIvyPublication(IvyPublication) {
-        from components.java
-      }
+    dependencies {
+        testImplementation 'junit:junit:4.7'
     }
-  }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+                artifact(file("$rootDir/gradle.properties"))
+            }
+            customIvyPublication(IvyPublication) {
+                from components.java
+            }
+        }
+    }
 }
