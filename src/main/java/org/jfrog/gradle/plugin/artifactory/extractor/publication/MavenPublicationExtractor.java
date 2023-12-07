@@ -14,6 +14,7 @@ import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.addArtifactInfoToDeployDetails;
 import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.createArtifactBuilder;
@@ -64,7 +65,10 @@ public class MavenPublicationExtractor extends PublicationExtractor<MavenPublica
         if (!isPublishMaven()) {
             return;
         }
-        GenerateMavenPom generateMavenPom = artifactoryTask.getProject().getTasks().withType(GenerateMavenPom.class).stream().findFirst().orElse(null);
+        GenerateMavenPom generateMavenPom = artifactoryTask.getProject().getTasks().withType(GenerateMavenPom.class).stream()
+                .filter(generateMavenPomCandidate -> Objects.equals(generateMavenPomCandidate.getPom(), publication.getPom()))
+                .findAny()
+                .orElse(null);
         if (generateMavenPom == null) {
             return;
         }

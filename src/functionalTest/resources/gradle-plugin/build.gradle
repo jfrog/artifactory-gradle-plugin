@@ -1,0 +1,42 @@
+plugins {
+    id "com.jfrog.artifactory"
+    id "java"
+    id "java-gradle-plugin"
+    id "maven-publish"
+}
+
+group = "org.example.gradle.publishing"
+version = currentVersion
+
+repositories {
+    maven {
+        url "${System.env.BITESTS_PLATFORM_URL}/artifactory/${System.env.BITESTS_ARTIFACTORY_VIRTUAL_REPO}"
+        credentials {
+            username "${System.env.BITESTS_PLATFORM_USERNAME}"
+            password "${System.env.BITESTS_PLATFORM_ADMIN_TOKEN}"
+        }
+    }
+}
+
+gradlePlugin {
+    plugins {
+        create("greetingPlugin") {
+            id = "greeting"
+            implementationClass = "org.gradle.sample.plugin.GreetingPlugin"
+        }
+    }
+}
+
+artifactory {
+    publish {
+        contextUrl = "$System.env.BITESTS_PLATFORM_URL" + "/artifactory"
+        repository {
+            repoKey = "$System.env.BITESTS_ARTIFACTORY_LOCAL_REPO" // The Artifactory repository key to publish to
+            username = "$System.env.BITESTS_PLATFORM_USERNAME" // The publisher user name
+            password = "$System.env.BITESTS_PLATFORM_ADMIN_TOKEN" // The publisher password
+        }
+        defaults {
+            publications("ALL_PUBLICATIONS")
+        }
+    }
+}

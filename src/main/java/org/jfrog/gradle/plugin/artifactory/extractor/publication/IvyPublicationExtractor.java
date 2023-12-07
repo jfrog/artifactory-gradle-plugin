@@ -14,6 +14,7 @@ import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import javax.xml.namespace.QName;
 import java.io.File;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.addArtifactInfoToDeployDetails;
@@ -83,7 +84,10 @@ public class IvyPublicationExtractor extends PublicationExtractor<IvyPublication
         if (!isPublishIvy(artifactoryTask)) {
             return null;
         }
-        GenerateIvyDescriptor generateIvyDescriptor = artifactoryTask.getProject().getTasks().withType(GenerateIvyDescriptor.class).stream().findFirst().orElse(null);
+        GenerateIvyDescriptor generateIvyDescriptor = artifactoryTask.getProject().getTasks().withType(GenerateIvyDescriptor.class).stream()
+                .filter(generateIvyDescriptorCandidate -> Objects.equals(generateIvyDescriptorCandidate.getDescriptor(), publication.getDescriptor()))
+                .findAny()
+                .orElse(null);
         if (generateIvyDescriptor == null) {
             return null;
         }
