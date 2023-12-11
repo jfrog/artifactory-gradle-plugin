@@ -3,13 +3,11 @@ allprojects {
     version = currentVersion
     repositories {
         maven {
-            url "${System.env.BITESTS_PLATFORM_URL}/artifactory/${System.env.BITESTS_ARTIFACTORY_VIRTUAL_REPO}"
+            url "should-override-me"
             credentials {
-                username "${System.env.BITESTS_PLATFORM_USERNAME}"
-                password "${System.env.BITESTS_PLATFORM_ADMIN_TOKEN}"
+                password "should-override-me"
             }
         }
-        google()
     }
 }
 

@@ -1,0 +1,6 @@
+{
+  "packageType": "gradle",
+  "repoLayoutRef": "maven-2-default",
+  "url": "https://maven.google.com",
+  "rclass": "remote"
+}

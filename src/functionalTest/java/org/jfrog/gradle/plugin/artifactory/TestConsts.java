@@ -37,9 +37,11 @@ public class TestConsts {
     // Repositories
     public static final String LOCAL_REPO = "LOCAL_REPO";
     public static final String REMOTE_REPO = "REMOTE_REPO";
+    public static final String REMOTE_GOOGLE_REPO = "REMOTE_GOOGLE_REPO";
     public static final String VIRTUAL_REPO = "VIRTUAL_REPO";
     public static final String GRADLE_LOCAL_REPO = "build-info-tests-gradle-local";
     public static final String GRADLE_REMOTE_REPO = "build-info-tests-gradle-remote";
+    public static final String GRADLE_REMOTE_GOOGLE_REPO = "build-info-tests-gradle-remote-google";
     public static final String GRADLE_VIRTUAL_REPO = "build-info-tests-gradle-virtual";
 
     // Env vars

@@ -3,6 +3,7 @@ package org.jfrog.gradle.plugin.artifactory;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Plugin;
 import org.gradle.api.initialization.Settings;
+import org.gradle.api.initialization.resolve.RepositoriesMode;
 import org.gradle.api.logging.Logging;
 import org.jfrog.build.api.util.Log;
 import org.jfrog.build.extractor.BuildInfoExtractorUtils;
@@ -23,6 +24,7 @@ public class ArtifactoryPluginSettings implements Plugin<Settings> {
             return;
         }
         String contextUrl = StringUtils.appendIfMissing(resolver.getContextUrl(), "/");
+        settings.getDependencyResolutionManagement().getRepositoriesMode().set(RepositoriesMode.PREFER_SETTINGS);
         settings.getDependencyResolutionManagement().getRepositories().maven(mavenArtifactRepository -> {
             mavenArtifactRepository.setName("artifactoryResolutionRepository");
             mavenArtifactRepository.setUrl(contextUrl + resolver.getRepoKey());

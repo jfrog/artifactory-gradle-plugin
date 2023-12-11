@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 
-import static org.jfrog.gradle.plugin.artifactory.Constant.*;
 import static org.jfrog.gradle.plugin.artifactory.TestConsts.MIN_GRADLE_VERSION_CONFIG_CACHE;
 import static org.jfrog.gradle.plugin.artifactory.utils.Utils.createDeployableArtifactsFile;
 import static org.testng.Assert.assertEquals;
@@ -45,6 +44,7 @@ public class GradleFunctionalTestBase {
     public final String localRepo = getKeyWithTimestamp(TestConsts.GRADLE_LOCAL_REPO);
     public final String virtualRepo = getKeyWithTimestamp(TestConsts.GRADLE_VIRTUAL_REPO);
     protected String remoteRepo = getKeyWithTimestamp(TestConsts.GRADLE_REMOTE_REPO);
+    protected String remoteGoogleRepo = getKeyWithTimestamp(TestConsts.GRADLE_REMOTE_GOOGLE_REPO);
 
     // Test specific attributes
     private StringSubstitutor stringSubstitutor;
@@ -78,6 +78,9 @@ public class GradleFunctionalTestBase {
         }
         if (StringUtils.isNotEmpty(remoteRepo)) {
             deleteTestRepo(remoteRepo);
+        }
+        if (StringUtils.isNotEmpty(remoteGoogleRepo)) {
+            deleteTestRepo(remoteGoogleRepo);
         }
         if (StringUtils.isNotEmpty(localRepo)) {
             deleteTestRepo(localRepo);
@@ -171,6 +174,9 @@ public class GradleFunctionalTestBase {
         if (StringUtils.isNotEmpty(remoteRepo)) {
             createTestRepo(remoteRepo);
         }
+        if (StringUtils.isNotEmpty(remoteGoogleRepo)) {
+            createTestRepo(remoteGoogleRepo);
+        }
         if (StringUtils.isNotEmpty(virtualRepo)) {
             createTestRepo(virtualRepo);
         }
@@ -180,6 +186,7 @@ public class GradleFunctionalTestBase {
         Map<String, Object> textParameters = new HashMap<>();
         textParameters.put(TestConsts.LOCAL_REPO, localRepo);
         textParameters.put(TestConsts.REMOTE_REPO, remoteRepo);
+        textParameters.put(TestConsts.REMOTE_GOOGLE_REPO, remoteGoogleRepo);
         stringSubstitutor = new StringSubstitutor(textParameters);
     }
 
