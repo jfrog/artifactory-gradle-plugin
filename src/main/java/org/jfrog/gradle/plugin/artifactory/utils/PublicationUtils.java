@@ -154,6 +154,12 @@ public class PublicationUtils {
 
     /**
      * Adds a general artifact to deploy details in the given task destination
+     *
+     * @param destination     - Task to collect and store the created details
+     * @param publicationName - The publication name that published this artifact
+     * @param builder         - Deploy details builder
+     * @param artifactInfo    - The artifact info
+     * @param artifactPath    - The full path string to deploy the artifact
      */
     public static void addArtifactInfoToDeployDetails(ArtifactoryTask destination, String publicationName,
                                                       DeployDetails.Builder builder, PublishArtifactInfo artifactInfo, String artifactPath) {
