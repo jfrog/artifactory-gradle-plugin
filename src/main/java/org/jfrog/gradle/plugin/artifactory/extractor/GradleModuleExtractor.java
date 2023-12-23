@@ -12,6 +12,9 @@ import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.api.plugins.PluginContainer;
+import org.gradle.language.cpp.plugins.CppApplicationPlugin;
+import org.gradle.language.cpp.plugins.CppLibraryPlugin;
 import org.jfrog.build.api.builder.ModuleType;
 import org.jfrog.build.api.util.FileChecksumCalculator;
 import org.jfrog.build.extractor.ModuleExtractor;
@@ -79,7 +82,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
                 .findAny()
                 .orElse("");
         ModuleBuilder builder = new ModuleBuilder()
-                .type(ModuleType.GRADLE)
+                .type(getModuleType(project))
                 .id(moduleId)
                 .repository(repo);
         try {
@@ -97,6 +100,21 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
             log.error("Error occur during extraction: ", e);
         }
         return builder;
+    }
+
+    /**
+     * Get the module type to publish.
+     *
+     * @param project - Project to extract the module type
+     * @return the module type.
+     */
+    private ModuleType getModuleType(Project project) {
+        PluginContainer plugins = project.getPlugins();
+        if (!plugins.withType(CppApplicationPlugin.class).isEmpty() ||
+                !plugins.withType(CppLibraryPlugin.class).isEmpty()) {
+            return ModuleType.CPP;
+        }
+        return ModuleType.GRADLE;
     }
 
     /**
