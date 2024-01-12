@@ -35,6 +35,7 @@ public class PublisherConfig {
         this.publisher.setContextUrl(contextUrl);
     }
 
+    @SuppressWarnings("unused")
     public void defaults(Action<ArtifactoryTask> defaultsAction) {
         this.defaultsAction = defaultsAction;
     }
@@ -91,6 +92,26 @@ public class PublisherConfig {
         @SuppressWarnings("unused")
         public void setRepoKey(String repoKey) {
             this.publisher.setRepoKey(repoKey);
+        }
+
+        @SuppressWarnings("unused")
+        public String getReleaseRepoKey() {
+            return publisher.getReleaseRepoKey();
+        }
+
+        @SuppressWarnings("unused")
+        public void setReleaseRepoKey(String releaseRepoKey) {
+            this.publisher.setReleaseRepoKey(releaseRepoKey);
+        }
+
+        @SuppressWarnings("unused")
+        public String getSnapshotRepoKey() {
+            return publisher.getSnapshotRepoKey();
+        }
+
+        @SuppressWarnings("unused")
+        public void setSnapshotRepoKey(String snapshotRepoKey) {
+            this.publisher.setSnapshotRepoKey(snapshotRepoKey);
         }
 
         public String getUsername() {

@@ -191,8 +191,12 @@ configure<ArtifactoryPluginConvention> {
         contextUrl = "http://127.0.0.1:8081/artifactory"
         // Define the project repository to which the artifacts will be published
         repository {
-            // Set the Artifactory repository key
+            // Option 1 - Define the Artifactory repository key
             repoKey = "libs-snapshot-local"
+            // Option 2 - Specify release and snapshot repositories; let the plugin decide to which one to publish
+            // releaseRepoKey = "libs-release-local"
+            // snapshotRepoKey = "libs-snapshot-local"
+
             // Specify the publisher username
             username = project.property("artifactory_user") as String
             // Provide the publisher password
@@ -268,8 +272,12 @@ artifactory {
         contextUrl = 'http://127.0.0.1:8081/artifactory'
         // Define the project repository to which the artifacts will be published
         repository {
-            // The Artifactory repository key
+            // Option 1 - Define the Artifactory repository key
             repoKey = 'libs-snapshot-local'
+            // Option 2 - Specify release and snapshot repositories; let the plugin decide to which one to publish
+            // releaseRepoKey = 'libs-release-local'
+            // snapshotRepoKey = 'libs-snapshot-local'
+            
             // The publisher username
             username = "${artifactory_user}"
             // The publisher password
