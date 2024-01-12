@@ -26,6 +26,7 @@ artifactoryPublish.skip = true
 
 project('services') {
     artifactoryPublish.skip = true
+    artifactoryPublish.moduleType = "GRADLE"
 }
 
 configure(javaProjects()) {
@@ -53,7 +54,7 @@ artifactory {
     clientConfig.info.addEnvironmentProperty('test.adding.dynVar', new java.util.Date().toString())
 
     publish {
-        contextUrl = "$System.env.BITESTS_PLATFORM_URL"+"/artifactory"
+        contextUrl = "$System.env.BITESTS_PLATFORM_URL" + "/artifactory"
         repository {
             repoKey = "$System.env.BITESTS_ARTIFACTORY_LOCAL_REPO" // The Artifactory repository key to publish to
             username = "$System.env.BITESTS_PLATFORM_USERNAME" // The publisher user name

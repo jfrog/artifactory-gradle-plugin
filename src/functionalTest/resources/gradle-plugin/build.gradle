@@ -37,6 +37,7 @@ artifactory {
         }
         defaults {
             publications("ALL_PUBLICATIONS")
+            moduleType('GENERIC')
         }
     }
 }

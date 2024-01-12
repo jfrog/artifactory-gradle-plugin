@@ -42,36 +42,39 @@ import java.util.stream.StreamSupport;
 import static com.google.common.collect.Lists.newArrayList;
 import static org.jfrog.build.api.util.FileChecksumCalculator.*;
 import static org.jfrog.build.extractor.BuildInfoExtractorUtils.getTypeString;
+import static org.jfrog.gradle.plugin.artifactory.utils.PluginUtils.getModuleType;
 
 public class GradleModuleExtractor implements ModuleExtractor<Project> {
     private static final Logger log = Logging.getLogger(GradleModuleExtractor.class);
 
     @Override
     public Module extractModule(Project project) {
-        Set<GradleDeployDetails> gradleDeployDetails = getCollectedDeployDetails(project);
-        return getModuleBuilder(project, gradleDeployDetails).build();
+        ArtifactoryTask artifactoryTask = TaskUtils.findExecutedCollectionTask(project);
+        ModuleType moduleType = artifactoryTask != null ? getModuleType(artifactoryTask.getModuleType()) : ModuleType.GRADLE;
+        Set<GradleDeployDetails> gradleDeployDetails = getCollectedDeployDetails(artifactoryTask);
+        return getModuleBuilder(project, moduleType, gradleDeployDetails).build();
     }
 
     /**
      * Get all the deployment details that the ArtifactoryTask collected for the given project.
      *
-     * @param project - the project to get its deployment details
+     * @param artifactoryTask - the task to extract its details.
      */
-    private Set<GradleDeployDetails> getCollectedDeployDetails(Project project) {
-        ArtifactoryTask detailsCollectionTask = TaskUtils.findExecutedCollectionTask(project);
-        if (detailsCollectionTask == null) {
+    private Set<GradleDeployDetails> getCollectedDeployDetails(ArtifactoryTask artifactoryTask) {
+        if (artifactoryTask == null) {
             return Sets.newHashSet();
         }
-        return detailsCollectionTask.getDeployDetails();
+        return artifactoryTask.getDeployDetails();
     }
 
     /**
      * Create a ModuleBuilder ready to be built for the given project and deployment details
      *
      * @param project             - project to extract module details
+     * @param moduleType          - module type
      * @param gradleDeployDetails - module deployment details
      */
-    private ModuleBuilder getModuleBuilder(Project project, Set<GradleDeployDetails> gradleDeployDetails) {
+    private ModuleBuilder getModuleBuilder(Project project, ModuleType moduleType, Set<GradleDeployDetails> gradleDeployDetails) {
         String moduleId = ProjectUtils.getId(project);
         String repo = gradleDeployDetails.stream()
                 .map(GradleDeployDetails::getDeployDetails)
@@ -79,7 +82,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
                 .findAny()
                 .orElse("");
         ModuleBuilder builder = new ModuleBuilder()
-                .type(ModuleType.GRADLE)
+                .type(moduleType)
                 .id(moduleId)
                 .repository(repo);
         try {

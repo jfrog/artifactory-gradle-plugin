@@ -19,6 +19,7 @@ import org.gradle.api.publish.maven.tasks.GenerateMavenPom;
 import org.gradle.api.publish.tasks.GenerateModuleMetadata;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.*;
+import org.jfrog.build.api.builder.ModuleType;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.Constant;
@@ -58,6 +59,8 @@ public class ArtifactoryTask extends DefaultTask {
     private final Map<String, Boolean> flags = new HashMap<>();
     // Is this task initiated from a build server
     private boolean ciServerBuild = false;
+    // Set the module type to a custom type, or "GRADLE" if not specified
+    private String moduleType = ModuleType.GRADLE.toString();
 
     @SuppressFBWarnings(value = "PA_PUBLIC_PRIMITIVE_ATTRIBUTE", justification = "Input field should be public")
     @Input
@@ -176,6 +179,16 @@ public class ArtifactoryTask extends DefaultTask {
             this.publications.addAll(Arrays.asList(publications));
             checkDependsOnArtifactsToPublish();
         }
+    }
+
+    /**
+     * Set a custom module type in the published build-info
+     *
+     * @param moduleType - Module type
+     */
+    @SuppressWarnings("unused")
+    public void moduleType(String moduleType) {
+        this.moduleType = moduleType;
     }
 
     /**
@@ -367,6 +380,12 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     @Input
+    @Optional
+    public String getModuleType() {
+        return moduleType;
+    }
+
+    @Input
     public Set<Publication> getPublications() {
         Set<Publication> publications = new HashSet<>();
         publications.addAll(ivyPublications);
@@ -430,6 +449,11 @@ public class ArtifactoryTask extends DefaultTask {
     @SuppressWarnings("unused")
     public void setCiServerBuild() {
         this.ciServerBuild = true;
+    }
+
+    @SuppressWarnings("unused")
+    public void setModuleType(String moduleType) {
+        this.moduleType = moduleType;
     }
 
     @SuppressWarnings("unused")

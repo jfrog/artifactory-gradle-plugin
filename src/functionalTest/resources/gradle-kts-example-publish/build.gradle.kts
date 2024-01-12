@@ -31,6 +31,7 @@ allprojects {
 tasks {
     named<ArtifactoryTask>("artifactoryPublish") {
         skip = true
+        setModuleType("GRADLE")
     }
 }
 
@@ -38,6 +39,7 @@ project("services") {
     tasks {
         named<ArtifactoryTask>("artifactoryPublish") {
             skip = true
+            moduleType = "GRADLE"
         }
     }
 }
@@ -67,7 +69,7 @@ configure<ArtifactoryPluginConvention> {
     clientConfig.info.addEnvironmentProperty("test.adding.dynVar", java.util.Date().toString())
 
     publish {
-        setContextUrl(System.getenv("BITESTS_PLATFORM_URL")+"/artifactory")
+        setContextUrl(System.getenv("BITESTS_PLATFORM_URL") + "/artifactory")
         repository {
             setRepoKey(System.getenv("BITESTS_ARTIFACTORY_LOCAL_REPO")) // The Artifactory repository key to publish to
             setUsername(System.getenv("BITESTS_PLATFORM_USERNAME")) // The publisher user name
