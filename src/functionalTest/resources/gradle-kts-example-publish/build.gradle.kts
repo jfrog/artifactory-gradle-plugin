@@ -71,7 +71,8 @@ configure<ArtifactoryPluginConvention> {
     publish {
         setContextUrl(System.getenv("BITESTS_PLATFORM_URL") + "/artifactory")
         repository {
-            setRepoKey(System.getenv("BITESTS_ARTIFACTORY_LOCAL_REPO")) // The Artifactory repository key to publish to
+            setReleaseRepoKey("SHOULD_NOT_PUBLISH_RELEASES")
+            setSnapshotRepoKey(System.getenv("BITESTS_ARTIFACTORY_LOCAL_REPO")) // The Artifactory repository key to publish to
             setUsername(System.getenv("BITESTS_PLATFORM_USERNAME")) // The publisher user name
             setPassword(System.getenv("BITESTS_PLATFORM_ADMIN_TOKEN")) // The publisher password
             // This is an optional section for configuring Ivy publication (when publishIvy = true).
