@@ -382,6 +382,9 @@ tasks.named<ArtifactoryTask>("artifactoryPublish") {
     setPublishPom(false)
     // (default: true) Publish generated Ivy descriptor files to Artifactory, can be specified as boolean/string
     setPublishIvy(false)
+    // (default: 'GRADLE') Set a custom module type for the published module in the build-info. 
+    // Acceptable values: 'GENERIC', 'MAVEN', 'GRADLE', 'IVY', 'DOCKER', 'NUGET', 'NPM', 'GO', 'PYPI', 'CPP'
+    setModuleType("GRADLE")
 }
 ```
 
@@ -404,6 +407,7 @@ artifactoryPublish {
     publishArtifacts = false
     publishPom = false
     publishIvy = false
+    moduleType = 'GRADLE'
 }
 ```
 

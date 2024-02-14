@@ -1,6 +1,7 @@
 package org.jfrog.gradle.plugin.artifactory.tests;
 
 import org.gradle.testkit.runner.BuildResult;
+import org.jfrog.build.api.builder.ModuleType;
 import org.jfrog.build.api.dependency.PropertySearchResult;
 import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.Module;
@@ -59,5 +60,6 @@ public class GradlePluginPublishTest extends GradleFunctionalTestBase {
         assertNotNull(module);
         assertEquals(module.getArtifacts().size(), 4);
         assertEquals(module.getDependencies().size(), 1);
+        assertEquals(module.getType().toUpperCase(), ModuleType.GENERIC.toString());
     }
 }
