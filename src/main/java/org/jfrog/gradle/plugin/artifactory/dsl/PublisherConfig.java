@@ -20,7 +20,7 @@ public class PublisherConfig {
     Action<ArtifactoryTask> defaultsAction;
 
     @Inject
-    public PublisherConfig(ObjectFactory objectFactory, ArtifactoryPluginConvention extension) {
+    public PublisherConfig(ObjectFactory objectFactory, ArtifactoryPluginExtension extension) {
         this.publisher = extension.getClientConfig().publisher;
         repository = objectFactory.newInstance(Repository.class, publisher);
     }
