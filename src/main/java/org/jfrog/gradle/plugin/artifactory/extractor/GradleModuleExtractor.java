@@ -1,6 +1,5 @@
 package org.jfrog.gradle.plugin.artifactory.extractor;
 
-import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -33,13 +32,10 @@ import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static com.google.common.collect.Lists.newArrayList;
 import static org.jfrog.build.api.util.FileChecksumCalculator.*;
 import static org.jfrog.build.extractor.BuildInfoExtractorUtils.getTypeString;
 import static org.jfrog.gradle.plugin.artifactory.utils.PluginUtils.getModuleType;
@@ -62,7 +58,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
      */
     private Set<GradleDeployDetails> getCollectedDeployDetails(ArtifactoryTask artifactoryTask) {
         if (artifactoryTask == null) {
-            return Sets.newHashSet();
+            return new HashSet<>();
         }
         return artifactoryTask.getDeployDetails();
     }
@@ -129,7 +125,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
         Map<String, String[][]> requestedByMap = artifactoryDependencyResolutionListener.getModulesHierarchyMap().get(moduleId);
 
         Set<Configuration> configurationSet = project.getConfigurations();
-        List<Dependency> dependencies = newArrayList();
+        List<Dependency> dependencies = new ArrayList<>();
         for (Configuration configuration : configurationSet) {
             if (configuration.getState() != Configuration.State.RESOLVED) {
                 log.info("Artifacts for configuration '{}' were not all resolved, skipping", configuration.getName());
@@ -164,10 +160,12 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
             return null;
         }
         // New dependency to extract
+        Set<String> scopes = new HashSet<>();
+        scopes.add(configuration.getName());
         DependencyBuilder dependencyBuilder = new DependencyBuilder()
                 .type(StringUtils.substringAfterLast(file.getName(), "."))
                 .id(depId)
-                .scopes(Sets.newHashSet(configuration.getName()));
+                .scopes(scopes);
         if (requestedByMap != null) {
             dependencyBuilder.requestedBy(requestedByMap.get(depId));
         }
