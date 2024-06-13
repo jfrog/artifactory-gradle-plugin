@@ -25,6 +25,8 @@ jobs:
         with:
           distribution: "zulu"
           java-version: ${{ matrix.java-version }}
+
+      # Install Go for the Artifactory setup in the next step
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
