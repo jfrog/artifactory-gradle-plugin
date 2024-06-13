@@ -3,6 +3,7 @@ package org.jfrog.gradle.plugin.artifactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.text.StringSubstitutor;
 import org.gradle.testkit.runner.BuildResult;
@@ -53,7 +54,11 @@ public class GradleFunctionalTestBase {
 
     @DataProvider
     public Object[][] gradleVersions() {
-        return new Object[][]{{"6.8.1"}, {"7.5.1"}, {"7.6"}, {"8.1"}};
+        if (SystemUtils.IS_OS_MAC && SystemUtils.OS_ARCH.equals("aarch64")) {
+            // For Apple Silicon (ARM64), exclude Gradle 6 due to a known issue
+            return new Object[][]{{"7.5.1"}, {"7.6"}, {"8.8"}};
+        }
+        return new Object[][]{{"6.8.1"}, {"7.5.1"}, {"7.6"}, {"8.8"}};
     }
 
     @BeforeClass

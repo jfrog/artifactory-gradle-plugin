@@ -16,15 +16,22 @@ jobs:
         os: [ ubuntu-latest, windows-latest, macOS-latest ]
         java-version: [ "8", "11" ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       # Install required tools
       - name: Set up Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
+          distribution: "zulu"
           java-version: ${{ matrix.java-version }}
+
+      # Install Go for the Artifactory setup in the next step
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+          cache: false
 
       - name: Setup Artifactory
         env:

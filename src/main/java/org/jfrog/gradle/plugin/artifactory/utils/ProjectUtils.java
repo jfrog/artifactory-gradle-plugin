@@ -1,7 +1,5 @@
 package org.jfrog.gradle.plugin.artifactory.utils;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
@@ -13,6 +11,8 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class ProjectUtils {
 
@@ -77,10 +77,12 @@ public class ProjectUtils {
                 publisher.getIncludePatterns(),
                 publisher.getExcludePatterns());
         if (publisher.isFilterExcludedArtifactsFromBuild()) {
-            return Iterables.filter(gradleDeployDetails, new IncludeExcludePredicate(project, patterns, isInclude));
-        } else {
-            return isInclude ? Iterables.filter(gradleDeployDetails, new ProjectPredicate(project)) : new ArrayList<>();
+            return gradleDeployDetails.stream().filter(new IncludeExcludePredicate(project, patterns, isInclude)).collect(Collectors.toSet());
         }
+        if (!isInclude) {
+            return new ArrayList<>();
+        }
+        return gradleDeployDetails.stream().filter(new ProjectPredicate(project)).collect(Collectors.toSet());
     }
 
     public static class ProjectPredicate implements Predicate<GradleDeployDetails> {
@@ -90,7 +92,8 @@ public class ProjectUtils {
             this.project = project;
         }
 
-        public boolean apply(@Nullable GradleDeployDetails input) {
+        @Override
+        public boolean test(@Nullable GradleDeployDetails input) {
             if (input == null) {
                 return false;
             }
@@ -109,7 +112,8 @@ public class ProjectUtils {
             this.include = include;
         }
 
-        public boolean apply(@Nullable GradleDeployDetails input) {
+        @Override
+        public boolean test(@Nullable GradleDeployDetails input) {
             if (input == null || !Objects.equals(input.getProject(), project)) {
                 return false;
             }

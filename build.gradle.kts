@@ -15,8 +15,9 @@ repositories {
     mavenCentral()
 }
 
-val buildInfoVersion = "2.41.12"
+val buildInfoVersion = "2.41.18"
 val fileSpecsVersion = "1.1.2"
+val commonsCollections4Version = "4.4"
 val commonsLangVersion = "3.12.0"
 val commonsIoVersion = "2.11.0"
 val commonsTxtVersion = "1.10.0"
@@ -40,9 +41,9 @@ dependencies {
     api("org.jfrog.buildinfo", "build-info-client", buildInfoVersion)
     api("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
 
+    implementation("org.apache.commons", "commons-collections4", commonsCollections4Version)
     implementation("org.apache.commons", "commons-lang3", commonsLangVersion)
     implementation("org.apache.ivy", "ivy", "2.5.2")
-    implementation("com.google.guava", "guava", "32.0.1-jre")
 
     // Dependencies that are used by the build-info dependencies and need to be included in the UberJar
     implementation("com.fasterxml.jackson.core", "jackson-databind", "2.14.1")
@@ -195,6 +196,6 @@ tasks.register<com.github.spotbugs.snom.SpotBugsTask>("spotBugs") {
         }
     }
     excludeFilter.set(
-            file("${projectDir}/spotbugs-filter.xml")
+        file("${projectDir}/spotbugs-filter.xml")
     )
 }
