@@ -1,8 +1,6 @@
 package org.jfrog.gradle.plugin.artifactory.task;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.commons.collections4.MultiMapUtils;
-import org.apache.commons.collections4.MultiValuedMap;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
 import org.gradle.api.artifacts.Configuration;
@@ -20,6 +18,8 @@ import org.gradle.api.publish.tasks.GenerateModuleMetadata;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.*;
 import org.jfrog.build.api.builder.ModuleType;
+import org.jfrog.build.api.multiMap.Multimap;
+import org.jfrog.build.api.multiMap.SetMultimap;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.Constant;
@@ -51,7 +51,7 @@ public class ArtifactoryTask extends DefaultTask {
     // Publication containers input
     private final Set<Object> publications = new HashSet<>();
     // Properties input
-    private final MultiValuedMap<String, CharSequence> properties = MultiMapUtils.newSetValuedHashMap();
+    private final Multimap<String, CharSequence> properties = new SetMultimap<>();
     @Input
     public final ArtifactSpecs artifactSpecs = new ArtifactSpecs();
 
@@ -394,7 +394,7 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     @Input
-    public MultiValuedMap<String, CharSequence> getProperties() {
+    public Multimap<String, CharSequence> getProperties() {
         return properties;
     }
 

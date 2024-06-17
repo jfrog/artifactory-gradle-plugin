@@ -15,9 +15,8 @@ repositories {
     mavenCentral()
 }
 
-val buildInfoVersion = "2.41.18"
+val buildInfoVersion = "2.41.21"
 val fileSpecsVersion = "1.1.2"
-val commonsCollections4Version = "4.4"
 val commonsLangVersion = "3.12.0"
 val commonsIoVersion = "2.11.0"
 val commonsTxtVersion = "1.10.0"
@@ -41,7 +40,6 @@ dependencies {
     api("org.jfrog.buildinfo", "build-info-client", buildInfoVersion)
     api("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
 
-    implementation("org.apache.commons", "commons-collections4", commonsCollections4Version)
     implementation("org.apache.commons", "commons-lang3", commonsLangVersion)
     implementation("org.apache.ivy", "ivy", "2.5.2")
 
