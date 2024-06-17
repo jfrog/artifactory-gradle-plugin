@@ -1,6 +1,5 @@
 package org.jfrog.gradle.plugin.artifactory.utils;
 
-import org.apache.commons.collections4.MultiValuedMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ivy.core.IvyPatternHelper;
 import org.gradle.api.GradleException;
@@ -14,6 +13,7 @@ import org.gradle.api.publish.ivy.IvyPublication;
 import org.gradle.api.publish.ivy.plugins.IvyPublishPlugin;
 import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin;
+import org.jfrog.build.api.multiMap.Multimap;
 import org.jfrog.build.api.util.FileChecksumCalculator;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpec;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
@@ -201,12 +201,12 @@ public class PublicationUtils {
                         .name(project.getName()).version(project.getVersion().toString())
                         .classifier(artifact.getClassifier())
                         .type(artifact.getType()).build();
-        MultiValuedMap<String, CharSequence> artifactSpecsProperties = destination.artifactSpecs.getProperties(spec);
+        Multimap<String, CharSequence> artifactSpecsProperties = destination.artifactSpecs.getProperties(spec);
         addProps(propsToAdd, artifactSpecsProperties);
         return propsToAdd;
     }
 
-    public static void addProps(Map<String, String> target, MultiValuedMap<String, CharSequence> props) {
+    public static void addProps(Map<String, String> target, Multimap<String, CharSequence> props) {
         for (Map.Entry<String, CharSequence> entry : props.entries()) {
             // Make sure all GString are now Java Strings
             String key = entry.getKey();
