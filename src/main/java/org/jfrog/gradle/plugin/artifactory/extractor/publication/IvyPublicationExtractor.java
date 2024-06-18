@@ -18,7 +18,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.addArtifactInfoToDeployDetails;
-import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.createArtifactBuilder;
 
 public class IvyPublicationExtractor extends PublicationExtractor<IvyPublication> {
 
@@ -95,10 +94,7 @@ public class IvyPublicationExtractor extends PublicationExtractor<IvyPublication
         if (!ivyFile.exists()) {
             return null;
         }
-        DeployDetails.Builder builder = createArtifactBuilder(ivyFile, publication.getName());
-        PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
-                publication.getModule(), "xml", "ivy", null, extraInfo, ivyFile);
-        addArtifactToDeployDetails(publication, builder, artifactInfo);
+        buildAndPublishArtifactWithSignatures(ivyFile, publication, publication.getModule(), "xml", "ivy", null, extraInfo);
         return ivyFile;
     }
 
@@ -132,11 +128,7 @@ public class IvyPublicationExtractor extends PublicationExtractor<IvyPublication
             if (file.equals(ivyFile)) {
                 continue;
             }
-            DeployDetails.Builder builder = createArtifactBuilder(file, publication.getName());
-            PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
-                    artifact.getName(), artifact.getExtension(), artifact.getType(), artifact.getClassifier(),
-                    extraInfo, file);
-            addArtifactToDeployDetails(publication, builder, artifactInfo);
+            buildAndPublishArtifactWithSignatures(file, publication, artifact.getName(), artifact.getExtension(), artifact.getType(), artifact.getClassifier(), extraInfo);
         }
     }
 }
