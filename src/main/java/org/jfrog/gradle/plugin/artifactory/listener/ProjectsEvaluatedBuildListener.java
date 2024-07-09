@@ -4,17 +4,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.gradle.StartParameter;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.artifacts.repositories.IvyArtifactRepository;
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.invocation.Gradle;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.publish.PublishingExtension;
+import org.jfrog.build.api.util.Log;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
-import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
-import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
-import org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.*;
 
 import java.util.Collections;
 import java.util.Set;
@@ -31,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ProjectsEvaluatedBuildListener {
     private static final Logger log = Logging.getLogger(ProjectsEvaluatedBuildListener.class);
+    private static final Log clientLog = new GradleClientLogger(log);
     private final Set<Task> detailsCollectingTasks = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     /**
@@ -85,6 +87,7 @@ public class ProjectsEvaluatedBuildListener {
             if (!(task instanceof ArtifactoryTask)) {
                 return;
             }
+            addResolver(project);
             ArtifactoryTask collectDeployDetailsTask = (ArtifactoryTask) task;
             detailsCollectingTasks.add(collectDeployDetailsTask);
             collectDeployDetailsTask.finalizeByDeployTask(project);
@@ -92,6 +95,21 @@ public class ProjectsEvaluatedBuildListener {
                 evaluate(collectDeployDetailsTask);
             }
         });
+    }
+
+    private void addResolver(Project project) {
+        ArtifactoryClientConfiguration.ResolverHandler resolver = PluginUtils.getResolverHandler(clientLog);
+        if (resolver == null || StringUtils.isAnyBlank(resolver.getContextUrl(), resolver.getRepoKey())) {
+            // If there's no configured Artifactory URL or repository, there's no need to include the resolution repository
+            return;
+        }
+        String contextUrl = StringUtils.appendIfMissing(resolver.getContextUrl(), "/");
+
+        // Remove all remote repositories in order to override with the Artifactory resolution repository.
+        project.getRepositories().removeIf(repo -> repo instanceof MavenArtifactRepository || repo instanceof IvyArtifactRepository);
+
+        // Add the Artifactory resolution repository.
+        project.getRepositories().maven(mavenArtifactRepository -> PluginUtils.addArtifactoryResolutionRepositoryAction(mavenArtifactRepository, contextUrl, resolver));
     }
 
     /**

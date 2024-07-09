@@ -1,0 +1,26 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    maven {
+        url "should-override-me"
+        credentials {
+            password "should-override-me"
+        }
+    }
+    flatDir {
+        dirs './tests-local-project-dependency/build/libs'
+    }
+}
+
+dependencies {
+    implementation name: 'tests-local-project-dependency'
+    implementation 'junit:junit:4.12'
+}
+
+// Source compatibility
+sourceCompatibility = '1.8'
+
+// Target compatibility
+targetCompatibility = '1.8'
