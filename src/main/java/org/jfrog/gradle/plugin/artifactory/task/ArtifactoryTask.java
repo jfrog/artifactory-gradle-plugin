@@ -196,7 +196,7 @@ public class ArtifactoryTask extends DefaultTask {
      * Extract the publications arguments for the task and make sure this task dependsOn the specified publications tasks.
      */
     private void checkDependsOnArtifactsToPublish() {
-        dependsOn(getProject().getTasks().withType(Sign.class));
+        createDependencyOnSigningTask();
         extractPublications();
         if (!hasPublications()) {
             if (publishPublicationsSpecified) {
@@ -211,6 +211,10 @@ public class ArtifactoryTask extends DefaultTask {
         createDependencyOnIvyPublications();
         createDependencyOnMavenPublications();
         createDependencyOnModuleMetadata();
+    }
+
+    private void createDependencyOnSigningTask() {
+        dependsOn(getProject().getTasks().withType(Sign.class));
     }
 
     /**

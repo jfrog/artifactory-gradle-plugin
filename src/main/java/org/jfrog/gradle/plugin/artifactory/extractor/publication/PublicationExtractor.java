@@ -16,7 +16,7 @@ import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.createA
 public abstract class PublicationExtractor<ActualPublication extends Publication> {
     protected ArtifactoryTask artifactoryTask;
     // Signature types supported by the Signing plugin.
-    private final String[] signatureExtensions = {"asc", "sig"};
+    private final String[] SIGNATURE_EXTENSIONS = {"asc", "sig"};
 
     public PublicationExtractor(ArtifactoryTask artifactoryTask) {
         this.artifactoryTask = artifactoryTask;
@@ -80,38 +80,38 @@ public abstract class PublicationExtractor<ActualPublication extends Publication
      * Build and publish the artifact and add it to deploy details.
      * If the Signing plugin was used, do the same to the artifact's signatures.
      *
-     * @param file         - The file to publish
-     * @param publication  - The publication to extract details from
-     * @param artifactId   - The artifact ID
-     * @param artifactExtension - The artifact extension
-     * @param artifactType - The artifact type
+     * @param file               - The file to publish
+     * @param publication        - The publication to extract details from
+     * @param artifactId         - The artifact ID
+     * @param artifactExtension  - The artifact extension
+     * @param artifactType       - The artifact type
      * @param artifactClassifier - The artifact classifier
-     * @param extraInfo    - Extra information to add to the deploy details
+     * @param extraInfo          - Extra information to add to the deploy details
      */
     protected void buildAndPublishArtifactWithSignatures(File file, ActualPublication publication, String artifactId, String artifactExtension, String artifactType, String artifactClassifier, Map<QName, String> extraInfo) {
         buildAndPublishArtifact(file, publication, artifactId, artifactExtension, artifactType, artifactClassifier, extraInfo);
         if (!isSignTaskExists()) {
             return;
         }
-        for (String signatureExtension : signatureExtensions) {
+        for (String signatureExtension : SIGNATURE_EXTENSIONS) {
             File signatureFile = new File(file.getAbsolutePath() + "." + signatureExtension);
             if (!signatureFile.exists()) {
                 continue;
             }
-            buildAndPublishArtifact(signatureFile, publication, artifactId, artifactType+"."+signatureExtension, artifactType+"."+signatureExtension, artifactClassifier, extraInfo);
+            buildAndPublishArtifact(signatureFile, publication, artifactId, artifactType + "." + signatureExtension, artifactType + "." + signatureExtension, artifactClassifier, extraInfo);
         }
     }
 
     /**
      * Build and publish the artifact and add it to deploy details.
      *
-     * @param file         - The file to publish
-     * @param publication  - The publication to extract details from
-     * @param artifactId   - The artifact ID
-     * @param artifactExtension - The artifact extension
-     * @param artifactType - The artifact type
+     * @param file               - The file to publish
+     * @param publication        - The publication to extract details from
+     * @param artifactId         - The artifact ID
+     * @param artifactExtension  - The artifact extension
+     * @param artifactType       - The artifact type
      * @param artifactClassifier - The artifact classifier
-     * @param extraInfo    - Extra information to add to the deploy details
+     * @param extraInfo          - Extra information to add to the deploy details
      */
     private void buildAndPublishArtifact(File file, ActualPublication publication, String artifactId, String artifactExtension, String artifactType, String artifactClassifier, Map<QName, String> extraInfo) {
         DeployDetails.Builder builder = createArtifactBuilder(file, publication.getName());
@@ -124,9 +124,6 @@ public abstract class PublicationExtractor<ActualPublication extends Publication
      * @return true if the Signing plugin was used in the project
      */
     private boolean isSignTaskExists() {
-        Sign signTask = artifactoryTask.getProject().getTasks().withType(Sign.class).stream()
-                .findAny()
-                .orElse(null);
-        return signTask != null;
+        return !artifactoryTask.getProject().getTasks().withType(Sign.class).isEmpty();
     }
 }
