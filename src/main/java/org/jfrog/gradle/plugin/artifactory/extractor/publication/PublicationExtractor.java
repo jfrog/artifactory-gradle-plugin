@@ -70,7 +70,7 @@ public abstract class PublicationExtractor<ActualPublication extends Publication
                 continue;
             }
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             ActualPublication actualPublication = (ActualPublication) publication;
             buildAndPublishArtifactWithSignatures(moduleMetadata, actualPublication, getPublicationArtifactId(actualPublication), "module", "module", null, null);
         }

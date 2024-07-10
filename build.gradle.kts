@@ -107,6 +107,12 @@ tasks.named<Jar>("jar") {
     exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
 }
 
+tasks {
+    withType<JavaCompile> {
+        options.compilerArgs.add("-Xlint:unchecked")
+    }
+}
+
 tasks.matching { task -> task.name.contains("PluginMarker") }.configureEach {
     enabled = false
 }
