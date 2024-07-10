@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.Objects;
 
 import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.addArtifactInfoToDeployDetails;
-import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.createArtifactBuilder;
 
 public class MavenPublicationExtractor extends PublicationExtractor<MavenPublication> {
 
@@ -76,10 +75,7 @@ public class MavenPublicationExtractor extends PublicationExtractor<MavenPublica
         if (!pomFile.exists()) {
             return;
         }
-        DeployDetails.Builder builder = createArtifactBuilder(pomFile, publication.getName());
-        PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
-                publication.getArtifactId(), "pom", "pom", null, pomFile);
-        addArtifactToDeployDetails(publication, builder, artifactInfo);
+        buildAndPublishArtifactWithSignatures(pomFile, publication, publication.getArtifactId(), "pom", "pom", null, null);
     }
 
     /**
@@ -112,11 +108,6 @@ public class MavenPublicationExtractor extends PublicationExtractor<MavenPublica
 
     private void createPublishArtifactInfoAndAddToDeployDetails(MavenArtifact artifact, MavenPublication publication) {
         File file = artifact.getFile();
-        DeployDetails.Builder builder = createArtifactBuilder(file, publication.getName());
-        PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
-                publication.getArtifactId(), artifact.getExtension(),
-                artifact.getExtension(), artifact.getClassifier(),
-                file);
-        addArtifactToDeployDetails(publication, builder, artifactInfo);
+        buildAndPublishArtifactWithSignatures(file, publication, publication.getArtifactId(), artifact.getExtension(), artifact.getExtension(), artifact.getClassifier(), null);
     }
 }

@@ -17,6 +17,7 @@ import org.gradle.api.publish.maven.tasks.GenerateMavenPom;
 import org.gradle.api.publish.tasks.GenerateModuleMetadata;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.*;
+import org.gradle.plugins.signing.Sign;
 import org.jfrog.build.api.builder.ModuleType;
 import org.jfrog.build.api.multiMap.Multimap;
 import org.jfrog.build.api.multiMap.SetMultimap;
@@ -195,6 +196,7 @@ public class ArtifactoryTask extends DefaultTask {
      * Extract the publications arguments for the task and make sure this task dependsOn the specified publications tasks.
      */
     private void checkDependsOnArtifactsToPublish() {
+        createDependencyOnSigningTask();
         extractPublications();
         if (!hasPublications()) {
             if (publishPublicationsSpecified) {
@@ -209,6 +211,10 @@ public class ArtifactoryTask extends DefaultTask {
         createDependencyOnIvyPublications();
         createDependencyOnMavenPublications();
         createDependencyOnModuleMetadata();
+    }
+
+    private void createDependencyOnSigningTask() {
+        dependsOn(getProject().getTasks().withType(Sign.class));
     }
 
     /**
