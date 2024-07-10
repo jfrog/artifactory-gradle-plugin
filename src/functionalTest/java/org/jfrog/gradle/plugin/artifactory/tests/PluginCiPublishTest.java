@@ -69,4 +69,12 @@ public class PluginCiPublishTest extends GradleFunctionalTestBase {
                 (buildResult, deployableArtifacts) -> ValidationUtils.checkVersionCatalogResults(artifactoryManager, buildResult, virtualRepo)
         );
     }
+
+    @Test(dataProvider = "gradleVersions")
+    public void ciServerFlatDirTest(String gradleVersion) throws IOException {
+        runPublishCITest(gradleVersion, TestConsts.GRADLE_EXAMPLE_CI_SERVER_FLAT, false,
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", false, false, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkBuildResultsFlatDir(buildResult, TestConsts.BUILD_INFO_JSON.toFile())
+        );
+    }
 }

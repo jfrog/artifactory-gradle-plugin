@@ -27,6 +27,7 @@ public class TestConsts {
     public static final Path GRADLE_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-example-publish");
     public static final Path GRADLE_KTS_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-kts-example-publish");
     public static final Path GRADLE_EXAMPLE_CI_SERVER = PROJECTS_ROOT.resolve("gradle-example-ci-server");
+    public static final Path GRADLE_EXAMPLE_CI_SERVER_FLAT = PROJECTS_ROOT.resolve("gradle-example-ci-server-flat");
     public static final Path GRADLE_EXAMPLE_CI_SERVER_ARCHIVES = PROJECTS_ROOT.resolve("gradle-example-ci-server-archives");
     public static final Path GRADLE_EXAMPLE_VERSION_CATALOG_PRODUCER = PROJECTS_ROOT.resolve("gradle-example-version-catalog").resolve("producer");
     public static final Path GRADLE_EXAMPLE_VERSION_CATALOG_CONSUMER = PROJECTS_ROOT.resolve("gradle-example-version-catalog").resolve("consumer");
@@ -124,5 +125,11 @@ public class TestConsts {
             "org/example/gradle/publishing/gradle_tests_space/1.0.0/gradle_tests_space-1.0.0.jar",
             "org/example/gradle/publishing/gradle_tests_space/1.0.0/gradle_tests_space-1.0.0.module",
             "org/example/gradle/publishing/gradle_tests_space/1.0.0/gradle_tests_space-1.0.0.pom"
+    };
+
+    public static final String[] EXPECTED_FLAT_DIR_DEPENDENCIES_IDS = {
+            ":tests-local-project-dependency:",
+            "junit:junit:4.12",
+            "org.hamcrest:hamcrest-core:1.3"
     };
 }

@@ -57,7 +57,7 @@ exeport BITESTS_ARTIFACTORY_VIRTUAL_REPO='some-virtual-repo'
 
 - The above command run both unit and integration tests.
 
-### Debugging the tests/plugin with the following command:
+### Debugging the plugin with the following command:
 
 ```
 ./gradlew aP -Dorg.gradle.jvmargs=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
