@@ -87,7 +87,6 @@ public class ProjectsEvaluatedBuildListener {
             if (!(task instanceof ArtifactoryTask)) {
                 return;
             }
-            addResolver(project);
             ArtifactoryTask collectDeployDetailsTask = (ArtifactoryTask) task;
             detailsCollectingTasks.add(collectDeployDetailsTask);
             collectDeployDetailsTask.finalizeByDeployTask(project);
@@ -95,9 +94,16 @@ public class ProjectsEvaluatedBuildListener {
                 evaluate(collectDeployDetailsTask);
             }
         });
+        addResolverIfConfigured(project);
     }
 
-    private void addResolver(Project project) {
+    /**
+     * Adds an Artifactory resolution repository to the project's repository configuration if configured.
+     * Overrides other remote repositories by removing all existing Maven and Ivy remote repositories from the project.
+     *
+     * @param project The Gradle project to which the Artifactory resolution repository is to be added.
+     */
+    private void addResolverIfConfigured(Project project) {
         ArtifactoryClientConfiguration.ResolverHandler resolver = PluginUtils.getResolverHandler(clientLog);
         if (resolver == null || StringUtils.isAnyBlank(resolver.getContextUrl(), resolver.getRepoKey())) {
             // If there's no configured Artifactory URL or repository, there's no need to include the resolution repository

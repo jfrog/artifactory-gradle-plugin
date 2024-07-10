@@ -24,14 +24,12 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.apache.commons.lang3.StringUtils.*;
+import static org.gradle.testkit.runner.TaskOutcome.FAILED;
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS;
 import static org.jfrog.build.extractor.BuildInfoExtractorUtils.jsonStringToBuildInfo;
 import static org.jfrog.build.extractor.clientConfiguration.deploy.DeployableArtifactsUtils.loadDeployableArtifactsFromFile;
-import static org.jfrog.gradle.plugin.artifactory.Constant.*;
-import static org.jfrog.gradle.plugin.artifactory.TestConsts.ARTIFACTS_GROUP_ID;
-import static org.jfrog.gradle.plugin.artifactory.TestConsts.EXPECTED_VERSION_CATALOG_CONSUMER_ARTIFACTS;
+import static org.jfrog.gradle.plugin.artifactory.TestConsts.*;
 import static org.testng.Assert.*;
-import static org.testng.Assert.assertTrue;
 
 public class ValidationUtils {
     public interface BuildResultValidation {
@@ -329,4 +327,24 @@ public class ValidationUtils {
                 .anyMatch(artifactName -> artifactName.equals("gradle_tests_space-1.0-SNAPSHOT.pom")));
     }
 
+    /**
+     * Check the results of CI server with flatDir test.
+     * Aim of the test is to verify flatDir repositories are still respected when applying the Artifactory plugin which shouldn't override them.
+     *
+     * @param buildResult   - The build results
+     * @param buildInfoJson - Path to the unpublished build info json.
+     * @throws IOException In case of any IO error.
+     */
+    public static void checkBuildResultsFlatDir(BuildResult buildResult, File buildInfoJson) throws IOException {
+        // Assert all tasks ended with success outcome
+        buildResult.getTasks().forEach(buildTask -> assertNotEquals(buildTask.getOutcome(), FAILED));
+
+        // Assert build info contains both the remote and the local dependencies.
+        assertTrue(buildInfoJson.exists());
+        BuildInfo buildInfo = jsonStringToBuildInfo(CommonUtils.readByCharset(buildInfoJson, StandardCharsets.UTF_8));
+        assertEquals(buildInfo.getModules().size(), 1);
+        assertEquals(buildInfo.getModules().get(0).getDependencies().size(), 3);
+        String[] dependenciesIds = buildInfo.getModules().get(0).getDependencies().stream().map(Dependency::getId).toArray(String[]::new);
+        assertEqualsNoOrder(dependenciesIds, EXPECTED_FLAT_DIR_DEPENDENCIES_IDS);
+    }
 }

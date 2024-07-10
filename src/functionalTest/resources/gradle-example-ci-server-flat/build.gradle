@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    implementation name: 'tests-local-project-dependency'
+    implementation ':tests-local-project-dependency:'
     implementation 'junit:junit:4.12'
 }
 
