@@ -8,3 +8,6 @@ publish.unstable=false
 publish.buildInfo=${buildInfo}
 publish.maven=true
 publish.ivy=true
+proxy.host=bad-proxy
+proxy.port=1234
+proxy.noProxy=${noProxy}

@@ -15,6 +15,7 @@ import org.jfrog.gradle.plugin.artifactory.GradleFunctionalTestBase;
 import org.jfrog.gradle.plugin.artifactory.TestConsts;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -168,6 +169,7 @@ public class Utils {
             put(ClientConfigurationFields.PUBLISH_BUILD_INFO, String.valueOf(publishBuildInfo));
             put("localRepo", testBase.localRepo);
             put("virtualRepo", testBase.virtualRepo);
+            put(ClientConfigurationFields.NO_PROXY, new URL(testBase.getArtifactoryUrl()).getHost());
         }};
         StringSubstitutor sub = new StringSubstitutor(valuesMap);
         return sub.replace(content);

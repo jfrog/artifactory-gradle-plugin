@@ -4,6 +4,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.jfrog.build.client.ArtifactoryUploadResponse;
+import org.jfrog.build.extractor.Proxy;
+import org.jfrog.build.extractor.ProxySelector;
 import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.IncludeExcludePatterns;
@@ -116,21 +118,26 @@ public class DeployUtils {
         configureProxy(accRoot.proxy, artifactoryManager);
     }
 
-    private static void configureProxy(ArtifactoryClientConfiguration.ProxyHandler proxy, ArtifactoryManager artifactoryManager) {
+    static void configureProxy(ArtifactoryClientConfiguration.ProxyHandler proxy, ArtifactoryManager artifactoryManager) {
+        // If no proxy is configured, return
         String proxyHost = proxy.getHost();
         Integer proxyPort = proxy.getPort();
         if (StringUtils.isBlank(proxyHost) || proxyPort == null) {
             return;
         }
-        log.debug("Found proxy host '{}' in port '{}'", proxyHost, proxyPort);
-        String proxyUserName = proxy.getUsername();
-        if (StringUtils.isNotBlank(proxyUserName)) {
-            log.debug("Found proxy user name '{}'", proxyUserName);
-            artifactoryManager.setProxyConfiguration(proxyHost, proxy.getPort(), proxyUserName, proxy.getPassword());
-        } else {
-            log.debug("No proxy user name and password found, using anonymous proxy");
-            artifactoryManager.setProxyConfiguration(proxyHost, proxy.getPort());
+
+        // If the Artifactory URL is in the no proxy list, return
+        ProxySelector proxySelector = new ProxySelector(proxyHost, proxyPort, proxy.getUsername(), proxy.getPassword(),
+                proxyHost, proxyPort, proxy.getUsername(), proxy.getPassword(), proxy.getNoProxy()
+        );
+        Proxy proxyHandler = proxySelector.getProxy(artifactoryManager.getUrl());
+        if (proxyHandler == null) {
+            return;
         }
+
+        // Configure the proxy
+        log.debug("Found proxy host '{}' in port '{}'", proxyHost, proxyPort);
+        artifactoryManager.setProxyConfiguration(proxyHandler.getHost(), proxyHandler.getPort(), proxyHandler.getUsername(), proxyHandler.getPassword());
     }
 
 
