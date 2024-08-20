@@ -4,6 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.GradleException;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.invocation.Gradle;
+import org.gradle.authentication.http.BasicAuthentication;
 import org.jfrog.build.api.builder.ModuleType;
 import org.jfrog.build.api.util.Log;
 import org.jfrog.build.client.Version;
@@ -67,6 +68,9 @@ public class PluginUtils {
                 credentials.setUsername(username);
                 credentials.setPassword(password);
             });
+
+            // Make the authentication preemptive
+            mavenArtifactRepository.authentication(authentications -> authentications.create("basic", BasicAuthentication.class));
         }
     }
 
