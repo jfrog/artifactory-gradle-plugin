@@ -4,6 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.GradleException;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.invocation.Gradle;
+import org.gradle.authentication.http.BasicAuthentication;
 import org.jfrog.build.api.builder.ModuleType;
 import org.jfrog.build.api.util.Log;
 import org.jfrog.build.client.Version;
@@ -67,6 +68,12 @@ public class PluginUtils {
                 credentials.setUsername(username);
                 credentials.setPassword(password);
             });
+
+            // Before resolving an artifact from Artifactory, Gradle typically sends a preemptive challenge request and
+            // expects a 401 response from the server.
+            // However, when 'Hide Existence of Unauthorized Resources' is enabled, Artifactory returns a 404 instead.
+            // Adding BasicAuthentication ensures that credentials are sent directly, bypassing this challenge.
+            mavenArtifactRepository.authentication(authentications -> authentications.create("basic", BasicAuthentication.class));
         }
     }
 
