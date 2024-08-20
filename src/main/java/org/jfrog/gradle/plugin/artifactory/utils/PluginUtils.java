@@ -69,7 +69,10 @@ public class PluginUtils {
                 credentials.setPassword(password);
             });
 
-            // Make the authentication preemptive
+            // Before resolving an artifact from Artifactory, Gradle typically sends a preemptive challenge request and
+            // expects a 401 response from the server.
+            // However, when 'Hide Existence of Unauthorized Resources' is enabled, Artifactory returns a 404 instead.
+            // Adding BasicAuthentication ensures that credentials are sent directly, bypassing this challenge.
             mavenArtifactRepository.authentication(authentications -> authentications.create("basic", BasicAuthentication.class));
         }
     }
