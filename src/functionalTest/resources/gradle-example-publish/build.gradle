@@ -78,4 +78,16 @@ artifactory {
             publishIvy = true // Publish generated Ivy descriptor files to Artifactory (true by default)
         }
     }
+
+    // Configure a proxy with invalid settings and bypass it for a specific host using noProxy
+    proxy {
+        // Set proxy host to a non-functional proxy
+        host = "bad-proxy"
+
+        // Set proxy port to an arbitrary value
+        port = 666
+
+        // Bypass the proxy for the Artifactory host
+        noProxy = new URL(System.getenv("BITESTS_PLATFORM_URL")).getHost()
+    }
 }
