@@ -470,3 +470,5 @@ by [reporting any issues](https://github.com/jfrog/artifactory-gradle-plugin/iss
 We welcome pull requests from the community. To help us improve this project, please read
 our [Contribution](./CONTRIBUTING.md#-guidelines) guide.
 
+
+
