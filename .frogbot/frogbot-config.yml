@@ -1,0 +1,4 @@
+- params:
+    scan:
+      emailReceivers:
+        - mister_mime@wearehackerone.com
