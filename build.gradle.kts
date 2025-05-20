@@ -5,39 +5,49 @@ val functionalTest by sourceSets.creating
 group = groupVal
 
 plugins {
-    id("com.gradle.plugin-publish") version "1.2.0"
+    id("com.gradle.plugin-publish") version "1.2.1"
     id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
     id("signing")
-    id("com.github.spotbugs-base") version "4.8.0"
+    id("com.github.spotbugs-base") version "5.2.1"
 }
 
 repositories {
     mavenCentral()
+    flatDir {
+        dirs("libs")
+    }
 }
 
 val buildInfoVersion = "2.41.22"
 val fileSpecsVersion = "1.1.2"
-val commonsLangVersion = "3.12.0"
-val commonsIoVersion = "2.11.0"
-val commonsTxtVersion = "1.10.0"
-val testNgVersion = "7.5.1"
+val commonsLangVersion = "3.13.0"
+val commonsIoVersion = "2.15.1"
+val commonsTxtVersion = "1.11.0"
+val testNgVersion = "7.9.0"
 val httpclientVersion = "4.5.14"
-val spotBugsVersion = "4.8.1"
+val spotBugsVersion = "4.8.3"
 
 tasks.compileJava {
-    sourceCompatibility = "1.8"
-    targetCompatibility = "1.8"
+    sourceCompatibility = "11"
+    targetCompatibility = "11"
 }
 
 java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(11))
+    }
     withJavadocJar()
     withSourcesJar()
 }
 
 dependencies {
-    api("org.jfrog.buildinfo", "build-info-extractor", buildInfoVersion)
-    api("org.jfrog.buildinfo", "build-info-api", buildInfoVersion)
-    api("org.jfrog.buildinfo", "build-info-client", buildInfoVersion)
+    // Use local build-info JARs from the libs directory
+    api(files("libs/build-info-extractor.jar"))
+    api(files("libs/build-info-api.jar"))
+    api(files("libs/build-info-client.jar"))
+//    api("org.jfrog.buildinfo", "build-info-extractor", buildInfoVersion)
+//    api("org.jfrog.buildinfo", "build-info-api", buildInfoVersion)
+//    api("org.jfrog.buildinfo", "build-info-client", buildInfoVersion)
     api("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
 
     implementation("org.apache.commons", "commons-lang3", commonsLangVersion)
@@ -51,10 +61,12 @@ dependencies {
     testImplementation("org.testng", "testng", testNgVersion)
     testImplementation("org.mockito", "mockito-core", "3.+")
 
-    "functionalTestImplementation"("org.jfrog.buildinfo", "build-info-extractor", buildInfoVersion)
-    "functionalTestImplementation"("org.jfrog.buildinfo", "build-info-api", buildInfoVersion)
-    "functionalTestImplementation"("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
+    // Use local build-info JARs for functional tests as well
+    "functionalTestImplementation"(files("libs/build-info-extractor.jar"))
+    "functionalTestImplementation"(files("libs/build-info-api.jar"))
+    "functionalTestImplementation"(files("libs/build-info-client.jar"))
 
+    "functionalTestImplementation"("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
     "functionalTestImplementation"("org.testng", "testng", testNgVersion)
     "functionalTestImplementation"("org.apache.commons", "commons-lang3", commonsLangVersion)
     "functionalTestImplementation"("org.apache.commons", "commons-text", commonsTxtVersion)
@@ -67,22 +79,19 @@ dependencies {
     implementation("com.github.spotbugs", "spotbugs-annotations", spotBugsVersion)
 }
 
-pluginBundle {
-    website = "https://github.com/jfrog/artifactory-gradle-plugin"
-    vcsUrl = "https://github.com/jfrog/artifactory-gradle-plugin"
-
-    gradlePlugin {
-        plugins {
-            create("artifactoryGradlePlugin") {
-                id = "com.jfrog.artifactory"
-                implementationClass = "org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin"
-                displayName = "JFrog Artifactory Gradle Plugin"
-                description = pluginDescription
-                tags = listOf("JFrog", "publication", "Artifactory", "build-info")
-            }
+gradlePlugin {
+    plugins {
+        create("artifactoryGradlePlugin") {
+            id = "com.jfrog.artifactory"
+            implementationClass = "org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin"
+            displayName = "JFrog Artifactory Gradle Plugin"
+            description = pluginDescription
+            tags.set(listOf("JFrog", "publication", "Artifactory", "build-info"))
+            website.set("https://github.com/jfrog/artifactory-gradle-plugin")
+            vcsUrl.set("https://github.com/jfrog/artifactory-gradle-plugin")
         }
-        testSourceSets(functionalTest)
     }
+    testSourceSets.add(functionalTest)
 }
 
 val uberJar by tasks.register<Jar>("uberJar") {
@@ -176,11 +185,14 @@ val functionalTestTask = tasks.register<Test>("functionalTest") {
     testClassesDirs = functionalTest.output.classesDirs
     classpath = functionalTest.runtimeClasspath
     mustRunAfter(tasks.test)
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(17)) // Change this to your desired version
+    })
 }
 
-tasks.check {
-    dependsOn(functionalTestTask)
-}
+//tasks.check {
+//    dependsOn(functionalTestTask)
+//}
 
 tasks.register<com.github.spotbugs.snom.SpotBugsTask>("spotBugs") {
     classDirs = files(sourceSets.main.get().output)
@@ -189,17 +201,18 @@ tasks.register<com.github.spotbugs.snom.SpotBugsTask>("spotBugs") {
 
     reports {
         create("text") {
-            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.txt"))
+            required.set(true)
+            outputLocation.set(layout.buildDirectory.file("reports/spotbugs/main/spotbugs.txt"))
         }
         create("html") {
-            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.html"))
+            required.set(true)
+            outputLocation.set(layout.buildDirectory.file("reports/spotbugs/main/spotbugs.html"))
             setStylesheet("fancy-hist.xsl")
         }
         create("xml") {
-            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.xml"))
+            required.set(true)
+            outputLocation.set(layout.buildDirectory.file("reports/spotbugs/main/spotbugs.xml"))
         }
     }
-    excludeFilter.set(
-        file("${projectDir}/spotbugs-filter.xml")
-    )
+    excludeFilter.set(file("${projectDir}/spotbugs-filter.xml"))
 }

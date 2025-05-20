@@ -5,6 +5,11 @@ plugins {
     id "maven-publish"
 }
 
+//apply plugin: 'com.jfrog.artifactory'
+//apply plugin: 'java'
+//apply plugin: 'maven-publish'
+//apply plugin: 'java-gradle-plugin'
+
 group = "org.example.gradle.publishing"
 version = currentVersion
 
