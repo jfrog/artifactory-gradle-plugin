@@ -1,5 +1,5 @@
 pipelines:
-  - name: build_artifactory_gradle_plugin_snapshot
+  - name: flux_build_artifactory_gradle_plugin_snapshot
     configuration:
       runtime:
         type: image
@@ -13,15 +13,15 @@ pipelines:
         type: Bash
         configuration:
           inputResources:
-            - name: artifactoryGradlePluginSnapshotGit
+            - name: fluxartifactoryGradlePluginSnapshotGit
           integrations:
             - name: ecosys_entplus_deployer
         execution:
           onStart:
             # Save gradle cache
-            - restore_cache_files gradle_cache $res_artifactoryGradlePluginSnapshotGit_resourcePath/.gradle
+            - restore_cache_files gradle_cache $res_fluxartifactoryGradlePluginSnapshotGit_resourcePath/.gradle
           onExecute:
-            - cd $res_artifactoryGradlePluginSnapshotGit_resourcePath
+            - cd $res_fluxartifactoryGradlePluginSnapshotGit_resourcePath
 
             # Set env
             - export CI=true
@@ -58,4 +58,4 @@ pipelines:
 
           onComplete:
             # Save gradle cache
-            - add_cache_files $res_artifactoryGradlePluginSnapshotGit_resourcePath/.gradle gradle_cache
+            - add_cache_files $res_fluxartifactoryGradlePluginSnapshotGit_resourcePath/.gradle gradle_cache

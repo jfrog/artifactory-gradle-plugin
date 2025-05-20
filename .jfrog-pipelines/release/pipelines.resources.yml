@@ -1,18 +1,8 @@
 resources:
-  - name: artifactoryGradlePluginSnapshotGit
+  - name: fluxartifactoryGradlePluginSnapshotGit
     type: GitRepo
     configuration:
-      path: jfrog/artifactory-gradle-plugin
-      gitProvider: il_automation
-      branches:
-        include: master
+      path: fluxxBot/artifactory-gradle-plugin
+      gitProvider: fluxxBot_git
       cancelPendingRunsOn:
         pullRequestUpdate: true
-
-  - name: artifactoryGradlePluginReleaseGit
-    type: GitRepo
-    configuration:
-      path: jfrog/artifactory-gradle-plugin
-      gitProvider: il_automation
-      buildOn:
-        commit: false
