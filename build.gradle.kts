@@ -9,6 +9,7 @@ plugins {
     id("io.github.gradle-nexus.publish-plugin") version "2.0.0-rc-1"
     id("signing")
     id("com.github.spotbugs-base") version "4.8.0"
+    id("org.gradle.java-gradle-plugin")
 }
 
 repositories {
@@ -54,6 +55,7 @@ dependencies {
     "functionalTestImplementation"("org.jfrog.buildinfo", "build-info-extractor", buildInfoVersion)
     "functionalTestImplementation"("org.jfrog.buildinfo", "build-info-api", buildInfoVersion)
     "functionalTestImplementation"("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
+    "functionalTestImplementation"(gradleTestKit())
 
     "functionalTestImplementation"("org.testng", "testng", testNgVersion)
     "functionalTestImplementation"("org.apache.commons", "commons-lang3", commonsLangVersion)
@@ -70,6 +72,7 @@ dependencies {
 gradlePlugin {
     website.set("https://github.com/jfrog/artifactory-gradle-plugin")
     vcsUrl.set("https://github.com/jfrog/artifactory-gradle-plugin")
+    testSourceSets(functionalTest)
     
     plugins {
         create("artifactoryGradlePlugin") {
@@ -172,12 +175,23 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+configurations {
+    "functionalTestImplementation" {
+        extendsFrom(configurations["testImplementation"])
+    }
+}
+
 val functionalTestTask = tasks.register<Test>("functionalTest") {
     description = "Runs the functional tests."
     group = "verification"
     testClassesDirs = functionalTest.output.classesDirs
     classpath = functionalTest.runtimeClasspath
     mustRunAfter(tasks.test)
+
+    // Exclude the PluginAndroidTest class
+    exclude("**/PluginAndroidTest.class")
+    exclude("**/PluginBomPublishTest.class")
+    exclude("**/PluginCiPublishTest.class")
 }
 
 tasks.check {
