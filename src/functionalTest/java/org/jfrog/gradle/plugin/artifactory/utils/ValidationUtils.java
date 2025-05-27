@@ -222,7 +222,7 @@ public class ValidationUtils {
 
             switch (module.getId()) {
                 case "org.jfrog.test.gradle.publish:webservice:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 12);
+                    assertEquals(module.getDependencies().size(), 13);
                     if (expectedArtifactsPerModule > 0) {
                         checkWebserviceArtifact(module);
                     }
