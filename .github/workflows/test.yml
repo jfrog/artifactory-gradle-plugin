@@ -3,12 +3,12 @@ name: Test
 on:
   push:
   # Triggers the workflow on labeled PRs only.
-  pull_request_target:
-    types: [ labeled ]
+#  pull_request_target:
+#    types: [ labeled ]
 
 jobs:
   test:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'safe to test'))
+    if: github.event_name == 'push'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
