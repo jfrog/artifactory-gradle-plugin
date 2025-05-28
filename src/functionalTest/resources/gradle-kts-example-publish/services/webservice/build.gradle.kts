@@ -10,4 +10,5 @@ dependencies {
     implementation("org.apache.wicket", "wicket", "1.3.7")
     implementation(project(":api"))
     testImplementation("org.testng:testng:5.14.10")
+    testImplementation ("junit:junit:4.13.2")
 }
