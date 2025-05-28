@@ -191,7 +191,6 @@ val functionalTestTask = tasks.register<Test>("functionalTest") {
     // Exclude the PluginAndroidTest class
     exclude("**/PluginAndroidTest.class")
     exclude("**/PluginBomPublishTest.class")
-    exclude("**/PluginCiPublishTest.class")
 }
 
 tasks.check {

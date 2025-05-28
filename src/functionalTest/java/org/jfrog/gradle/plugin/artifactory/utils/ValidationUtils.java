@@ -229,7 +229,7 @@ public class ValidationUtils {
                     checkWebserviceDependency(module);
                     break;
                 case "org.jfrog.test.gradle.publish:api:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 5);
+                    assertEquals(module.getDependencies().size(), 4);
                     break;
                 case "org.jfrog.test.gradle.publish:shared:1.0-SNAPSHOT":
                     assertEquals(module.getDependencies().size(), 0);
@@ -301,7 +301,7 @@ public class ValidationUtils {
 
     private static void assertRequestedBy(BuildInfo buildInfo) {
         List<Dependency> apiDependencies = buildInfo.getModule("org.jfrog.test.gradle.publish:api:1.0-SNAPSHOT").getDependencies();
-        assertEquals(apiDependencies.size(), 5);
+        assertEquals(apiDependencies.size(), 4);
         for (Dependency dependency : apiDependencies) {
             if (dependency.getId().equals("commons-io:commons-io:1.2")) {
                 String[][] requestedBy = dependency.getRequestedBy();
