@@ -62,7 +62,7 @@ public class TestConsts {
     public static final Path BUILD_INFO_JSON = TEST_DIR.toPath().resolve(Paths.get("build", "build-info.json"));
 
     // Android
-    public static final String GRADLE_ANDROID_VERSION = "8.2.1";
+    public static final String GRADLE_ANDROID_VERSION = "9.0.0-milestone-9";
 
     // Version catalog
     public static final String MIN_GRADLE_VERSION_CATALOG_VERSION = "7.0";
@@ -92,6 +92,7 @@ public class TestConsts {
             "api/1.0-SNAPSHOT/api-1.0-SNAPSHOT.jar",
             "shared/1.0-SNAPSHOT/shared-1.0-SNAPSHOT.jar",
             "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.war",
+            "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.jar",
     };
 
     public static final String[] EXPECTED_VERSION_CATALOG_PRODUCER_ARTIFACTS = {
