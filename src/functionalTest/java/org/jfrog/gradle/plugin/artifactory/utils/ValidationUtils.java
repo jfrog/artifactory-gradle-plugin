@@ -233,7 +233,7 @@ public class ValidationUtils {
                     checkWebserviceDependency(module);
                     break;
                 case "org.jfrog.test.gradle.publish:api:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 4);
+                    assertEquals(module.getDependencies().size(), 5);
                     break;
                 case "org.jfrog.test.gradle.publish:shared:1.0-SNAPSHOT":
                     assertEquals(module.getDependencies().size(), 0);
