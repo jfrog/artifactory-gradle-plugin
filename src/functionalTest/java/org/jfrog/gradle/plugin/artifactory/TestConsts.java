@@ -87,6 +87,7 @@ public class TestConsts {
             "webservice/1.0-SNAPSHOT/webservice-1.0-SNAPSHOT.properties"
     };
 
+    // update this due to the https://discuss.gradle.org/t/gradle-9-war-plugin-generates-both-war-and-jar-how-to-disable-jar/51128
     public static final String[] EXPECTED_ARCHIVE_ARTIFACTS = {
             "api/1.0-SNAPSHOT/api-1.0-SNAPSHOT.jar",
             "shared/1.0-SNAPSHOT/shared-1.0-SNAPSHOT.jar",

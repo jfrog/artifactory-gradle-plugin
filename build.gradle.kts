@@ -188,8 +188,6 @@ val functionalTestTask = tasks.register<Test>("functionalTest") {
     classpath = functionalTest.runtimeClasspath
     mustRunAfter(tasks.test)
 
-    // Exclude the PluginAndroidTest class
-    exclude("**/PluginCiPublishTest.class")
 }
 
 tasks.check {
