@@ -18,9 +18,3 @@ dependencies {
     implementation ':tests-local-project-dependency:'
     implementation 'junit:junit:4.12'
 }
-
-// Source compatibility
-sourceCompatibility = '1.8'
-
-// Target compatibility
-targetCompatibility = '1.8'

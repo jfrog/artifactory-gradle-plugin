@@ -4,6 +4,3 @@ jar {
     archiveFileName.set('tests-local-project-dependency.jar')
     destinationDirectory.set(file("$buildDir/libs"))
 }
-
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
