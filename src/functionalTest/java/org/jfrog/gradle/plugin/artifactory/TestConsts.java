@@ -62,7 +62,6 @@ public class TestConsts {
     public static final Path BUILD_INFO_JSON = TEST_DIR.toPath().resolve(Paths.get("build", "build-info.json"));
 
     // Android
-    // change gradle version here
     public static final String GRADLE_ANDROID_VERSION = "8.2.1";
 
     // Version catalog

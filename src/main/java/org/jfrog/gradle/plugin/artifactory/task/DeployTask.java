@@ -127,7 +127,7 @@ public class DeployTask extends DefaultTask {
         }
         // Default path
         Project rootProject = getProject().getRootProject();
-                return rootProject.getLayout().getBuildDirectory().file(Constant.BUILD_INFO_FILE_NAME).get().getAsFile();
+        return rootProject.getLayout().getBuildDirectory().file(Constant.BUILD_INFO_FILE_NAME).get().getAsFile();
     }
 
     private void exportBuildInfo(BuildInfo buildInfo, File toFile) throws IOException {
