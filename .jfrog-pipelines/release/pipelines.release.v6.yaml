@@ -1,5 +1,5 @@
 pipelines:
-  - name: release_artifactory_gradle_plugin
+  - name: release_artifactory_gradle_plugin_v6
     configuration:
       runtime:
         type: image
@@ -7,7 +7,7 @@ pipelines:
           auto:
             language: java
             versions:
-              - "8"
+              - "17"
       environmentVariables:
         readOnly:
           NEXT_VERSION: 0.0.0
@@ -18,14 +18,14 @@ pipelines:
         type: Bash
         configuration:
           inputResources:
-            - name: artifactoryGradlePluginReleaseGit
+            - name: artifactoryGradlePluginV6ReleaseGit
           integrations:
             - name: il_automation
             - name: ecosys_entplus_deployer
             - name: mvn_central
         execution:
           onExecute:
-            - cd $res_artifactoryGradlePluginReleaseGit_resourcePath
+            - cd $res_artifactoryGradlePluginV6ReleaseGit_resourcePath
 
             # Set env
             - export CI=true
@@ -35,7 +35,7 @@ pipelines:
             - export JFROG_CLI_BUILD_PROJECT=ecosys
 
             # Configure git
-            - git checkout v5
+            - git checkout main
             - git remote set-url origin https://$int_il_automation_token@github.com/jfrog/artifactory-gradle-plugin.git
 
             # Make sure versions provided

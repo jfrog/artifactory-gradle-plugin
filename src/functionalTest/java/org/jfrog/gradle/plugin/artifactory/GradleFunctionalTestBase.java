@@ -3,7 +3,6 @@ package org.jfrog.gradle.plugin.artifactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.SystemUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.text.StringSubstitutor;
 import org.gradle.testkit.runner.BuildResult;
@@ -227,7 +226,7 @@ public class GradleFunctionalTestBase {
     }
 
     private void initGradleCmdEnvVars() {
-        // Create env vars to pass for running gradle commands (var replacement in build.gradle files?
+        // Create env vars to pass for running gradle commands (var replacement in build.gradle files?)
         envVars = new HashMap<String, String>(System.getenv()) {{
             putIfAbsent(TestConsts.BITESTS_ENV_VAR_PREFIX + TestConsts.URL, getPlatformUrl());
             putIfAbsent(TestConsts.BITESTS_ENV_VAR_PREFIX + TestConsts.USERNAME, getUsername());
