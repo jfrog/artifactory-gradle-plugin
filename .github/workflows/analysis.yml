@@ -1,12 +1,14 @@
 name: "Static Analysis"
 
 on:
-  push:
-    branches:
-      - '**'
-    tags-ignore:
-      - '**'
-  pull_request:
+  workflow_dispatch:
+  # NOTE: disabling spotbugs for now, as it does not have any official release supporting Gradle v9
+#  push:
+#    branches:
+#      - '**'
+#    tags-ignore:
+#      - '**'
+#  pull_request:
 
 permissions:
   checks: write
