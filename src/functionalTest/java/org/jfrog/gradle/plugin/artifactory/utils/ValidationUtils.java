@@ -49,7 +49,7 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5);
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5, false);
     }
 
     /**
@@ -101,7 +101,7 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkArchivesBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 1);
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 1, true);
     }
 
     /**
@@ -129,7 +129,7 @@ public class ValidationUtils {
     }
 
     private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
-                                          String[] expectedArtifacts, int expectedArtifactsPerModule) throws IOException {
+                                          String[] expectedArtifacts, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
         // Assert all tasks ended with success outcome
         assertProjectsSuccess(buildResult);
 
@@ -140,7 +140,7 @@ public class ValidationUtils {
         BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
         assertNotNull(buildInfo);
         checkFilteredEnv(buildInfo);
-        checkBuildInfoModules(buildInfo, 3, expectedArtifactsPerModule);
+        checkBuildInfoModules(buildInfo, 3, expectedArtifactsPerModule, isWebArchived);
 
         // Check build info properties on published Artifacts
         PropertySearchResult artifacts = artifactoryManager.searchArtifactsByProperties(String.format("build.name=%s;build.number=%s", buildInfo.getName(), buildInfo.getNumber()));
@@ -210,19 +210,23 @@ public class ValidationUtils {
      * @param expectedModules            - Number of expected modules.
      * @param expectedArtifactsPerModule - Number of expected artifacts in each module.
      */
-    private static void checkBuildInfoModules(BuildInfo buildInfo, int expectedModules, int expectedArtifactsPerModule) {
+    private static void checkBuildInfoModules(BuildInfo buildInfo, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
         List<Module> modules = buildInfo.getModules();
         assertEquals(modules.size(), expectedModules);
         for (Module module : modules) {
             if (expectedArtifactsPerModule > 0) {
-                assertEquals(module.getArtifacts().size(), expectedArtifactsPerModule);
+                int totalExpectedArtifacts = expectedArtifactsPerModule;
+                if (isWebArchived && StringUtils.equals(module.getId(), "org.jfrog.test.gradle.publish:webservice:1.0-SNAPSHOT")) {
+                    totalExpectedArtifacts++;
+                }
+                assertEquals(module.getArtifacts().size(), totalExpectedArtifacts);
             } else {
                 assertNull(module.getArtifacts());
             }
 
             switch (module.getId()) {
                 case "org.jfrog.test.gradle.publish:webservice:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 12);
+                    assertEquals(module.getDependencies().size(), 13);
                     if (expectedArtifactsPerModule > 0) {
                         checkWebserviceArtifact(module);
                     }
@@ -295,7 +299,7 @@ public class ValidationUtils {
         // Assert build info contains requestedBy information.
         assertTrue(buildInfoJson.exists());
         BuildInfo buildInfo = jsonStringToBuildInfo(CommonUtils.readByCharset(buildInfoJson, StandardCharsets.UTF_8));
-        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule);
+        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, false);
         assertRequestedBy(buildInfo);
     }
 

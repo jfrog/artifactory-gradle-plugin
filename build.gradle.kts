@@ -5,10 +5,11 @@ val functionalTest by sourceSets.creating
 group = groupVal
 
 plugins {
-    id("com.gradle.plugin-publish") version "1.2.0"
-    id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
+    id("com.gradle.plugin-publish") version "1.2.1"
+    id("io.github.gradle-nexus.publish-plugin") version "2.0.0-rc-1"
     id("signing")
     id("com.github.spotbugs-base") version "4.8.0"
+    id("org.gradle.java-gradle-plugin")
 }
 
 repositories {
@@ -54,6 +55,7 @@ dependencies {
     "functionalTestImplementation"("org.jfrog.buildinfo", "build-info-extractor", buildInfoVersion)
     "functionalTestImplementation"("org.jfrog.buildinfo", "build-info-api", buildInfoVersion)
     "functionalTestImplementation"("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
+    "functionalTestImplementation"(gradleTestKit())
 
     "functionalTestImplementation"("org.testng", "testng", testNgVersion)
     "functionalTestImplementation"("org.apache.commons", "commons-lang3", commonsLangVersion)
@@ -67,21 +69,19 @@ dependencies {
     implementation("com.github.spotbugs", "spotbugs-annotations", spotBugsVersion)
 }
 
-pluginBundle {
-    website = "https://github.com/jfrog/artifactory-gradle-plugin"
-    vcsUrl = "https://github.com/jfrog/artifactory-gradle-plugin"
-
-    gradlePlugin {
-        plugins {
-            create("artifactoryGradlePlugin") {
-                id = "com.jfrog.artifactory"
-                implementationClass = "org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin"
-                displayName = "JFrog Artifactory Gradle Plugin"
-                description = pluginDescription
-                tags = listOf("JFrog", "publication", "Artifactory", "build-info")
-            }
+gradlePlugin {
+    website.set("https://github.com/jfrog/artifactory-gradle-plugin")
+    vcsUrl.set("https://github.com/jfrog/artifactory-gradle-plugin")
+    testSourceSets(functionalTest)
+    
+    plugins {
+        create("artifactoryGradlePlugin") {
+            id = "com.jfrog.artifactory"
+            implementationClass = "org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin"
+            displayName = "JFrog Artifactory Gradle Plugin"
+            description = pluginDescription
+            tags.set(listOf("JFrog", "publication", "Artifactory", "build-info"))
         }
-        testSourceSets(functionalTest)
     }
 }
 
@@ -158,6 +158,11 @@ signing {
     useInMemoryPgpKeys(signingKey, signingPassword)
 }
 
+// Javadoc configuration
+tasks.withType<Javadoc> {
+    (options as StandardJavadocDocletOptions).addStringOption("Xdoclint:none", "-quiet")
+}
+
 // Tests configurations
 tasks.withType<Test>().configureEach {
     useTestNG {
@@ -170,12 +175,19 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+configurations {
+    "functionalTestImplementation" {
+        extendsFrom(configurations["testImplementation"])
+    }
+}
+
 val functionalTestTask = tasks.register<Test>("functionalTest") {
     description = "Runs the functional tests."
     group = "verification"
     testClassesDirs = functionalTest.output.classesDirs
     classpath = functionalTest.runtimeClasspath
     mustRunAfter(tasks.test)
+
 }
 
 tasks.check {
@@ -189,14 +201,14 @@ tasks.register<com.github.spotbugs.snom.SpotBugsTask>("spotBugs") {
 
     reports {
         create("text") {
-            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.txt"))
+            outputLocation.set(layout.buildDirectory.file("reports/spotbugs/main/spotbugs.txt"))
         }
         create("html") {
-            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.html"))
+            outputLocation.set(layout.buildDirectory.file("reports/spotbugs/main/spotbugs.html"))
             setStylesheet("fancy-hist.xsl")
         }
         create("xml") {
-            outputLocation.set(file("$buildDir/reports/spotbugs/main/spotbugs.xml"))
+            outputLocation.set(layout.buildDirectory.file("reports/spotbugs/main/spotbugs.xml"))
         }
     }
     excludeFilter.set(

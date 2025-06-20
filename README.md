@@ -44,22 +44,22 @@ following actions on the project and its submodules:
    artifacts, which are the output of the build process, and the accompanying build-info file are stored and organized
    in your Artifactory repository for easy access and management.
 
-> **_NOTE:_** The minimum supported Gradle version to use this plugin is v6.8.1
+> **_NOTE:_** The minimum supported Gradle version to use this plugin is v9
 
 <details>
-<summary> 🚚 Migrating from Version 4 to Version 5 of the Plugin</summary>
+<summary> 🚚 Migrating from Version 5 to Version 6 of the Plugin</summary>
 
 ---
 
-#### Version 5 of the Gradle Artifactory Plugin includes the following breaking changes compared to version 4
+#### Version 6 of the Gradle Artifactory Plugin includes the following breaking changes compared to version 5
 
-* The minimum version of Gradle required to use this plugin has been upgraded to version 6.9.
+* The minimum version of Gradle required to use this plugin has been upgraded to version 9.
 * The below convention attributes have been removed:
 
-  | Attribute | Migration action                                                                                                                                                                                                                             |
-  |:---------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-  |  parent   | No longer supported.                                                                                                                                                                                                                         |
-  |  resolve  | To define the Artifactory resolution repositories for your build, declare the repositories under the repositories section as described [here](https://docs.gradle.org/current/userguide/declaring_repositories.html#declaring-repositories). |
+  |  Attribute  | Migration action                                                                                                                                                                                                                             |
+  |:-----------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+  | web-archive | Now produces two archives, JAR as well as WAR.                                                                                                                                                                                               |
+
 
 </details>
 

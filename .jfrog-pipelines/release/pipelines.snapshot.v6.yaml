@@ -1,0 +1,61 @@
+pipelines:
+  - name: build_artifactory_gradle_plugin_v6_snapshot
+    configuration:
+      runtime:
+        type: image
+        image:
+          auto:
+            language: java
+            versions:
+              - "17"
+    steps:
+      - name: Snapshot
+        type: Bash
+        configuration:
+          inputResources:
+            - name: artifactoryGradlePluginV6SnapshotGit
+          integrations:
+            - name: ecosys_entplus_deployer
+        execution:
+          onStart:
+            # Save gradle cache
+            - restore_cache_files gradle_cache $res_artifactoryGradlePluginV6SnapshotGit_resourcePath/.gradle
+          onExecute:
+            - cd $res_artifactoryGradlePluginV6SnapshotGit_resourcePath
+
+            # Set env
+            - export CI=true
+            - export JFROG_BUILD_STATUS=PASS
+            - export JFROG_CLI_BUILD_NAME=ecosystem-artifactory_gradle_plugin-dev
+            - export JFROG_CLI_BUILD_NUMBER=$run_number
+            - export JFROG_CLI_BUILD_PROJECT=ecosys
+
+            # Configure JFrog CLI
+            - curl -fL https://install-cli.jfrog.io | sh
+            - jf c rm --quiet
+            - jf c add internal --url=$int_ecosys_entplus_deployer_url --user=$int_ecosys_entplus_deployer_user --password=$int_ecosys_entplus_deployer_apikey
+            - jf gradlec --use-wrapper --repo-resolve ecosys-maven-remote --repo-deploy ecosys-oss-snapshot-local --deploy-maven-desc
+
+            # Run audit
+            - jf audit --fail=false --exclusions "*node_modules*;*target*;*venv*;*test*;*functionalTest*"
+
+            # Delete former snapshots to make sure the release bundle will not contain the same artifacts
+            - jf rt del "ecosys-oss-snapshot-local/com/jfrog/buildinfo/build-info-extractor-gradle/*" --quiet
+
+            # Build and publish snapshot
+            - >
+              env -i PATH=$PATH HOME=$HOME
+              JFROG_CLI_BUILD_NAME=$JFROG_CLI_BUILD_NAME
+              JFROG_CLI_BUILD_NUMBER=$JFROG_CLI_BUILD_NUMBER
+              JFROG_CLI_BUILD_PROJECT=$JFROG_CLI_BUILD_PROJECT
+              jf gradle clean validatePlugins build artifactoryPublish -x test -x functionalTest
+            - jf rt bag && jf rt bce
+            - jf rt bp
+
+            # Distribute release bundle
+            - jf ds rbc ecosystem-artifactory_gradle_plugin-snapshot $run_number --spec=./.jfrog-pipelines/release/specs/dev-rbc-filespec.json --sign
+            - jf ds rbd ecosystem-artifactory_gradle_plugin-snapshot $run_number --site="releases.jfrog.io" --sync
+
+          onComplete:
+            # Save gradle cache
+            - add_cache_files $res_artifactoryGradlePluginV6SnapshotGit_resourcePath/.gradle gradle_cache

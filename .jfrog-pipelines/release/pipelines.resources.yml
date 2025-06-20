@@ -5,7 +5,17 @@ resources:
       path: jfrog/artifactory-gradle-plugin
       gitProvider: il_automation
       branches:
-        include: master
+        include: v5
+      cancelPendingRunsOn:
+        pullRequestUpdate: true
+
+  - name: artifactoryGradlePluginV6SnapshotGit
+    type: GitRepo
+    configuration:
+      path: jfrog/artifactory-gradle-plugin
+      gitProvider: il_automation
+      branches:
+        include: main
       cancelPendingRunsOn:
         pullRequestUpdate: true
 
@@ -14,5 +24,17 @@ resources:
     configuration:
       path: jfrog/artifactory-gradle-plugin
       gitProvider: il_automation
+      branches:
+        include: v5
+      buildOn:
+        commit: false
+
+  - name: artifactoryGradlePluginV6ReleaseGit
+    type: GitRepo
+    configuration:
+      path: jfrog/artifactory-gradle-plugin
+      gitProvider: il_automation
+      branches:
+        include: main
       buildOn:
         commit: false
