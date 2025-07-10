@@ -50,7 +50,7 @@ public class PluginCiPublishTest extends GradleFunctionalTestBase {
     public void ciServerArchivesTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConsts.GRADLE_EXAMPLE_CI_SERVER_ARCHIVES, true,
                 (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", true, true, ""),
-                (buildResult, deployableArtifacts) -> ValidationUtils.checkArchivesBuildResults(artifactoryManager, buildResult, localRepo)
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkArchivesBuildResults(artifactoryManager, buildResult, localRepo, gradleVersion)
         );
     }
 
