@@ -53,7 +53,7 @@ following actions on the project and its submodules:
 
 #### Version 6 of the Gradle Artifactory Plugin includes the following breaking changes compared to version 5
 
-* The minimum version of Gradle required to use this plugin has been upgraded to version 9.
+* The minimum version of Gradle required to use this plugin is version 8.
 * The below convention attributes have been removed:
 
   |  Attribute  | Migration action                                                                                                                                                                                                                             |

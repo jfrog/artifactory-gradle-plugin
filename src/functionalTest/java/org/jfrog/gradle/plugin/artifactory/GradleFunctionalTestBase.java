@@ -53,7 +53,7 @@ public class GradleFunctionalTestBase {
 
     @DataProvider
     public Object[][] gradleVersions() {
-        return new Object[][]{{"9.0.0-milestone-9"}};
+        return new Object[][]{{"9.0.0-milestone-9"}, {"8.8"}};
     }
 
     @BeforeClass

@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -100,8 +101,16 @@ public class ValidationUtils {
      * @param localRepo          - Local Maven repository in Artifactory
      * @throws IOException - In case of any IO error
      */
-    public static void checkArchivesBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 1, true);
+    public static void checkArchivesBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo, String gradleVersion) throws IOException {
+        if (gradleVersion.startsWith("9.")) {
+            // Gradle 9.0+ generates both .jar and .war files for webservice module.
+            // check https://discuss.gradle.org/t/gradle-9-war-plugin-generates-both-war-and-jar-how-to-disable-jar/51128
+            checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 3, 1, true);
+        } else {
+            // Gradle 8.x generates only .war file for webservice module.
+            String[] expectedArtifacts = Arrays.copyOf(TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS.length - 1);
+            checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, 1, false);
+        }
     }
 
     /**
@@ -130,6 +139,11 @@ public class ValidationUtils {
 
     private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
                                           String[] expectedArtifacts, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
+        checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, expectedArtifactsPerModule, isWebArchived);
+    }
+
+    private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
+                                          String[] expectedArtifacts, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
         // Assert all tasks ended with success outcome
         assertProjectsSuccess(buildResult);
 
@@ -140,7 +154,7 @@ public class ValidationUtils {
         BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
         assertNotNull(buildInfo);
         checkFilteredEnv(buildInfo);
-        checkBuildInfoModules(buildInfo, 3, expectedArtifactsPerModule, isWebArchived);
+        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, isWebArchived);
 
         // Check build info properties on published Artifacts
         PropertySearchResult artifacts = artifactoryManager.searchArtifactsByProperties(String.format("build.name=%s;build.number=%s", buildInfo.getName(), buildInfo.getNumber()));
