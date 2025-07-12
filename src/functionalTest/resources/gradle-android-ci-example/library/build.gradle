@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+    namespace 'android.example.jfrog.org.gradle_android_library'
     compileSdkVersion 34
     defaultConfig {
         minSdkVersion 15

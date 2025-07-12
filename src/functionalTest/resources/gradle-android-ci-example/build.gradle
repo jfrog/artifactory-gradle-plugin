@@ -1,5 +1,10 @@
+plugins {
+    id 'com.jfrog.artifactory' apply false
+}
+
 allprojects {
     apply plugin: 'maven-publish'
+    apply plugin: 'com.jfrog.artifactory'
     version = currentVersion
     repositories {
         maven {

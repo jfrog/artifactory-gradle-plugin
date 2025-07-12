@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+    namespace 'android.example.jfrog.org.gradle_android_example'
     compileSdkVersion 34
     defaultConfig {
         applicationId "android.example.jfrog.org.gradle_android_example"
