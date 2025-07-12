@@ -3,12 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'android.example.jfrog.org.gradle_android_example'
-    compileSdkVersion 34
+    compileSdkVersion 31
     defaultConfig {
         applicationId "android.example.jfrog.org.gradle_android_example"
         minSdkVersion 15
-        targetSdkVersion 34
+        targetSdkVersion 31
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
