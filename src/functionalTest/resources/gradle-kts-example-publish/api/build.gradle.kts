@@ -2,7 +2,7 @@ val spi: Configuration by configurations.creating
 
 dependencies {
     implementation(project(":shared"))
-    implementation("org.apache.commons:commons-lang3:3.12.0")
+    implementation("org.apache.commons:commons-lang3:3.18.0")
     implementation("commons-io:commons-io:1.2")
     implementation("org.apache.wicket", "wicket", "1.3.7")
 
