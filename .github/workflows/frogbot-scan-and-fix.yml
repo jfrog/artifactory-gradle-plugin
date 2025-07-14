@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         # The repository scanning will be triggered periodically on the following branches.
-        branch: [ "main" ]
+        branch: [ "main", "v5" ]
     steps:
       - uses: actions/checkout@v4
         with:
