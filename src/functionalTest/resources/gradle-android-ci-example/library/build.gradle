@@ -1,12 +1,13 @@
 plugins {
-    id 'com.android.library' version '7.4.2'
+    id 'com.android.library' version '8.2.1'
 }
 
 android {
-    compileSdkVersion 31
+    namespace "android.example.jfrog.org.library"
+    compileSdkVersion 34
     defaultConfig {
-        minSdkVersion 15
-        targetSdkVersion 31
+        minSdkVersion 21
+        targetSdkVersion 34
         versionCode 1
         versionName "1.0"
 

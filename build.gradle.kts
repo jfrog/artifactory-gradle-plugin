@@ -19,7 +19,7 @@ repositories {
 val buildInfoVersion = "2.41.22"
 val fileSpecsVersion = "1.1.2"
 val commonsLangVersion = "3.12.0"
-val commonsIoVersion = "2.11.0"
+val commonsIoVersion = "2.14.0"
 val commonsTxtVersion = "1.10.0"
 val testNgVersion = "7.5.1"
 val httpclientVersion = "4.5.14"
@@ -45,7 +45,7 @@ dependencies {
     implementation("org.apache.ivy", "ivy", "2.5.2")
 
     // Dependencies that are used by the build-info dependencies and need to be included in the UberJar
-    implementation("com.fasterxml.jackson.core", "jackson-databind", "2.14.1")
+    implementation("com.fasterxml.jackson.core", "jackson-databind", "2.15.4")
     implementation("commons-io", "commons-io", commonsIoVersion)
     implementation("org.apache.httpcomponents", "httpclient", httpclientVersion)
 
