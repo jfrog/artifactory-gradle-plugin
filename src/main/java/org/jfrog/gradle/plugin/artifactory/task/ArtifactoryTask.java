@@ -1,6 +1,5 @@
 package org.jfrog.gradle.plugin.artifactory.task;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
 import org.gradle.api.artifacts.Configuration;
@@ -63,7 +62,6 @@ public class ArtifactoryTask extends DefaultTask {
     // Set the module type to a custom type, or "GRADLE" if not specified
     private String moduleType = ModuleType.GRADLE.toString();
 
-    @SuppressFBWarnings(value = "PA_PUBLIC_PRIMITIVE_ATTRIBUTE", justification = "Input field should be public")
     @Input
     public boolean skip = false;
 
