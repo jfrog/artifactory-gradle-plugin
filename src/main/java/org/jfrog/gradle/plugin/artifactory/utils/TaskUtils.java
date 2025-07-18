@@ -83,6 +83,7 @@ public class TaskUtils {
             extractModuleTask.mustRunAfter(project.getTasks().withType(ArtifactoryTask.class));
         });
         TaskProvider<ExtractModuleTask> finalTaskProvider = taskProvider;
+//        we are not adding the extractModuleTask as a dependency or else it will run before the artifactoryTask, addDeploymentTask will take care of the execution
         project.getRootProject().getTasks().withType(DeployTask.class).configureEach(deployTask ->
                 deployTask.registerModuleInfoProducer(new DefaultModuleInfoFileProducer(collectDeployDetailsTask.get(), finalTaskProvider.get()))
         );

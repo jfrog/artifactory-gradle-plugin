@@ -37,22 +37,22 @@ public class ArtifactoryPlugin implements Plugin<Project> {
             project.getAllprojects().forEach(subproject -> {
                 // Add a DependencyResolutionListener, to populate the dependency hierarchy map
                 subproject.getConfigurations().all(config -> config.getIncoming().afterResolve(resolutionListener::afterResolve));
-                // Add after evaluation listener to evaluate the ArtifactoryPublish task
+                // Add after_evaluated listener to run the ArtifactoryPublish task before root deploy task
                 if (!subproject.getState().getExecuted()) {
                     subproject.afterEvaluate((projectsEvaluatedBuildListener::afterEvaluate));
                 }
             });
-            // Add after all projects evaluated listener to evaluate all the ArtifactoryTask tasks that are not yet evaluated
+            // Add projects_evaluated listener to evaluate all the ArtifactoryTask tasks for the entire project that are not yet evaluated.
             project.getGradle().projectsEvaluated(projectsEvaluatedBuildListener::projectsEvaluated);
+
+            // Set build started if not set
+            String buildStarted = extension.getClientConfig().info.getBuildStarted();
+            if (buildStarted == null || buildStarted.isEmpty()) {
+                extension.getClientConfig().info.setBuildStarted(System.currentTimeMillis());
+            }
         } else {
             // Makes sure the plugin is applied in the root project
             project.getRootProject().getPluginManager().apply(ArtifactoryPlugin.class);
-        }
-
-        // Set build started if not set
-        String buildStarted = extension.getClientConfig().info.getBuildStarted();
-        if (buildStarted == null || buildStarted.isEmpty()) {
-            extension.getClientConfig().info.setBuildStarted(System.currentTimeMillis());
         }
 
         log.debug("Using Artifactory Plugin for " + project.getPath());

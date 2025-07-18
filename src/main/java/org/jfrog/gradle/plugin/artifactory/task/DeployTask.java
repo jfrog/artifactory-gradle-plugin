@@ -14,6 +14,7 @@ import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.BuildInfoConfigProperties;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleBuildInfoExtractor;
 import org.jfrog.gradle.plugin.artifactory.extractor.ModuleInfoFileProducer;
 import org.jfrog.gradle.plugin.artifactory.Constant;
@@ -52,8 +53,9 @@ public class DeployTask extends DefaultTask {
     public void extractBuildInfoAndDeploy() throws IOException {
         log.debug("Extracting build-info and deploying build details in task '{}'", getPath());
         ArtifactoryClientConfiguration accRoot = ExtensionsUtils.getArtifactoryExtension(getProject()).getClientConfig();
-        // Deploy Artifacts to artifactory
+        // We should ensure that the actual project configuration should be passed to deploy task, but it might be possible that publish task for the modules are not evaluated yet.
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
+        // Deploy Artifacts to artifactory
         // Generate build-info and handle deployment (and artifact exports if configured)
         handleBuildInfoOperations(accRoot, allDeployedDetails);
         deleteBuildInfoPropertiesFile();
@@ -76,12 +78,22 @@ public class DeployTask extends DefaultTask {
         // Deploy
         int publishForkCount = accRoot.publisher.getPublishForkCount();
         if (publishForkCount <= 1) {
-            orderedTasks.forEach(t -> DeployUtils.deployTaskArtifacts(accRoot, propsRoot, allDeployDetails, t, null));
+            orderedTasks.forEach(t -> {
+                ArtifactoryPluginConvention convention = ExtensionsUtils.getExtensionWithPublisher(t.getProject());
+                if (convention != null) {
+                    DeployUtils.deployTaskArtifacts(convention.getClientConfig(), propsRoot, allDeployDetails, t, null);
+                }
+            });
         } else {
             try {
                 ExecutorService executor = Executors.newFixedThreadPool(publishForkCount);
                 CompletableFuture<Void> allUploads = CompletableFuture.allOf(orderedTasks.stream()
-                        .map(t -> CompletableFuture.runAsync(() -> DeployUtils.deployTaskArtifacts(accRoot, propsRoot, allDeployDetails, t, "[" + Thread.currentThread().getName() + "]"), executor))
+                        .map(t -> CompletableFuture.runAsync(() -> {
+                            ArtifactoryPluginConvention convention = ExtensionsUtils.getExtensionWithPublisher(t.getProject());
+                            if (convention != null) {
+                                DeployUtils.deployTaskArtifacts(convention.getClientConfig(), propsRoot, allDeployDetails, t, "[" + Thread.currentThread().getName() + "]");
+                            }
+                        }, executor))
                         .toArray(CompletableFuture[]::new));
                 allUploads.get();
             } catch (InterruptedException | ExecutionException e) {
@@ -116,7 +128,6 @@ public class DeployTask extends DefaultTask {
             log.error("Failed writing build info to file: ", e);
             throw new IOException("Failed writing build info to file", e);
         }
-
     }
 
     private File getExportFile(ArtifactoryClientConfiguration clientConf) {
