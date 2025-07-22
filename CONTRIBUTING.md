@@ -25,14 +25,6 @@ To build the code without running the tests, add to the "clean build" command th
 
 # 🧪 Testing the plugin
 
-### Static code analysis
-
-In order to run the static code analysis, execute the following command:
-
-```bash
-./gradlew clean spotBugs
-```
-
 ### Unit and integration tests
 
 In order to run tests, you should have an Artifactory instance running.
