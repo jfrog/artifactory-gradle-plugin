@@ -53,7 +53,6 @@ public class DeployTask extends DefaultTask {
     public void extractBuildInfoAndDeploy() throws IOException {
         log.debug("Extracting build-info and deploying build details in task '{}'", getPath());
         ArtifactoryClientConfiguration accRoot = ExtensionsUtils.getArtifactoryExtension(getProject()).getClientConfig();
-        // We should ensure that the actual project configuration should be passed to deploy task, but it might be possible that publish task for the modules are not evaluated yet.
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
         // Deploy Artifacts to artifactory
         // Generate build-info and handle deployment (and artifact exports if configured)

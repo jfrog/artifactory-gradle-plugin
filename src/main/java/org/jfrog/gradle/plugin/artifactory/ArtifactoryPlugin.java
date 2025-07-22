@@ -44,15 +44,15 @@ public class ArtifactoryPlugin implements Plugin<Project> {
             });
             // Add projects_evaluated listener to evaluate all the ArtifactoryTask tasks for the entire project that are not yet evaluated.
             project.getGradle().projectsEvaluated(projectsEvaluatedBuildListener::projectsEvaluated);
-
-            // Set build started if not set
-            String buildStarted = extension.getClientConfig().info.getBuildStarted();
-            if (buildStarted == null || buildStarted.isEmpty()) {
-                extension.getClientConfig().info.setBuildStarted(System.currentTimeMillis());
-            }
         } else {
             // Makes sure the plugin is applied in the root project
             project.getRootProject().getPluginManager().apply(ArtifactoryPlugin.class);
+        }
+
+        // Set build started if not set
+        String buildStarted = extension.getClientConfig().info.getBuildStarted();
+        if (buildStarted == null || buildStarted.isEmpty()) {
+            extension.getClientConfig().info.setBuildStarted(System.currentTimeMillis());
         }
 
         log.debug("Using Artifactory Plugin for " + project.getPath());
