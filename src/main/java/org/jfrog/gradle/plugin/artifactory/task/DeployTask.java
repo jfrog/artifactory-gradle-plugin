@@ -152,6 +152,11 @@ public class DeployTask extends DefaultTask {
         }
         if (StringUtils.isNotBlank(propertyFilePath)) {
             File file = new File(propertyFilePath);
+            // To mitigate the risk of deleting unintended files, we verify that the file is located within the build directory.
+            if (!file.toPath().normalize().startsWith(getProject().getLayout().getBuildDirectory().get().getAsFile().toPath())) {
+                log.warn("Attempt to delete file outside the build directory: " + propertyFilePath);
+                return;
+            }
             if (file.exists() && !file.delete()) {
                 log.warn("Can't delete build-info config properties file at {}", propertyFilePath);
             }
