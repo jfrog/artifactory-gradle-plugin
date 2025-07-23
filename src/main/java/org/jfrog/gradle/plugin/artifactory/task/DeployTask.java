@@ -146,19 +146,31 @@ public class DeployTask extends DefaultTask {
     }
 
     private void deleteBuildInfoPropertiesFile() {
-        String propertyFilePath = System.getenv(BuildInfoConfigProperties.PROP_PROPS_FILE);
-        if (StringUtils.isBlank(propertyFilePath)) {
-            propertyFilePath = System.getenv(BuildInfoConfigProperties.ENV_BUILDINFO_PROPFILE);
+        String propertyFileName = System.getenv(BuildInfoConfigProperties.PROP_PROPS_FILE);
+        if (StringUtils.isBlank(propertyFileName)) {
+            propertyFileName = System.getenv(BuildInfoConfigProperties.ENV_BUILDINFO_PROPFILE);
         }
-        if (StringUtils.isNotBlank(propertyFilePath)) {
-            File file = new File(propertyFilePath);
-            // To mitigate the risk of deleting unintended files, we verify that the file is located within the build directory.
-            if (!file.toPath().normalize().startsWith(getProject().getLayout().getBuildDirectory().get().getAsFile().toPath())) {
-                log.warn("Attempt to delete file outside the build directory: " + propertyFilePath);
+
+        if (StringUtils.isNotBlank(propertyFileName)) {
+            // To mitigate path traversal, we'll treat the environment variable as a filename only.
+            File propertyFile = new File(propertyFileName);
+            String fileName = propertyFile.getName();
+            File buildDir = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile();
+            File fileToDelete = new File(buildDir, fileName);
+
+            // Final check to ensure the file is within the build directory
+            try {
+                if (!fileToDelete.getCanonicalPath().startsWith(buildDir.getCanonicalPath())) {
+                    log.warn("Skipping deletion of build-info properties file due to potential path traversal attack: {}", propertyFileName);
+                    return;
+                }
+            } catch (IOException e) {
+                log.warn("Could not verify path of build-info properties file at {}: {}", propertyFileName, e.getMessage());
                 return;
             }
-            if (file.exists() && !file.delete()) {
-                log.warn("Can't delete build-info config properties file at {}", propertyFilePath);
+
+            if (fileToDelete.exists() && !fileToDelete.delete()) {
+                log.warn("Can't delete build-info config properties file at {}", fileToDelete.getAbsolutePath());
             }
         }
     }
