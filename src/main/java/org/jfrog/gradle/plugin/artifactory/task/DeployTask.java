@@ -24,6 +24,9 @@ import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -146,32 +149,75 @@ public class DeployTask extends DefaultTask {
     }
 
     private void deleteBuildInfoPropertiesFile() {
-        String propertyFileName = System.getenv(BuildInfoConfigProperties.PROP_PROPS_FILE);
-        if (StringUtils.isBlank(propertyFileName)) {
-            propertyFileName = System.getenv(BuildInfoConfigProperties.ENV_BUILDINFO_PROPFILE);
+        String propertyFilePath = System.getenv(BuildInfoConfigProperties.PROP_PROPS_FILE);
+        if (StringUtils.isBlank(propertyFilePath)) {
+            propertyFilePath = System.getenv(BuildInfoConfigProperties.ENV_BUILDINFO_PROPFILE);
+        }
+        if (StringUtils.isNotBlank(propertyFilePath)) {
+            try {
+                // Validate and sanitize the file path
+                Path filePath = validateAndSanitizePath(propertyFilePath);
+                if (filePath != null) {
+                    File file = filePath.toFile();
+                    if (file.exists() && !file.delete()) {
+                        log.warn("Can't delete build-info config properties file at {}", filePath);
+                    }
+                }
+            } catch (SecurityException | InvalidPathException e) {
+                log.warn("Invalid or unsafe file path provided for build-info properties file: {}", propertyFilePath, e);
+            }
+        }
+    }
+
+    /**
+     * Validates and sanitizes a file path to prevent path traversal attacks.
+     * @param pathString the file path string to validate
+     * @return validated Path object or null if the path is invalid/unsafe
+     */
+    private Path validateAndSanitizePath(String pathString) {
+        if (StringUtils.isBlank(pathString)) {
+            return null;
         }
 
-        if (StringUtils.isNotBlank(propertyFileName)) {
-            // To mitigate path traversal, we'll treat the environment variable as a filename only.
-            File propertyFile = new File(propertyFileName);
-            String fileName = propertyFile.getName();
-            File buildDir = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile();
-            File fileToDelete = new File(buildDir, fileName);
+        try {
+            // Normalize the path to resolve any '..' or '.' components
+            Path path = Paths.get(pathString).normalize();
 
-            // Final check to ensure the file is within the build directory
-            try {
-                if (!fileToDelete.getCanonicalPath().startsWith(buildDir.getCanonicalPath())) {
-                    log.warn("Skipping deletion of build-info properties file due to potential path traversal attack: {}", propertyFileName);
-                    return;
-                }
-            } catch (IOException e) {
-                log.warn("Could not verify path of build-info properties file at {}: {}", propertyFileName, e.getMessage());
-                return;
+            // Check for null bytes which could be used for path injection
+            if (pathString.contains("\0")) {
+                log.warn("File path contains null bytes, rejecting: {}", pathString);
+                return null;
             }
 
-            if (fileToDelete.exists() && !fileToDelete.delete()) {
-                log.warn("Can't delete build-info config properties file at {}", fileToDelete.getAbsolutePath());
+            // Ensure the path doesn't traverse outside expected directories
+            // Only allow paths within the project's build directory or temp directory
+            Path projectBuildDir = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile().toPath();
+            Path tempDir = Paths.get(System.getProperty("java.io.tmpdir"));
+
+            Path absolutePath = path.isAbsolute() ? path : projectBuildDir.resolve(path);
+            absolutePath = absolutePath.normalize();
+
+            // Check if the path is within allowed directories
+            boolean isInBuildDir = absolutePath.startsWith(projectBuildDir);
+            boolean isInTempDir = absolutePath.startsWith(tempDir);
+
+            if (!isInBuildDir && !isInTempDir) {
+                log.warn("File path is outside allowed directories, rejecting: {}", pathString);
+                return null;
             }
+
+            // Additional check: ensure filename is reasonable (no control characters)
+            String fileName = absolutePath.getFileName().toString();
+            if (fileName.matches(".*[\\x00-\\x1F\\x7F].*")) {
+                log.warn("File name contains control characters, rejecting: {}", fileName);
+                return null;
+            }
+
+            return absolutePath;
+
+        } catch (InvalidPathException e) {
+            log.warn("Invalid file path format: {}", pathString, e);
+            return null;
         }
     }
 }
