@@ -146,19 +146,6 @@ public class DeployTask extends DefaultTask {
         BuildInfoExtractorUtils.saveBuildInfoToFile(buildInfo, toFile);
     }
 
-//    private void deleteBuildInfoPropertiesFile() {
-//        String propertyFilePath = System.getenv(BuildInfoConfigProperties.PROP_PROPS_FILE);
-//        if (StringUtils.isBlank(propertyFilePath)) {
-//            propertyFilePath = System.getenv(BuildInfoConfigProperties.ENV_BUILDINFO_PROPFILE);
-//        }
-//        if (StringUtils.isNotBlank(propertyFilePath)) {
-//            File file = new File(propertyFilePath);
-//            if (file.exists() && !file.delete()) {
-//                log.warn("Can't delete build-info config properties file at {}", propertyFilePath);
-//            }
-//        }
-//    }
-
     private void deleteBuildInfoPropertiesFile() {
         String propertyFilePath = System.getenv(BuildInfoConfigProperties.PROP_PROPS_FILE);
         if (StringUtils.isBlank(propertyFilePath)) {
