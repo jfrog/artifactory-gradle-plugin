@@ -23,6 +23,9 @@ import org.jfrog.gradle.plugin.artifactory.utils.DeployUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -155,7 +158,7 @@ public class DeployTask extends DefaultTask {
 //            }
 //        }
 //    }
-    
+
     private void deleteBuildInfoPropertiesFile() {
         String propertyFilePath = System.getenv(BuildInfoConfigProperties.PROP_PROPS_FILE);
         if (StringUtils.isBlank(propertyFilePath)) {
@@ -166,25 +169,22 @@ public class DeployTask extends DefaultTask {
             return;
         }
 
-        File buildDir = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile();
-        File file = new File(propertyFilePath);
-
         try {
-            String buildDirCanonical = buildDir.getCanonicalPath() + File.separator;
-            String fileCanonical = file.getCanonicalPath();
+            Path buildDir = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile().toPath().toAbsolutePath().normalize();
+            Path filePath = Paths.get(propertyFilePath).toAbsolutePath().normalize();
 
-            // Ensure file is in build dir and is named exactly build-info.json
-            if (!fileCanonical.startsWith(buildDirCanonical)) {
-                log.error("Attempt to access unauthorized file path: {}", fileCanonical);
+            // Ensure file is in build dir and named build-info.json
+            if (!filePath.startsWith(buildDir)) {
+                log.error("Attempt to access unauthorized file path: {}", filePath);
                 return;
             }
-            if (!"build-info.json".equals(file.getName())) {
-                log.error("Invalid filename: {}", file.getName());
+            if (!"build-info.json".equals(filePath.getFileName().toString())) {
+                log.error("Invalid filename: {}", filePath.getFileName());
                 return;
             }
 
-            if (file.exists() && !file.delete()) {
-                log.warn("Can't delete build-info config properties file at {}", fileCanonical);
+            if (Files.exists(filePath) && !Files.deleteIfExists(filePath)) {
+                log.warn("Can't delete build-info config properties file at {}", filePath);
             }
         } catch (IOException e) {
             log.error("Error processing file path: {}", propertyFilePath, e);
