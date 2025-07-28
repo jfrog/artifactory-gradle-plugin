@@ -155,7 +155,7 @@ public class DeployTask extends DefaultTask {
 //            }
 //        }
 //    }
-
+    
     private void deleteBuildInfoPropertiesFile() {
         String propertyFilePath = System.getenv(BuildInfoConfigProperties.PROP_PROPS_FILE);
         if (StringUtils.isBlank(propertyFilePath)) {
@@ -166,38 +166,28 @@ public class DeployTask extends DefaultTask {
             return;
         }
 
-        // Option 1: Allow only build directory (current - most secure)
-        // String expectedDirectory = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile().getAbsolutePath();
+        File buildDir = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile();
+        File file = new File(propertyFilePath);
 
-        // Option 2: Allow entire project directory (less secure)
-         String expectedDirectory = getProject().getRootProject().getProjectDir().getAbsolutePath();
-
-        // Normalize the path to prevent directory traversal
-        String normalizedPath;
         try {
-            normalizedPath = new File(propertyFilePath).getCanonicalPath();
+            String buildDirCanonical = buildDir.getCanonicalPath() + File.separator;
+            String fileCanonical = file.getCanonicalPath();
 
-            // Validate that the file is within the expected directory
-            if (!normalizedPath.startsWith(new File(expectedDirectory).getCanonicalPath())) {
-                log.error("Attempt to access unauthorized file path: {}", normalizedPath);
+            // Ensure file is in build dir and is named exactly build-info.json
+            if (!fileCanonical.startsWith(buildDirCanonical)) {
+                log.error("Attempt to access unauthorized file path: {}", fileCanonical);
+                return;
+            }
+            if (!"build-info.json".equals(file.getName())) {
+                log.error("Invalid filename: {}", file.getName());
                 return;
             }
 
-            // Optionally, validate the filename against a specific pattern
-            String filename = new File(normalizedPath).getName();
-            if (!filename.matches("build-info\\.json")) { // Only allow build-info.json specifically
-                log.error("Invalid filename: {}", filename);
-                return;
-            }
-
-            File file = new File(normalizedPath);
             if (file.exists() && !file.delete()) {
-                log.warn("Can't delete build-info config properties file at {}", normalizedPath);
+                log.warn("Can't delete build-info config properties file at {}", fileCanonical);
             }
         } catch (IOException e) {
             log.error("Error processing file path: {}", propertyFilePath, e);
         }
-
-        log.debug("Deleting build-info properties file: {}", expectedDirectory);
     }
 }
