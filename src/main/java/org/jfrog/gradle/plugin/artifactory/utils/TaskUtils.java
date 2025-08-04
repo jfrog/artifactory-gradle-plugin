@@ -62,6 +62,10 @@ public class TaskUtils {
      * Adds a task that will run after the given collectDeployDetailsTask task and will extract module info file from the information collected.
      * An ExtractModuleTask task will be added (if not exists) to the given task's project.
      *
+     * extract module task is responsible for extracting module details, artifacts and dependencies.
+     * artifactoryTask is responsible for collecting deployment details from a project's publications. It figures out what needs to be deployed and how it should be deployed.
+     * deploymentTask is responsible for execute the deployment of artifacts and build-info to Artifactory for the entire build.
+     *
      * @param collectDeployDetailsTask - the task that will provide the information to produce the module info file
      * @param project                  - the project that the collectDeployDetailsTask is configured in to register the new task in it.
      */
@@ -83,6 +87,9 @@ public class TaskUtils {
             extractModuleTask.mustRunAfter(project.getTasks().withType(ArtifactoryTask.class));
         });
         TaskProvider<ExtractModuleTask> finalTaskProvider = taskProvider;
+        // The ExtractModuleTask is not configured as a direct dependency for the DeployTask.
+        // Instead, the DeployTask uses a ModuleInfoFileProducer to lazily obtain the module-info file.
+        // This ensures that ExtractModuleTask runs only when needed and after ArtifactoryTask has collected the deployment details.
         project.getRootProject().getTasks().withType(DeployTask.class).configureEach(deployTask ->
                 deployTask.registerModuleInfoProducer(new DefaultModuleInfoFileProducer(collectDeployDetailsTask.get(), finalTaskProvider.get()))
         );

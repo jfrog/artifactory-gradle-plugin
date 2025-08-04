@@ -14,22 +14,24 @@ import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.BuildInfoConfigProperties;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleBuildInfoExtractor;
 import org.jfrog.gradle.plugin.artifactory.extractor.ModuleInfoFileProducer;
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.DeployUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
-
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 
 import static org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration.addDefaultPublisherAttributes;
 
 public class DeployTask extends DefaultTask {
-
     private static final Logger log = Logging.getLogger(DeployTask.class);
 
     private final List<ModuleInfoFileProducer> moduleInfoFileProducers = new ArrayList<>();
@@ -52,8 +54,8 @@ public class DeployTask extends DefaultTask {
     public void extractBuildInfoAndDeploy() throws IOException {
         log.debug("Extracting build-info and deploying build details in task '{}'", getPath());
         ArtifactoryClientConfiguration accRoot = ExtensionsUtils.getArtifactoryExtension(getProject()).getClientConfig();
-        // Deploy Artifacts to artifactory
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
+        // Deploy Artifacts to artifactory
         // Generate build-info and handle deployment (and artifact exports if configured)
         handleBuildInfoOperations(accRoot, allDeployedDetails);
         deleteBuildInfoPropertiesFile();
@@ -76,12 +78,22 @@ public class DeployTask extends DefaultTask {
         // Deploy
         int publishForkCount = accRoot.publisher.getPublishForkCount();
         if (publishForkCount <= 1) {
-            orderedTasks.forEach(t -> DeployUtils.deployTaskArtifacts(accRoot, propsRoot, allDeployDetails, t, null));
+            orderedTasks.forEach(t -> {
+                ArtifactoryPluginConvention convention = ExtensionsUtils.getExtensionWithPublisher(t.getProject());
+                if (convention != null) {
+                    DeployUtils.deployTaskArtifacts(convention.getClientConfig(), propsRoot, allDeployDetails, t, null);
+                }
+            });
         } else {
             try {
                 ExecutorService executor = Executors.newFixedThreadPool(publishForkCount);
                 CompletableFuture<Void> allUploads = CompletableFuture.allOf(orderedTasks.stream()
-                        .map(t -> CompletableFuture.runAsync(() -> DeployUtils.deployTaskArtifacts(accRoot, propsRoot, allDeployDetails, t, "[" + Thread.currentThread().getName() + "]"), executor))
+                        .map(t -> CompletableFuture.runAsync(() -> {
+                            ArtifactoryPluginConvention convention = ExtensionsUtils.getExtensionWithPublisher(t.getProject());
+                            if (convention != null) {
+                                DeployUtils.deployTaskArtifacts(convention.getClientConfig(), propsRoot, allDeployDetails, t, "[" + Thread.currentThread().getName() + "]");
+                            }
+                        }, executor))
                         .toArray(CompletableFuture[]::new));
                 allUploads.get();
             } catch (InterruptedException | ExecutionException e) {
@@ -116,7 +128,6 @@ public class DeployTask extends DefaultTask {
             log.error("Failed writing build info to file: ", e);
             throw new IOException("Failed writing build info to file", e);
         }
-
     }
 
     private File getExportFile(ArtifactoryClientConfiguration clientConf) {
@@ -140,11 +151,30 @@ public class DeployTask extends DefaultTask {
         if (StringUtils.isBlank(propertyFilePath)) {
             propertyFilePath = System.getenv(BuildInfoConfigProperties.ENV_BUILDINFO_PROPFILE);
         }
-        if (StringUtils.isNotBlank(propertyFilePath)) {
-            File file = new File(propertyFilePath);
-            if (file.exists() && !file.delete()) {
-                log.warn("Can't delete build-info config properties file at {}", propertyFilePath);
+        if (StringUtils.isBlank(propertyFilePath)) {
+            log.warn("No build-info config properties file path provided.");
+            return;
+        }
+
+        try {
+            Path buildDir = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile().toPath().toAbsolutePath().normalize();
+            Path filePath = Paths.get(propertyFilePath).toAbsolutePath().normalize();
+
+            // Ensure file is in build dir and named build-info.json
+            if (!filePath.startsWith(buildDir)) {
+                log.error("Attempt to access unauthorized file path: {}", filePath);
+                return;
             }
+            if (!"build-info.json".equals(filePath.getFileName().toString())) {
+                log.error("Invalid filename: {}", filePath.getFileName());
+                return;
+            }
+
+            if (Files.exists(filePath) && !Files.deleteIfExists(filePath)) {
+                log.warn("Can't delete build-info config properties file at {}", filePath);
+            }
+        } catch (IOException e) {
+            log.error("Error processing file path: {}", propertyFilePath, e);
         }
     }
 }
