@@ -44,8 +44,25 @@ following actions on the project and its submodules:
    artifacts, which are the output of the build process, and the accompanying build-info file are stored and organized
    in your Artifactory repository for easy access and management.
 
-> **_NOTE:_** The Gradle Artifactory Plugin version 6.x requires **Gradle version 8.0 or higher**.
+> **_NOTE:_** Minimum supported Gradle version is now 8 (however, Version 6 is primarily intended and tested for use with Gradle 9+).
 
+
+<details>
+<summary> 🚚 Migrating from Version 5 to Version 6 of the Plugin</summary>
+
+---
+
+#### Version 6 of the Gradle Artifactory Plugin includes the following breaking changes compared to version 5
+
+* The minimum version of Gradle required to use this plugin is version 8.
+* The below convention attributes have been removed:
+
+  |  Attribute  | Migration action                                                                                                                                                                                                                             |
+  |:-----------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+  | web-archive | Now produces two archives, JAR as well as WAR.                                                                                                                                                                                               |
+
+
+</details>
 
 ---
 
