@@ -44,7 +44,8 @@ following actions on the project and its submodules:
    artifacts, which are the output of the build process, and the accompanying build-info file are stored and organized
    in your Artifactory repository for easy access and management.
 
-> **_NOTE:_** The minimum supported Gradle version to use this plugin is v9
+> **_NOTE:_** Minimum supported Gradle version is now 8 (however, Version 6 is primarily intended and tested for use with Gradle 9+).
+
 
 <details>
 <summary> 🚚 Migrating from Version 5 to Version 6 of the Plugin</summary>
@@ -65,7 +66,18 @@ following actions on the project and its submodules:
 
 ---
 
-## 📦 Installation
+* The below convention attributes have been removed:
+
+  |  Attribute  | Migration action                                                                                                                                                                                                                             |
+  |:-----------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+  | web-archive | Now produces two archives, JAR as well as WAR.                                                                                                                                                                                               |
+
+
+</details>
+
+---
+
+## 📦 Installation (Version 6.x)
 
 <details>
 
@@ -80,7 +92,7 @@ Add the following snippet to your build script:
 
 ```kotlin
 plugins {
-    id("com.jfrog.artifactory") version "5.+"
+    id("com.jfrog.artifactory") version "6.+"
 }
 ```
 
@@ -91,7 +103,7 @@ plugins {
 
 ```groovy
 plugins {
-    id "com.jfrog.artifactory" version "5.+"
+    id "com.jfrog.artifactory" version "6.+"
 }
 ```
 
