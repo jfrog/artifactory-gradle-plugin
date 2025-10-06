@@ -154,6 +154,10 @@ public class DeployUtils {
                 ArtifactoryUploadResponse response = artifactoryManager.upload(deployDetails, logPrefix, minChecksumDeploySizeKb);
                 detail.getDeployDetails().setDeploySucceeded(true);
                 detail.getDeployDetails().setSha256(response.getChecksums().getSha256());
+                // When a maven SNAPSHOT artifact is deployed, Artifactory adds a timestamp to the artifact name, after the artifact is deployed.
+                // ArtifactPath needs to be updated accordingly.
+                detail.getDeployDetails().setArtifactPath(response.getPath());
+                log.info("{}Deployed artifact to: {}", logPrefix, response.getUri());
             } catch (IOException e) {
                 detail.getDeployDetails().setDeploySucceeded(false);
                 detail.getDeployDetails().setSha256("");
