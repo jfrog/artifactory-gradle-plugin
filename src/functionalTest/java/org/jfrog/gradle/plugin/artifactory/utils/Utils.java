@@ -47,7 +47,15 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     public static void createTestDir(Path sourceDir) throws IOException {
-        FileUtils.copyDirectory(sourceDir.toFile(), TestConsts.TEST_DIR);
+        // Validate source directory path to prevent path traversal
+        Path normalizedSourcePath = sourceDir.toAbsolutePath().normalize();
+        Path projectsRoot = TestConsts.PROJECTS_ROOT.toAbsolutePath().normalize();
+        
+        if (!normalizedSourcePath.startsWith(projectsRoot)) {
+            throw new SecurityException("Source directory must be within projects root directory");
+        }
+        
+        FileUtils.copyDirectory(normalizedSourcePath.toFile(), TestConsts.TEST_DIR);
     }
 
     /**
@@ -57,7 +65,18 @@ public class Utils {
      * @throws IOException - In case of any IO error
      */
     public static Path createDeployableArtifactsFile() throws IOException {
-        return Files.createFile(TestConsts.TEST_DIR.toPath().resolve("deployable.artifacts")).toAbsolutePath();
+        // Ensure test directory exists and normalize paths to prevent traversal
+        Path testDirPath = TestConsts.TEST_DIR.toPath().toAbsolutePath().normalize();
+        Files.createDirectories(testDirPath);
+        
+        Path artifactsPath = testDirPath.resolve("deployable.artifacts").normalize();
+        
+        // Ensure the resolved path is still within TEST_DIR
+        if (!artifactsPath.startsWith(testDirPath)) {
+            throw new SecurityException("Artifacts file must be within test directory");
+        }
+        
+        return Files.createFile(artifactsPath);
     }
 
     /**
@@ -122,7 +141,14 @@ public class Utils {
         String libsDir = TestConsts.LIBS_DIR.toString().replaceAll("\\\\", "\\\\\\\\");
         content = content.replace("${pluginLibDir}", libsDir);
         // Write gradle.init file with the content
-        Path target = TestConsts.TEST_DIR.toPath().resolve("gradle.init");
+        Path testDirPath = TestConsts.TEST_DIR.toPath().toAbsolutePath().normalize();
+        Path target = testDirPath.resolve("gradle.init").normalize();
+        
+        // Validate that target is within TEST_DIR
+        if (!target.startsWith(testDirPath)) {
+            throw new SecurityException("Init script must be within test directory");
+        }
+        
         Files.write(target, content.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -145,7 +171,16 @@ public class Utils {
         if (StringUtils.isNotBlank(deployableArtifacts)) {
             content += String.format("\n%s%s=%s", BUILD_INFO_PREFIX, DEPLOYABLE_ARTIFACTS, deployableArtifacts.replaceAll("\\\\", "\\\\\\\\"));
         }
-        Files.write(TestConsts.BUILD_INFO_PROPERTIES_TARGET, content.getBytes(StandardCharsets.UTF_8));
+        // Validate the target path before writing
+        Path targetPath = TestConsts.BUILD_INFO_PROPERTIES_TARGET.toAbsolutePath().normalize();
+        Path testDirPath = TestConsts.TEST_DIR.toPath().toAbsolutePath().normalize();
+        
+        // Ensure target is within TEST_DIR
+        if (!targetPath.startsWith(testDirPath)) {
+            throw new SecurityException("Build info properties file must be within test directory");
+        }
+        
+        Files.write(targetPath, content.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
