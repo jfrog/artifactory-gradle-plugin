@@ -1,4 +1,4 @@
-import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginExtension
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask
 
 plugins {
@@ -64,7 +64,7 @@ configure(javaProjects()) {
     }
 }
 
-configure<ArtifactoryPluginConvention> {
+configure<ArtifactoryPluginExtension> {
     clientConfig.isIncludeEnvVars = true
     clientConfig.info.addEnvironmentProperty("test.adding.dynVar", java.util.Date().toString())
 

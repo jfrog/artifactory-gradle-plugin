@@ -13,7 +13,7 @@ import org.gradle.api.publish.PublishingExtension;
 import org.jfrog.build.api.util.Log;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.Constant;
-import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginExtension;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.utils.*;
 
@@ -41,7 +41,7 @@ public class ProjectsEvaluatedBuildListener {
     private void evaluate(ArtifactoryTask collectDeployDetailsTask) {
         log.debug("Try to evaluate {}", collectDeployDetailsTask);
         Project project = collectDeployDetailsTask.getProject();
-        ArtifactoryPluginConvention extension = ExtensionsUtils.getArtifactoryExtension(project);
+        ArtifactoryPluginExtension extension = ExtensionsUtils.getArtifactoryExtension(project);
         if (extension == null) {
             log.debug("Can't find artifactory extension.");
             return;
