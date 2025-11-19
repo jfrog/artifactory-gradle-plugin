@@ -14,6 +14,7 @@ import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.GradleFunctionalTestBase;
 import org.jfrog.gradle.plugin.artifactory.TestConsts;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -51,7 +52,8 @@ public class Utils {
         Path normalizedSourcePath = sourceDir.toAbsolutePath().normalize();
         Path projectsRoot = TestConsts.PROJECTS_ROOT.toAbsolutePath().normalize();
         if (normalizedSourcePath.startsWith(projectsRoot)) {
-            FileUtils.copyDirectory(normalizedSourcePath.toFile(), TestConsts.TEST_DIR);
+            File sourceDirFile = normalizedSourcePath.toFile();
+            FileUtils.copyDirectory(sourceDirFile, TestConsts.TEST_DIR);
         }
     }
 
