@@ -48,16 +48,14 @@ public class Utils {
      */
     public static void createTestDir(Path sourceDir) throws IOException {
         // Validate source directory path to prevent path traversal
-        // Resolve symlinks to get the actual filesystem path
-        Path resolvedSourcePath = sourceDir.toAbsolutePath().normalize().toRealPath();
-        Path projectsRoot = TestConsts.PROJECTS_ROOT.toAbsolutePath().normalize().toRealPath();
+        Path normalizedSourcePath = sourceDir.toAbsolutePath().normalize();
+        Path projectsRoot = TestConsts.PROJECTS_ROOT.toAbsolutePath().normalize();
         
-        // Ensure the resolved path is within the projects root directory
-        if (!resolvedSourcePath.startsWith(projectsRoot)) {
+        if (!normalizedSourcePath.startsWith(projectsRoot)) {
             throw new SecurityException("Source directory must be within projects root directory");
         }
         
-        FileUtils.copyDirectory(resolvedSourcePath.toFile(), TestConsts.TEST_DIR);
+        FileUtils.copyDirectory(normalizedSourcePath.toFile(), TestConsts.TEST_DIR);
     }
 
     /**
