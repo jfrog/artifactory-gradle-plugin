@@ -52,10 +52,6 @@ public class Utils {
         // Validate source directory path to prevent path traversal
         Path normalizedSourcePath = sourceDir.toAbsolutePath().normalize();
         Path projectsRoot = TestConsts.PROJECTS_ROOT.toAbsolutePath().normalize();
-        
-        // Validate destination directory path to prevent path traversal
-        // By checking that the folder still starts with the predefined prefix after normalization,
-        // we make sure that the attacker is not able to back-path outside of the allowed folder
         Path normalizedDestPath = TestConsts.TEST_DIR.toPath().toAbsolutePath().normalize();
         Path tempDirRoot = Paths.get(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
         
