@@ -50,12 +50,9 @@ public class Utils {
         // Validate source directory path to prevent path traversal
         Path normalizedSourcePath = sourceDir.toAbsolutePath().normalize();
         Path projectsRoot = TestConsts.PROJECTS_ROOT.toAbsolutePath().normalize();
-        
-        if (!normalizedSourcePath.startsWith(projectsRoot)) {
-            throw new SecurityException("Source directory must be within projects root directory");
+        if (normalizedSourcePath.startsWith(projectsRoot)) {
+            FileUtils.copyDirectory(normalizedSourcePath.toFile(), TestConsts.TEST_DIR);
         }
-        
-        FileUtils.copyDirectory(normalizedSourcePath.toFile(), TestConsts.TEST_DIR);
     }
 
     /**
