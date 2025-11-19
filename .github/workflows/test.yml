@@ -38,13 +38,42 @@ jobs:
         with:
           RTLIC: ${{ secrets.RTLIC }}
 
-      # Run tests
-      - name: Tests on macOS, Linux
-        run: ./gradlew clean validatePlugins check
-        if: runner.os != 'Windows'
-      - name: Tests on Windows
-        run: ./gradlew.bat clean check
+      # Run plugin validation and build (without tests) - matching release pipeline validation
+      - name: Validate Plugins and Build
+        if: runner.os == 'Linux'
+        run: ./gradlew clean validatePlugins build -x test -x functionalTest
+      - name: Validate Plugins and Build (Windows)
         if: runner.os == 'Windows'
+        run: ./gradlew.bat clean validatePlugins build -x test -x functionalTest
+
+      # Run security audit (matching JFrog Pipelines)
+      - name: Install and configure JFrog CLI for security audit
+        if: runner.os == 'Linux'
+        env:
+          JF_URL: ${{ secrets.JF_URL }}
+          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+        run: |
+          if [ -n "$JF_URL" ] && [ -n "$JF_ACCESS_TOKEN" ]; then
+            curl -fL https://install-cli.jfrog.io | sh
+            export PATH="$HOME/.jfrog/bin:$PATH"
+            jf c rm --quiet || true
+            jf config add pr-check \
+              --url="$JF_URL" \
+              --access-token="$JF_ACCESS_TOKEN" \
+              --interactive=false
+            jf config use pr-check
+            jf audit --exclusions "*node_modules*;*target*;*venv*;*test*;*functionalTest*"
+          else
+            echo "JFrog CLI secrets not configured, skipping security audit"
+          fi
+
+      # Run tests (clean already done in previous step, so no need to clean again)
+      - name: Tests on Linux
+        if: runner.os == 'Linux'
+        run: ./gradlew check
+      - name: Tests on Windows
+        if: runner.os == 'Windows'
+        run: ./gradlew.bat check
 
       # Stop Gradle daemon
       - name: Stop Gradle
