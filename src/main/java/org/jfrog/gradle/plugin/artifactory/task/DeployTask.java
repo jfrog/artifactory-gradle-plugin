@@ -23,6 +23,8 @@ import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -141,9 +143,23 @@ public class DeployTask extends DefaultTask {
             propertyFilePath = System.getenv(BuildInfoConfigProperties.ENV_BUILDINFO_PROPFILE);
         }
         if (StringUtils.isNotBlank(propertyFilePath)) {
-            File file = new File(propertyFilePath);
-            if (file.exists() && !file.delete()) {
-                log.warn("Can't delete build-info config properties file at {}", propertyFilePath);
+            try {
+                // Validate and normalize the file path to prevent path traversal
+                Path path = Paths.get(propertyFilePath).toAbsolutePath().normalize();
+                Path buildDir = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile().toPath().toAbsolutePath().normalize();
+                
+                // Ensure the file is within the build directory
+                if (!path.startsWith(buildDir)) {
+                    log.error("Build-info config properties file must be within the build directory");
+                    return;
+                }
+                
+                File file = path.toFile();
+                if (file.exists() && !file.delete()) {
+                    log.warn("Can't delete build-info config properties file");
+                }
+            } catch (Exception e) {
+                log.error("Error processing build-info config properties file", e);
             }
         }
     }

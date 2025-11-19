@@ -17,12 +17,12 @@ repositories {
 
 val buildInfoVersion = "2.41.22"
 val fileSpecsVersion = "1.1.2"
-val commonsLangVersion = "3.12.0"
-val commonsIoVersion = "2.11.0"
+val commonsLangVersion = "3.18.0"
+val commonsIoVersion = "2.14.0"
 val commonsTxtVersion = "1.10.0"
 val testNgVersion = "7.5.1"
 val httpclientVersion = "4.5.14"
-val spotBugsVersion = "4.8.1"
+val spotBugsVersion = "4.8.6"
 
 tasks.compileJava {
     sourceCompatibility = "1.8"
@@ -44,7 +44,7 @@ dependencies {
     implementation("org.apache.ivy", "ivy", "2.5.2")
 
     // Dependencies that are used by the build-info dependencies and need to be included in the UberJar
-    implementation("com.fasterxml.jackson.core", "jackson-databind", "2.14.1")
+    implementation("com.fasterxml.jackson.core", "jackson-databind", "2.14.3")
     implementation("commons-io", "commons-io", commonsIoVersion)
     implementation("org.apache.httpcomponents", "httpclient", httpclientVersion)
 
@@ -63,8 +63,13 @@ dependencies {
     "functionalTestImplementation"(project(mapOf("path" to ":")))
 
     // Static code analysis
-    spotbugs("com.github.spotbugs", "spotbugs", spotBugsVersion)
+    spotbugs("com.github.spotbugs", "spotbugs", spotBugsVersion) {
+        exclude(group = "org.apache.commons", module = "commons-lang3")
+    }
     implementation("com.github.spotbugs", "spotbugs-annotations", spotBugsVersion)
+    
+    // Force commons-lang3 to the secure version
+    spotbugs("org.apache.commons", "commons-lang3", commonsLangVersion)
 }
 
 pluginBundle {
@@ -147,7 +152,11 @@ publishing.publications.withType<MavenPublication>().configureEach {
 
 nexusPublishing {
     repositories {
-        sonatype()
+        // see https://central.sonatype.org/publish/publish-portal-ossrh-staging-api/#configuration
+        sonatype {
+            nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
+        }
     }
 }
 
@@ -167,6 +176,12 @@ tasks.withType<Test>().configureEach {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         events("started", "passed", "skipped", "failed", "standardOut", "standardError")
         minGranularity = 0
+    }
+}
+
+configurations {
+    "functionalTestImplementation" {
+        extendsFrom(configurations["testImplementation"])
     }
 }
 
