@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 
@@ -51,9 +52,17 @@ public class Utils {
         // Validate source directory path to prevent path traversal
         Path normalizedSourcePath = sourceDir.toAbsolutePath().normalize();
         Path projectsRoot = TestConsts.PROJECTS_ROOT.toAbsolutePath().normalize();
-        if (normalizedSourcePath.startsWith(projectsRoot)) {
+        
+        // Validate destination directory path to prevent path traversal
+        // By checking that the folder still starts with the predefined prefix after normalization,
+        // we make sure that the attacker is not able to back-path outside of the allowed folder
+        Path normalizedDestPath = TestConsts.TEST_DIR.toPath().toAbsolutePath().normalize();
+        Path tempDirRoot = Paths.get(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
+        
+        if (normalizedSourcePath.startsWith(projectsRoot) && normalizedDestPath.startsWith(tempDirRoot)) {
             File sourceDirFile = normalizedSourcePath.toFile();
-            FileUtils.copyDirectory(sourceDirFile, TestConsts.TEST_DIR);
+            File destDirFile = normalizedDestPath.toFile();
+            FileUtils.copyDirectory(sourceDirFile, destDirFile);
         }
     }
 
