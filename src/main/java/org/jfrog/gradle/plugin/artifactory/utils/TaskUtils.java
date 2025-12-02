@@ -53,7 +53,7 @@ public class TaskUtils {
         try {
             return project.getTasks().named(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, ArtifactoryTask.class);
         } catch (UnknownTaskException e) {
-            log.debug("Can't find '" + Constant.ARTIFACTORY_PUBLISH_TASK_NAME + "' task registered at the project", e);
+            log.debug("Task '{}' not found in project", Constant.ARTIFACTORY_PUBLISH_TASK_NAME);
         }
         return registerTaskInProject(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, ArtifactoryTask.class, Constant.ARTIFACTORY_PUBLISH_TASK_DESCRIPTION, project, true);
     }
@@ -75,7 +75,7 @@ public class TaskUtils {
         try {
             taskProvider = project.getTasks().named(Constant.EXTRACT_MODULE_TASK_NAME, ExtractModuleTask.class);
         } catch (UnknownTaskException e) {
-            log.debug("Can't find '" + Constant.EXTRACT_MODULE_TASK_NAME + "' task registered at the project", e);
+            log.debug("Task '{}' not found in project", Constant.EXTRACT_MODULE_TASK_NAME);
         }
         if (taskProvider == null) {
             taskProvider = registerTaskInProject(Constant.EXTRACT_MODULE_TASK_NAME, ExtractModuleTask.class, Constant.EXTRACT_MODULE_TASK_DESCRIPTION, project, false);
@@ -105,7 +105,7 @@ public class TaskUtils {
             project.getTasks().named(Constant.DEPLOY_TASK_NAME, DeployTask.class);
             return;
         } catch (UnknownTaskException e) {
-            log.debug("Can't find '" + Constant.DEPLOY_TASK_NAME + "' task registered at the project", e);
+            log.debug("Task '{}' not found in project", Constant.DEPLOY_TASK_NAME);
         }
         registerTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
     }

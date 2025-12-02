@@ -254,7 +254,15 @@ public class GradleFunctionalTestBase {
      * @throws IOException - In case of any IO error
      */
     protected static void deleteTestDir() throws IOException {
-        FileUtils.deleteDirectory(TestConsts.TEST_DIR);
+        // Validate the test directory path before deletion
+        Path testDirPath = TestConsts.TEST_DIR.toPath().toAbsolutePath().normalize();
+        
+        // Ensure we're only deleting the expected test directory
+        if (!testDirPath.getFileName().toString().equals("gradle_tests_space")) {
+            throw new SecurityException("Attempting to delete unexpected directory: " + testDirPath);
+        }
+        
+        FileUtils.deleteDirectory(testDirPath.toFile());
     }
 
     /**
