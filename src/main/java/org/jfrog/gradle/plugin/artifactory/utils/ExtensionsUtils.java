@@ -8,7 +8,7 @@ import org.jfrog.build.api.util.CommonUtils;
 import org.jfrog.build.extractor.BuildInfoExtractorUtils;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.Constant;
-import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
+import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginExtension;
 
 import java.util.Map;
 import java.util.Properties;
@@ -24,10 +24,10 @@ public class ExtensionsUtils {
      * @param project - the project to fetch/create its extension
      * @return project extension
      */
-    public static ArtifactoryPluginConvention getOrCreateArtifactoryExtension(Project project) {
-        ArtifactoryPluginConvention con = project.getExtensions().findByType(ArtifactoryPluginConvention.class);
+    public static ArtifactoryPluginExtension getOrCreateArtifactoryExtension(Project project) {
+        ArtifactoryPluginExtension con = project.getExtensions().findByType(ArtifactoryPluginExtension.class);
         if (con == null) {
-            con = project.getExtensions().create(Constant.ARTIFACTORY, ArtifactoryPluginConvention.class, project);
+            con = project.getExtensions().create(Constant.ARTIFACTORY, ArtifactoryPluginExtension.class, project);
         }
         return con;
     }
@@ -38,8 +38,8 @@ public class ExtensionsUtils {
      * @param project - the project that will get its root's extension
      * @return Artifactory's extension defined at the root project if exists
      */
-    public static ArtifactoryPluginConvention getArtifactoryExtension(Project project) {
-        return project.getRootProject().getExtensions().findByType(ArtifactoryPluginConvention.class);
+    public static ArtifactoryPluginExtension getArtifactoryExtension(Project project) {
+        return project.getRootProject().getExtensions().findByType(ArtifactoryPluginExtension.class);
     }
 
     /**
@@ -49,9 +49,9 @@ public class ExtensionsUtils {
      * @param project - the project to fetch its publisher configurations
      * @return an Artifactory extension with publisher configured or null if not found
      */
-    public static ArtifactoryPluginConvention getExtensionWithPublisher(Project project) {
+    public static ArtifactoryPluginExtension getExtensionWithPublisher(Project project) {
         while (project != null) {
-            ArtifactoryPluginConvention acc = project.getExtensions().findByType(ArtifactoryPluginConvention.class);
+            ArtifactoryPluginExtension acc = project.getExtensions().findByType(ArtifactoryPluginExtension.class);
             if (acc != null) {
                 ArtifactoryClientConfiguration.PublisherHandler publisher = acc.getClientConfig().publisher;
                 if (publisher.getContextUrl() != null && (publisher.getRepoKey() != null || publisher.getSnapshotRepoKey() != null)) {
@@ -70,7 +70,7 @@ public class ExtensionsUtils {
      * @return a configured publisher handler or null if not found
      */
     public static ArtifactoryClientConfiguration.PublisherHandler getPublisherHandler(Project project) {
-        ArtifactoryPluginConvention extension = getExtensionWithPublisher(project);
+        ArtifactoryPluginExtension extension = getExtensionWithPublisher(project);
         if (extension == null) {
             return null;
         }

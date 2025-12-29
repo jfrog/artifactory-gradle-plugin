@@ -9,7 +9,7 @@ import org.jfrog.gradle.plugin.artifactory.utils.GradleClientLogger;
  * Main configuration object for the plugin. a DSL object that controls all the plugin configurations.
  * This object is defined at the user build script ander 'artifactory' closure.
  */
-public class ArtifactoryPluginConvention {
+public class ArtifactoryPluginExtension {
 
     private final Project project;
 
@@ -17,7 +17,7 @@ public class ArtifactoryPluginConvention {
 
     private PublisherConfig publisherConfig;
 
-    public ArtifactoryPluginConvention(Project project) {
+    public ArtifactoryPluginExtension(Project project) {
         this.project = project;
         clientConfig = new ArtifactoryClientConfiguration(new GradleClientLogger(project.getLogger()));
     }
