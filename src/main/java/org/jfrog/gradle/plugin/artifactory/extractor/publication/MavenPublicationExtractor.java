@@ -4,6 +4,7 @@ import org.apache.ivy.core.IvyPatternHelper;
 import org.gradle.api.publish.Publication;
 import org.gradle.api.publish.maven.MavenArtifact;
 import org.gradle.api.publish.maven.MavenPublication;
+import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal;
 import org.gradle.api.publish.maven.tasks.GenerateMavenPom;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.LayoutPatterns;
@@ -18,14 +19,14 @@ import java.util.Objects;
 
 import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.addArtifactInfoToDeployDetails;
 
-public class MavenPublicationExtractor extends PublicationExtractor<MavenPublication> {
+public class MavenPublicationExtractor extends PublicationExtractor<MavenPublicationInternal> {
 
     public MavenPublicationExtractor(ArtifactoryTask artifactoryTask) {
         super(artifactoryTask);
     }
 
     @Override
-    public void extractDeployDetails(MavenPublication publication) {
+    public void extractDeployDetails(MavenPublicationInternal publication) {
         // First adding the Maven descriptor (if the build is configured to add it):
         extractMavenDescriptor(publication);
 
@@ -34,7 +35,7 @@ public class MavenPublicationExtractor extends PublicationExtractor<MavenPublica
     }
 
     @Override
-    protected void addArtifactToDeployDetails(MavenPublication publication, DeployDetails.Builder builder, PublishArtifactInfo artifactInfo) {
+    protected void addArtifactToDeployDetails(MavenPublicationInternal publication, DeployDetails.Builder builder, PublishArtifactInfo artifactInfo) {
         Map<String, String> extraTokens = artifactInfo.getExtraTokens();
         String artifactPath = IvyPatternHelper.substitute(
                 LayoutPatterns.M2_PATTERN, publication.getGroupId().replace(".", "/"),
@@ -48,19 +49,19 @@ public class MavenPublicationExtractor extends PublicationExtractor<MavenPublica
     }
 
     @Override
-    protected String getPublicationArtifactId(MavenPublication publication) {
+    protected String getPublicationArtifactId(MavenPublicationInternal publication) {
         return publication.getArtifactId();
     }
 
     @Override
     protected boolean isApplicablePublication(Publication publication) {
-        return publication instanceof MavenPublication;
+        return publication instanceof MavenPublicationInternal;
     }
 
     /**
      * Extract deploy details of the Maven descriptor, if configured to add it and stores them at the given task destination
      */
-    private void extractMavenDescriptor(MavenPublication publication) {
+    private void extractMavenDescriptor(MavenPublicationInternal publication) {
         if (!isPublishMaven()) {
             return;
         }
@@ -100,13 +101,13 @@ public class MavenPublicationExtractor extends PublicationExtractor<MavenPublica
     /**
      * Extract deploy details of the Maven artifacts and stores them at the given task destination
      */
-    private void extractMavenArtifacts(MavenPublication publication) {
-        for (MavenArtifact artifact : publication.getArtifacts()) {
+    private void extractMavenArtifacts(MavenPublicationInternal publication) {
+        for (MavenArtifact artifact : publication.getPublishableArtifacts()) {
             createPublishArtifactInfoAndAddToDeployDetails(artifact, publication);
         }
     }
 
-    private void createPublishArtifactInfoAndAddToDeployDetails(MavenArtifact artifact, MavenPublication publication) {
+    private void createPublishArtifactInfoAndAddToDeployDetails(MavenArtifact artifact, MavenPublicationInternal publication) {
         File file = artifact.getFile();
         buildAndPublishArtifactWithSignatures(file, publication, publication.getArtifactId(), artifact.getExtension(), artifact.getExtension(), artifact.getClassifier(), null);
     }

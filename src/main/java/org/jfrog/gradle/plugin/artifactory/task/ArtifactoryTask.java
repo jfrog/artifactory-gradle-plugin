@@ -12,6 +12,7 @@ import org.gradle.api.publish.PublishingExtension;
 import org.gradle.api.publish.ivy.IvyPublication;
 import org.gradle.api.publish.ivy.tasks.GenerateIvyDescriptor;
 import org.gradle.api.publish.maven.MavenPublication;
+import org.gradle.api.publish.maven.internal.publication.MavenPublicationInternal;
 import org.gradle.api.publish.maven.tasks.GenerateMavenPom;
 import org.gradle.api.publish.tasks.GenerateModuleMetadata;
 import org.gradle.api.tasks.Optional;
@@ -67,7 +68,7 @@ public class ArtifactoryTask extends DefaultTask {
 
     // Internal attributes
     public Set<IvyPublication> ivyPublications = new HashSet<>();
-    public Set<MavenPublication> mavenPublications = new HashSet<>();
+    public Set<MavenPublicationInternal> mavenPublications = new HashSet<>();
     private final Set<Configuration> archiveConfigurations = new HashSet<>();
     // This project has specified publications to the task
     private boolean publishPublicationsSpecified = false;
@@ -147,9 +148,9 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     private void collectDetailsFromMavenPublications() {
-        PublicationExtractor<MavenPublication> publicationExtractor = new MavenPublicationExtractor(this);
+        PublicationExtractor<MavenPublicationInternal> publicationExtractor = new MavenPublicationExtractor(this);
         publicationExtractor.extractModuleInfo();
-        for (MavenPublication mavenPublication : mavenPublications) {
+        for (MavenPublicationInternal mavenPublication : mavenPublications) {
             publicationExtractor.extractDeployDetails(mavenPublication);
         }
     }
@@ -267,8 +268,8 @@ public class ArtifactoryTask extends DefaultTask {
     private void addPublication(Publication publicationObj) {
         if (publicationObj instanceof IvyPublication) {
             ivyPublications.add((IvyPublication) publicationObj);
-        } else if (publicationObj instanceof MavenPublication) {
-            mavenPublications.add((MavenPublication) publicationObj);
+        } else if (publicationObj instanceof MavenPublicationInternal) {
+            mavenPublications.add((MavenPublicationInternal) publicationObj);
         } else {
             log.warn("Publication named '{}' in project '{}' is of unknown type '{}'",
                     publicationObj.getName(), getProject().getPath(), publicationObj.getClass());
