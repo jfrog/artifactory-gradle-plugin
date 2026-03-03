@@ -250,12 +250,15 @@ configure<ArtifactoryPluginConvention> {
     }
 
     // Optionally, you can use and configure your proxy information to use in the task.
-    // Alternatively, you can configure the attributes by using the clientConfig.proxy object.
+    // Use the proxy { } block below - direct clientConfig.proxy assignment may not work correctly.
+    // Use noProxy to bypass the proxy for specific hosts (e.g., Artifactory on internal network).
+    // Multiple hosts can be specified as comma-separated values (e.g., "host1.com,host2.local").
     proxy {
         host = "ProxyHost"
         port = 60
         username = "ProxyUserName"
         password = "ProxyPassword"
+        noProxy = "artifactory.corp.internal"
     }
 
     // (default: 300 seconds) Artifactory's connection timeout (in seconds).
@@ -331,12 +334,15 @@ artifactory {
     }
 
     // Optionally, you can use and configure your proxy information to use in the task.
-    // Alternatively, you can configure the attributes by using the clientConfig.proxy object.
+    // Use the proxy { } block below - direct clientConfig.proxy assignment may not work correctly.
+    // Use noProxy to bypass the proxy for specific hosts (e.g., Artifactory on internal network).
+    // Multiple hosts can be specified as comma-separated values (e.g., "host1.com,host2.local").
     proxy {
         host = "ProxyHost"
         port = 60
         username = "ProxyUserName"
         password = "ProxyPassword"
+        noProxy = "artifactory.corp.internal"
     }
 
     // (default: 300 seconds) Artifactory's connection timeout (in seconds).
@@ -355,6 +361,56 @@ artifactory {
 
 </details>
 
+
+---
+
+</details>
+
+<details>
+
+<summary>🌐 Proxy and noProxy Configuration</summary>
+
+---
+
+To use a proxy while bypassing it for Artifactory (e.g., when Artifactory is on an internal network), use the `proxy { }` block with `noProxy`:
+
+<details open>
+<summary>Kotlin Format</summary>
+
+```kotlin
+configure<ArtifactoryPluginConvention> {
+    publish { /* ... */ }
+    proxy {
+        host = "proxy.example.com"
+        port = 8080
+        username = "ProxyUser"
+        password = "ProxyPassword"
+        noProxy = "artifactory.corp.aws.local"
+    }
+}
+```
+
+</details>
+
+<details>
+<summary>Groovy Format</summary>
+
+```groovy
+artifactory {
+    publish { /* ... */ }
+    proxy {
+        host = "proxy.example.com"
+        port = 8080
+        username = "ProxyUser"
+        password = "ProxyPassword"
+        noProxy = "artifactory.corp.aws.local"
+    }
+}
+```
+
+</details>
+
+For multiple hosts, use comma-separated values: `noProxy = "host1.local,host2.corp.aws.local"`
 
 ---
 
