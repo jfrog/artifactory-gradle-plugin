@@ -1,8 +1,6 @@
 package org.jfrog.gradle.plugin.artifactory.extractor.publication;
 
 import org.gradle.api.publish.Publication;
-import org.gradle.api.publish.tasks.GenerateModuleMetadata;
-import org.gradle.plugins.signing.Sign;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.gradle.plugin.artifactory.extractor.PublishArtifactInfo;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
@@ -13,7 +11,7 @@ import java.util.Map;
 
 import static org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils.createArtifactBuilder;
 
-public abstract class PublicationExtractor<ActualPublication extends Publication> {
+public abstract class PublicationExtractor<ActualPublication> {
     protected ArtifactoryTask artifactoryTask;
     // Signature types supported by the Signing plugin.
     private final String[] SIGNATURE_EXTENSIONS = {"asc", "sig"};
@@ -48,31 +46,44 @@ public abstract class PublicationExtractor<ActualPublication extends Publication
     protected abstract String getPublicationArtifactId(ActualPublication publication);
 
     /**
-     * Return true if the input publication if of the type of subclass publication type.
-     *
-     * @param publication - The publication to check
-     * @return true if the input publication if of the type of subclass publication type
+     * Return the publication name.
      */
-    protected abstract boolean isApplicablePublication(Publication publication);
+    protected abstract String getPublicationName(ActualPublication publication);
+
+    /**
+     * Return true if the input publication type is of the type of subclass publication type.
+     *
+     * @param publicationType - The publication type to check
+     * @return true if the input publication type is of the type of subclass publication type
+     */
+    protected abstract boolean isApplicablePublicationType(Class<? extends Publication> publicationType);
+
+    /**
+     * Find a publication by name.
+     */
+    protected abstract ActualPublication findPublicationDataByName(String name);
 
     /**
      * Extract *.module files publications.
      */
     public void extractModuleInfo() {
-        for (GenerateModuleMetadata generateModuleMetadata : artifactoryTask.getProject().getTasks().withType(GenerateModuleMetadata.class)) {
-            Publication publication = generateModuleMetadata.getPublication().get();
-            if (!isApplicablePublication(publication)) {
+        for (ArtifactoryTask.ModuleMetadataInfo info : artifactoryTask.getModuleMetadataInfos()) {
+            if (!isApplicablePublicationType(info.getPublicationType())) {
                 continue;
             }
 
-            File moduleMetadata = generateModuleMetadata.getOutputFile().getAsFile().get();
+            File moduleMetadata = info.getOutputFile();
             if (!moduleMetadata.exists()) {
                 continue;
             }
 
-            @SuppressWarnings("unchecked")
-            ActualPublication actualPublication = (ActualPublication) publication;
-            buildAndPublishArtifactWithSignatures(moduleMetadata, actualPublication, getPublicationArtifactId(actualPublication), "module", "module", null, null);
+            // Find the matching publication data by name
+            ActualPublication matchingData = findPublicationDataByName(info.getPublicationName());
+            if (matchingData == null) {
+                continue;
+            }
+
+            buildAndPublishArtifactWithSignatures(moduleMetadata, matchingData, getPublicationArtifactId(matchingData), "module", "module", null, null);
         }
     }
 
@@ -114,7 +125,7 @@ public abstract class PublicationExtractor<ActualPublication extends Publication
      * @param extraInfo          - Extra information to add to the deploy details
      */
     private void buildAndPublishArtifact(File file, ActualPublication publication, String artifactId, String artifactExtension, String artifactType, String artifactClassifier, Map<QName, String> extraInfo) {
-        DeployDetails.Builder builder = createArtifactBuilder(file, publication.getName());
+        DeployDetails.Builder builder = createArtifactBuilder(file, getPublicationName(publication));
         PublishArtifactInfo artifactInfo = new PublishArtifactInfo(
                 artifactId, artifactExtension, artifactType, artifactClassifier, extraInfo, file);
         addArtifactToDeployDetails(publication, builder, artifactInfo);
@@ -124,6 +135,6 @@ public abstract class PublicationExtractor<ActualPublication extends Publication
      * @return true if the Signing plugin was used in the project
      */
     private boolean isSignTaskExists() {
-        return !artifactoryTask.getProject().getTasks().withType(Sign.class).isEmpty();
+        return artifactoryTask.isHasSignTasks();
     }
 }

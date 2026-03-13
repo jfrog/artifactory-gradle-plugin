@@ -3,20 +3,15 @@ package org.jfrog.gradle.plugin.artifactory.utils;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.UnknownTaskException;
-import org.gradle.api.execution.TaskExecutionGraph;
-import org.gradle.api.file.FileCollection;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
+import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
 import org.jfrog.gradle.plugin.artifactory.Constant;
-import org.jfrog.gradle.plugin.artifactory.extractor.ModuleInfoFileProducer;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.task.DeployTask;
 import org.jfrog.gradle.plugin.artifactory.task.ExtractModuleTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 
 public class TaskUtils {
     private static final Logger log = LoggerFactory.getLogger(TaskUtils.class);
@@ -85,14 +80,20 @@ public class TaskUtils {
             extractModuleTask.getOutputs().upToDateWhen(reuseOutputs -> false);
             extractModuleTask.getModuleFile().set(project.getLayout().getBuildDirectory().file(Constant.MODULE_INFO_FILE_NAME));
             extractModuleTask.mustRunAfter(project.getTasks().withType(ArtifactoryTask.class));
+
+            extractModuleTask.setProjectInfo(
+                    project.getPath(),
+                    project.getName(),
+                    project.getGroup().toString(),
+                    project.getVersion().toString()
+            );
         });
+
         TaskProvider<ExtractModuleTask> finalTaskProvider = taskProvider;
-        // The ExtractModuleTask is not configured as a direct dependency for the DeployTask.
-        // Instead, the DeployTask uses a ModuleInfoFileProducer to lazily obtain the module-info file.
-        // This ensures that ExtractModuleTask runs only when needed and after ArtifactoryTask has collected the deployment details.
-        project.getRootProject().getTasks().withType(DeployTask.class).configureEach(deployTask ->
-                deployTask.registerModuleInfoProducer(new DefaultModuleInfoFileProducer(collectDeployDetailsTask.get(), finalTaskProvider.get()))
-        );
+        // Wire the ExtractModuleTask output files to the DeployTask inputs
+        project.getRootProject().getTasks().withType(DeployTask.class).configureEach(deployTask -> {
+            deployTask.addModuleInfoFiles(finalTaskProvider.get().getOutputs().getFiles());
+        });
     }
 
     /**
@@ -107,64 +108,29 @@ public class TaskUtils {
         } catch (UnknownTaskException e) {
             log.debug("Task '{}' not found in project", Constant.DEPLOY_TASK_NAME);
         }
-        registerTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
+        TaskProvider<DeployTask> taskProvider = registerTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
+        taskProvider.configure(deployTask -> {
+            deployTask.setRootProjectName(project.getName());
+            deployTask.setGradleVersion(project.getGradle().getGradleVersion());
+            deployTask.getRootBuildDirectory().set(project.getLayout().getBuildDirectory());
+        });
     }
 
     /**
-     * Find a ArtifactoryTask of a given project that finished to execute or null if not exists.
-     *
-     * @param project - a project to search for a finished task
-     * @return - finished collection task or null if not exists in project
+     * Configure the BuildService on all relevant tasks.
      */
-    public static ArtifactoryTask findExecutedCollectionTask(Project project) {
-        Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
-        if (tasks.isEmpty()) {
-            return null;
-        }
-        ArtifactoryTask artifactoryTask = (ArtifactoryTask) tasks.iterator().next();
-        return artifactoryTask.getState().getDidWork() ? artifactoryTask : null;
-    }
-
-    /**
-     * Get a list of all the ArtifactoryTask tasks of a given project and its submodules
-     *
-     * @param project - project to get its related tasks
-     * @return list of all the ArtifactoryTask that ran
-     */
-    public static List<ArtifactoryTask> getAllArtifactoryPublishTasks(Project project) {
-        TaskExecutionGraph graph = project.getGradle().getTaskGraph();
-        List<ArtifactoryTask> tasks = new ArrayList<>();
-        for (Task task : graph.getAllTasks()) {
-            if (task instanceof ArtifactoryTask) {
-                tasks.add(((ArtifactoryTask) task));
-            }
-        }
-        return tasks;
-    }
-
-    /**
-     * Produce module info files if the module has publications to deploy from the collecting task
-     */
-    private static class DefaultModuleInfoFileProducer implements ModuleInfoFileProducer {
-        private final ArtifactoryTask collectDeployDetailsTask;
-        private final ExtractModuleTask extractModuleTask;
-
-        DefaultModuleInfoFileProducer(ArtifactoryTask collectDeployDetailsTask, ExtractModuleTask extractModuleTask) {
-            this.collectDeployDetailsTask = collectDeployDetailsTask;
-            this.extractModuleTask = extractModuleTask;
-        }
-
-        @Override
-        public boolean hasModules() {
-            if (collectDeployDetailsTask != null && collectDeployDetailsTask.getProject().getState().getExecuted()) {
-                return collectDeployDetailsTask.hasPublications();
-            }
-            return false;
-        }
-
-        @Override
-        public FileCollection getModuleInfoFiles() {
-            return extractModuleTask.getOutputs().getFiles();
-        }
+    public static void configureBuildService(Project project, Provider<ArtifactoryBuildService> serviceProvider) {
+        project.getTasks().withType(ArtifactoryTask.class).configureEach(task -> {
+            task.getBuildServiceProperty().set(serviceProvider);
+            task.usesService(serviceProvider);
+        });
+        project.getTasks().withType(ExtractModuleTask.class).configureEach(task -> {
+            task.getBuildServiceProperty().set(serviceProvider);
+            task.usesService(serviceProvider);
+        });
+        project.getTasks().withType(DeployTask.class).configureEach(task -> {
+            task.getBuildServiceProperty().set(serviceProvider);
+            task.usesService(serviceProvider);
+        });
     }
 }
