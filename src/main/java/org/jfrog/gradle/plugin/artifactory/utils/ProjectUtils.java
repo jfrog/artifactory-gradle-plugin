@@ -31,6 +31,13 @@ public class ProjectUtils {
     }
 
     /**
+     * Get the ID (Group, artifact and version) from stored values.
+     */
+    public static String getId(String group, String name, String version) {
+        return getAsGavString(group, name, version);
+    }
+
+    /**
      * Get the ID (Group, artifact and version) of the given module
      *
      * @param module - the module to extract the GAV info
@@ -64,32 +71,33 @@ public class ProjectUtils {
     }
 
     /**
-     * Filter (Include/Exclude) project deployment details by a given publisher configurations
+     * Filter (Include/Exclude) project deployment details by a given publisher configurations.
+     * Uses projectPath string instead of Project reference.
      *
-     * @param project             - project of the given details
+     * @param projectPath         - project path of the given details
      * @param publisher           - configurations to apply
      * @param gradleDeployDetails - details to filter
      * @param isInclude           - if true applying include-pattern or exclude-pattern if false
      * @return filtered details by the given input
      */
-    public static Iterable<GradleDeployDetails> filterIncludeExcludeDetails(Project project, ArtifactoryClientConfiguration.PublisherHandler publisher, Set<GradleDeployDetails> gradleDeployDetails, boolean isInclude) {
+    public static Iterable<GradleDeployDetails> filterIncludeExcludeDetails(String projectPath, ArtifactoryClientConfiguration.PublisherHandler publisher, Set<GradleDeployDetails> gradleDeployDetails, boolean isInclude) {
         IncludeExcludePatterns patterns = new IncludeExcludePatterns(
                 publisher.getIncludePatterns(),
                 publisher.getExcludePatterns());
         if (publisher.isFilterExcludedArtifactsFromBuild()) {
-            return gradleDeployDetails.stream().filter(new IncludeExcludePredicate(project, patterns, isInclude)).collect(Collectors.toSet());
+            return gradleDeployDetails.stream().filter(new IncludeExcludePredicate(projectPath, patterns, isInclude)).collect(Collectors.toSet());
         }
         if (!isInclude) {
             return new ArrayList<>();
         }
-        return gradleDeployDetails.stream().filter(new ProjectPredicate(project)).collect(Collectors.toSet());
+        return gradleDeployDetails.stream().filter(new ProjectPathPredicate(projectPath)).collect(Collectors.toSet());
     }
 
-    public static class ProjectPredicate implements Predicate<GradleDeployDetails> {
-        private final Project project;
+    public static class ProjectPathPredicate implements Predicate<GradleDeployDetails> {
+        private final String projectPath;
 
-        private ProjectPredicate(Project project) {
-            this.project = project;
+        private ProjectPathPredicate(String projectPath) {
+            this.projectPath = projectPath;
         }
 
         @Override
@@ -97,24 +105,24 @@ public class ProjectUtils {
             if (input == null) {
                 return false;
             }
-            return input.getProject().equals(project);
+            return Objects.equals(input.getProjectPath(), projectPath);
         }
     }
 
     public static class IncludeExcludePredicate implements Predicate<GradleDeployDetails> {
-        private final Project project;
+        private final String projectPath;
         private final IncludeExcludePatterns patterns;
         private final boolean include;
 
-        public IncludeExcludePredicate(Project project, IncludeExcludePatterns patterns, boolean include) {
-            this.project = project;
+        public IncludeExcludePredicate(String projectPath, IncludeExcludePatterns patterns, boolean include) {
+            this.projectPath = projectPath;
             this.patterns = patterns;
             this.include = include;
         }
 
         @Override
         public boolean test(@Nullable GradleDeployDetails input) {
-            if (input == null || !Objects.equals(input.getProject(), project)) {
+            if (input == null || !Objects.equals(input.getProjectPath(), projectPath)) {
                 return false;
             }
             if (include) {

@@ -4,13 +4,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
+import org.gradle.api.artifacts.PublishArtifact;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.api.model.ObjectFactory;
+import org.gradle.api.provider.Property;
 import org.gradle.api.publish.Publication;
 import org.gradle.api.publish.PublicationContainer;
 import org.gradle.api.publish.PublishingExtension;
+import org.gradle.api.publish.ivy.IvyArtifact;
 import org.gradle.api.publish.ivy.IvyPublication;
 import org.gradle.api.publish.ivy.tasks.GenerateIvyDescriptor;
+import org.gradle.api.publish.maven.MavenArtifact;
 import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.publish.maven.tasks.GenerateMavenPom;
 import org.gradle.api.publish.tasks.GenerateModuleMetadata;
@@ -22,6 +27,7 @@ import org.jfrog.build.api.multiMap.Multimap;
 import org.jfrog.build.api.multiMap.SetMultimap;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
+import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.dsl.PropertiesConfig;
@@ -30,10 +36,14 @@ import org.jfrog.gradle.plugin.artifactory.extractor.GradleDeployDetails;
 import org.jfrog.gradle.plugin.artifactory.extractor.publication.IvyPublicationExtractor;
 import org.jfrog.gradle.plugin.artifactory.extractor.publication.MavenPublicationExtractor;
 import org.jfrog.gradle.plugin.artifactory.extractor.publication.PublicationExtractor;
+import org.jfrog.gradle.plugin.artifactory.utils.ClientConfigHelper;
 import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.PublicationUtils;
 
 import javax.annotation.Nullable;
+import javax.inject.Inject;
+import javax.xml.namespace.QName;
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
@@ -52,8 +62,8 @@ public class ArtifactoryTask extends DefaultTask {
     private final Set<Object> publications = new HashSet<>();
     // Properties input
     private final Multimap<String, CharSequence> properties = new SetMultimap<>();
-    @Input
-    public final ArtifactSpecs artifactSpecs = new ArtifactSpecs();
+    @Internal
+    public ArtifactSpecs artifactSpecs = new ArtifactSpecs();
 
     // Optional flags and attributes with default values
     private final Map<String, Boolean> flags = new HashMap<>();
@@ -79,6 +89,243 @@ public class ArtifactoryTask extends DefaultTask {
     // Output - Container to hold all the details that were collected
     private final Set<GradleDeployDetails> deployDetails = new TreeSet<>();
 
+    private String projectPath;
+    private String projectName;
+    private String projectGroup;
+    private String projectVersion;
+    private Map<String, String> configSnapshot;
+    private Map<String, String> rootConfigSnapshot;
+    private boolean hasSignTasks = false;
+
+    // Pre-collected data for publication extractors (config time)
+    private final List<ModuleMetadataInfo> moduleMetadataInfos = new ArrayList<>();
+    private final List<MavenPomInfo> mavenPomInfos = new ArrayList<>();
+    private final List<IvyDescriptorInfo> ivyDescriptorInfos = new ArrayList<>();
+
+    // Publication snapshots (populated at config time, used at execution time)
+    private final List<MavenPublicationData> mavenPublicationSnapshots = new ArrayList<>();
+    private final List<IvyPublicationData> ivyPublicationSnapshots = new ArrayList<>();
+    private final List<ArchiveConfigurationData> archiveConfigurationSnapshots = new ArrayList<>();
+
+    // BuildService for inter-task communication
+    private final Property<ArtifactoryBuildService> buildService;
+
+    // Lazy version provider — resolved at execution time, not tracked as a configuration cache input.
+    private final Property<String> projectVersionProvider;
+
+    @Inject
+    public ArtifactoryTask(ObjectFactory objectFactory) {
+        this.buildService = objectFactory.property(ArtifactoryBuildService.class);
+        this.projectVersionProvider = objectFactory.property(String.class);
+    }
+
+    /**
+     * Lazy project version resolved at execution time.
+     * Set via providers.environmentVariable() to avoid configuration cache invalidation.
+     */
+    @Internal
+    public Property<String> getProjectVersionProvider() {
+        return projectVersionProvider;
+    }
+
+    /**
+     * Pre-collected info about GenerateModuleMetadata tasks.
+     */
+    public static class ModuleMetadataInfo {
+        private final String publicationName;
+        private final Class<? extends Publication> publicationType;
+        private final File outputFile;
+
+        public ModuleMetadataInfo(String publicationName, Class<? extends Publication> publicationType, File outputFile) {
+            this.publicationName = publicationName;
+            this.publicationType = publicationType;
+            this.outputFile = outputFile;
+        }
+
+        public String getPublicationName() {
+            return publicationName;
+        }
+
+        public Class<? extends Publication> getPublicationType() {
+            return publicationType;
+        }
+
+        public File getOutputFile() {
+            return outputFile;
+        }
+    }
+
+    /**
+     * Pre-collected info about GenerateMavenPom tasks.
+     */
+    public static class MavenPomInfo {
+        private final String publicationName;
+        private final File destination;
+
+        public MavenPomInfo(String publicationName, File destination) {
+            this.publicationName = publicationName;
+            this.destination = destination;
+        }
+
+        public String getPublicationName() {
+            return publicationName;
+        }
+
+        public File getDestination() {
+            return destination;
+        }
+    }
+
+    /**
+     * Pre-collected info about GenerateIvyDescriptor tasks.
+     */
+    public static class IvyDescriptorInfo {
+        private final String publicationName;
+        private final File destination;
+
+        public IvyDescriptorInfo(String publicationName, File destination) {
+            this.publicationName = publicationName;
+            this.destination = destination;
+        }
+
+        public String getPublicationName() {
+            return publicationName;
+        }
+
+        public File getDestination() {
+            return destination;
+        }
+    }
+
+    /**
+     * Snapshot of a MavenPublication's data.
+     */
+    public static class MavenPublicationData {
+        private final String name;
+        private final String groupId;
+        private final String artifactId;
+        private final String version;
+        private final List<MavenArtifactData> artifacts;
+
+        public MavenPublicationData(String name, String groupId, String artifactId, String version, List<MavenArtifactData> artifacts) {
+            this.name = name;
+            this.groupId = groupId;
+            this.artifactId = artifactId;
+            this.version = version;
+            this.artifacts = artifacts;
+        }
+
+        public String getName() { return name; }
+        public String getGroupId() { return groupId; }
+        public String getArtifactId() { return artifactId; }
+        public String getVersion() { return version; }
+        public List<MavenArtifactData> getArtifacts() { return artifacts; }
+    }
+
+    public static class MavenArtifactData {
+        private final File file;
+        private final String extension;
+        private final String classifier;
+
+        public MavenArtifactData(File file, String extension, String classifier) {
+            this.file = file;
+            this.extension = extension;
+            this.classifier = classifier;
+        }
+
+        public File getFile() { return file; }
+        public String getExtension() { return extension; }
+        public String getClassifier() { return classifier; }
+    }
+
+    /**
+     * Snapshot of an IvyPublication's data.
+     */
+    public static class IvyPublicationData {
+        private final String name;
+        private final String organisation;
+        private final String module;
+        private final String revision;
+        private final Map<QName, String> extraInfo;
+        private final List<IvyArtifactData> artifacts;
+
+        public IvyPublicationData(String name, String organisation, String module, String revision, Map<QName, String> extraInfo, List<IvyArtifactData> artifacts) {
+            this.name = name;
+            this.organisation = organisation;
+            this.module = module;
+            this.revision = revision;
+            this.extraInfo = extraInfo;
+            this.artifacts = artifacts;
+        }
+
+        public String getName() { return name; }
+        public String getOrganisation() { return organisation; }
+        public String getModule() { return module; }
+        public String getRevision() { return revision; }
+        public Map<QName, String> getExtraInfo() { return extraInfo; }
+        public List<IvyArtifactData> getArtifacts() { return artifacts; }
+    }
+
+    public static class IvyArtifactData {
+        private final File file;
+        private final String name;
+        private final String extension;
+        private final String type;
+        private final String classifier;
+
+        public IvyArtifactData(File file, String name, String extension, String type, String classifier) {
+            this.file = file;
+            this.name = name;
+            this.extension = extension;
+            this.type = type;
+            this.classifier = classifier;
+        }
+
+        public File getFile() { return file; }
+        public String getName() { return name; }
+        public String getExtension() { return extension; }
+        public String getType() { return type; }
+        public String getClassifier() { return classifier; }
+    }
+
+    /**
+     * Snapshot of an archive Configuration's artifact data.
+     */
+    public static class ArchiveConfigurationData {
+        private final String configurationName;
+        private final List<ArchiveArtifactData> artifacts;
+
+        public ArchiveConfigurationData(String configurationName, List<ArchiveArtifactData> artifacts) {
+            this.configurationName = configurationName;
+            this.artifacts = artifacts;
+        }
+
+        public String getConfigurationName() { return configurationName; }
+        public List<ArchiveArtifactData> getArtifacts() { return artifacts; }
+    }
+
+    public static class ArchiveArtifactData {
+        private final File file;
+        private final String name;
+        private final String extension;
+        private final String type;
+        private final String classifier;
+
+        public ArchiveArtifactData(File file, String name, String extension, String type, String classifier) {
+            this.file = file;
+            this.name = name;
+            this.extension = extension;
+            this.type = type;
+            this.classifier = classifier;
+        }
+
+        public File getFile() { return file; }
+        public String getName() { return name; }
+        public String getExtension() { return extension; }
+        public String getType() { return type; }
+        public String getClassifier() { return classifier; }
+    }
+
     /**
      * Make sure this task Depends on ArtifactoryTask from all its subprojects.
      * Apply global specs and default global action to this task.
@@ -88,8 +335,34 @@ public class ArtifactoryTask extends DefaultTask {
         Project project = getProject();
         if (isSkip()) {
             log.debug("'{}' skipped for project '{}'.", getPath(), project.getName());
+            artifactSpecs = null;
             return;
         }
+
+        this.projectPath = project.getPath();
+        this.projectName = project.getName();
+        this.projectGroup = project.getGroup().toString();
+        this.projectVersion = project.getVersion().toString();
+
+        // Snapshot configs for execution time
+        ArtifactoryPluginConvention ext = ExtensionsUtils.getExtensionWithPublisher(project);
+        if (ext != null) {
+            this.configSnapshot = ClientConfigHelper.snapshotConfig(ext.getClientConfig());
+        }
+        ArtifactoryPluginConvention rootExt = ExtensionsUtils.getArtifactoryExtension(project);
+        if (rootExt != null) {
+            this.rootConfigSnapshot = ClientConfigHelper.snapshotConfig(rootExt.getClientConfig());
+        }
+
+        // Pre-collect sign task existence
+        this.hasSignTasks = !project.getTasks().withType(Sign.class).isEmpty();
+
+        // Pre-collect GenerateModuleMetadata info
+        preCollectModuleMetadataInfo(project);
+        // Pre-collect GenerateMavenPom info
+        preCollectMavenPomInfo(project);
+        // Pre-collect GenerateIvyDescriptor info
+        preCollectIvyDescriptorInfo(project);
 
         // Depends on Information Collection tasks from all the subprojects
         for (Project sub : project.getSubprojects()) {
@@ -104,10 +377,11 @@ public class ArtifactoryTask extends DefaultTask {
         ArtifactoryPluginConvention extension = ExtensionsUtils.getExtensionWithPublisher(project);
         if (extension == null) {
             log.debug("Can't find extension configured for {}", getPath());
+            artifactSpecs = null;
             return;
         }
         // Add global properties to the specs
-        artifactSpecs.clear();
+        artifactSpecs = new ArtifactSpecs();
         artifactSpecs.addAll(extension.getClientConfig().publisher.getArtifactSpecs());
         // Configure the task using the "defaults" action if exists (delegate to the task)
         PublisherConfig config = extension.getPublisherConfig();
@@ -117,6 +391,79 @@ public class ArtifactoryTask extends DefaultTask {
                 defaultsAction.execute(this);
             }
         }
+
+        // Snapshot publication data and clear non-serializable objects
+        snapshotPublications();
+        artifactSpecs = null;
+    }
+
+    /**
+     * Snapshot all publication data into serializable data classes and clear the original Publication object references.
+     */
+    private void snapshotPublications() {
+        for (MavenPublication pub : mavenPublications) {
+            List<MavenArtifactData> artifacts = new ArrayList<>();
+            for (MavenArtifact art : pub.getArtifacts()) {
+                artifacts.add(new MavenArtifactData(art.getFile(), art.getExtension(), art.getClassifier()));
+            }
+            mavenPublicationSnapshots.add(new MavenPublicationData(
+                    pub.getName(), pub.getGroupId(), pub.getArtifactId(), pub.getVersion(), artifacts));
+        }
+        for (IvyPublication pub : ivyPublications) {
+            Map<QName, String> extraInfo = pub.getDescriptor().getExtraInfo().asMap();
+            List<IvyArtifactData> artifacts = new ArrayList<>();
+            for (IvyArtifact art : pub.getArtifacts()) {
+                artifacts.add(new IvyArtifactData(art.getFile(), art.getName(), art.getExtension(), art.getType(), art.getClassifier()));
+            }
+            ivyPublicationSnapshots.add(new IvyPublicationData(
+                    pub.getName(), pub.getOrganisation(), pub.getModule(), pub.getRevision(), extraInfo, artifacts));
+        }
+        for (Configuration config : archiveConfigurations) {
+            List<ArchiveArtifactData> artifacts = new ArrayList<>();
+            for (PublishArtifact art : config.getAllArtifacts()) {
+                artifacts.add(new ArchiveArtifactData(art.getFile(), art.getName(), art.getExtension(), art.getType(), art.getClassifier()));
+            }
+            archiveConfigurationSnapshots.add(new ArchiveConfigurationData(config.getName(), artifacts));
+        }
+        // Clear non-serializable objects
+        publications.clear();
+        mavenPublications.clear();
+        ivyPublications.clear();
+        archiveConfigurations.clear();
+    }
+
+    private void preCollectModuleMetadataInfo(Project project) {
+        try {
+            for (GenerateModuleMetadata gmm : project.getTasks().withType(GenerateModuleMetadata.class)) {
+                Publication pub = gmm.getPublication().get();
+                File outputFile = gmm.getOutputFile().getAsFile().get();
+                moduleMetadataInfos.add(new ModuleMetadataInfo(pub.getName(), pub.getClass(), outputFile));
+            }
+        } catch (Exception e) {
+            log.debug("Could not pre-collect module metadata info", e);
+        }
+    }
+
+    private void preCollectMavenPomInfo(Project project) {
+        try {
+            for (GenerateMavenPom gmp : project.getTasks().withType(GenerateMavenPom.class)) {
+                // We need the pom identity to match later; store publication name from pom
+                // The pom object identity matching happens at execution time via the stored file
+                mavenPomInfos.add(new MavenPomInfo(gmp.getName(), gmp.getDestination()));
+            }
+        } catch (Exception e) {
+            log.debug("Could not pre-collect maven pom info", e);
+        }
+    }
+
+    private void preCollectIvyDescriptorInfo(Project project) {
+        try {
+            for (GenerateIvyDescriptor gid : project.getTasks().withType(GenerateIvyDescriptor.class)) {
+                ivyDescriptorInfos.add(new IvyDescriptorInfo(gid.getName(), gid.getDestination()));
+            }
+        } catch (Exception e) {
+            log.debug("Could not pre-collect ivy descriptor info", e);
+        }
     }
 
     /**
@@ -124,9 +471,23 @@ public class ArtifactoryTask extends DefaultTask {
      */
     @TaskAction
     public void collectDeployDetails() {
+        // Resolve lazy version provider at execution time (not a configuration cache input)
+        if (projectVersionProvider.isPresent()) {
+            this.projectVersion = projectVersionProvider.get();
+            if (buildService.isPresent()) {
+                buildService.get().setProjectVersion(this.projectVersion);
+            }
+        }
         log.info("Collecting deployment details in task '{}'", getPath());
+        // Restore ArtifactSpecs from config snapshot (nulled before serialization)
+        if (artifactSpecs == null) {
+            artifactSpecs = new ArtifactSpecs();
+            if (configSnapshot != null) {
+                artifactSpecs.addAll(ClientConfigHelper.restoreConfig(configSnapshot).publisher.getArtifactSpecs());
+            }
+        }
         if (!hasPublications()) {
-            log.info("No publications to publish for project '{}'", getProject().getPath());
+            log.info("No publications to publish for project '{}'", projectPath);
             return;
         }
         try {
@@ -136,32 +497,45 @@ public class ArtifactoryTask extends DefaultTask {
         } catch (Exception e) {
             throw new RuntimeException("Cannot collect deploy details for " + getPath(), e);
         }
+
+        // Register data with BuildService for inter-task communication
+        if (buildService != null && buildService.isPresent()) {
+            ArtifactoryBuildService service = buildService.get();
+            service.registerTaskData(getPath(), new ArtifactoryBuildService.TaskData(
+                    getPath(), projectName, projectPath,
+                    deployDetails, configSnapshot,
+                    moduleType, hasPublications()
+            ));
+        }
     }
 
     private void collectDetailsFromIvyPublications() {
-        PublicationExtractor<IvyPublication> publicationExtractor = new IvyPublicationExtractor(this);
+        IvyPublicationExtractor publicationExtractor = new IvyPublicationExtractor(this);
         publicationExtractor.extractModuleInfo();
-        for (IvyPublication ivyPublication : ivyPublications) {
-            publicationExtractor.extractDeployDetails(ivyPublication);
+        for (IvyPublicationData data : ivyPublicationSnapshots) {
+            publicationExtractor.extractDeployDetails(data);
         }
     }
 
     private void collectDetailsFromMavenPublications() {
-        PublicationExtractor<MavenPublication> publicationExtractor = new MavenPublicationExtractor(this);
+        MavenPublicationExtractor publicationExtractor = new MavenPublicationExtractor(this);
         publicationExtractor.extractModuleInfo();
-        for (MavenPublication mavenPublication : mavenPublications) {
-            publicationExtractor.extractDeployDetails(mavenPublication);
+        for (MavenPublicationData data : mavenPublicationSnapshots) {
+            MavenPublicationData effective = projectVersion != null && !projectVersion.equals(data.getVersion())
+                    ? new MavenPublicationData(data.getName(), data.getGroupId(), data.getArtifactId(), projectVersion, data.getArtifacts())
+                    : data;
+            publicationExtractor.extractDeployDetails(effective);
         }
     }
 
     private void collectDetailsFromConfigurations() {
-        ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(getProject());
+        ArtifactoryClientConfiguration.PublisherHandler publisher = getPublisherFromSnapshot();
         if (publisher == null) {
             return;
         }
 
-        for (Configuration configuration : archiveConfigurations) {
-            PublicationUtils.extractArchivesDeployDetails(configuration, publisher, this);
+        for (ArchiveConfigurationData configData : archiveConfigurationSnapshots) {
+            PublicationUtils.extractArchivesDeployDetails(configData, publisher, this);
         }
     }
 
@@ -358,7 +732,9 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     public boolean hasPublications() {
-        return !ivyPublications.isEmpty() || !mavenPublications.isEmpty() || !archiveConfigurations.isEmpty();
+        return !ivyPublications.isEmpty() || !mavenPublications.isEmpty()
+                || !ivyPublicationSnapshots.isEmpty() || !mavenPublicationSnapshots.isEmpty()
+                || !archiveConfigurations.isEmpty() || !archiveConfigurationSnapshots.isEmpty();
     }
 
     public void finalizeByDeployTask(Project project) {
@@ -390,11 +766,22 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     @Input
-    public Set<Publication> getPublications() {
-        Set<Publication> publications = new HashSet<>();
-        publications.addAll(ivyPublications);
-        publications.addAll(mavenPublications);
-        return publications;
+    public Set<String> getPublicationNames() {
+        Set<String> names = new HashSet<>();
+        for (MavenPublicationData data : mavenPublicationSnapshots) {
+            names.add(data.getName());
+        }
+        for (IvyPublicationData data : ivyPublicationSnapshots) {
+            names.add(data.getName());
+        }
+        // Also include not-yet-snapshotted publications (during config time)
+        for (MavenPublication pub : mavenPublications) {
+            names.add(pub.getName());
+        }
+        for (IvyPublication pub : ivyPublications) {
+            names.add(pub.getName());
+        }
+        return names;
     }
 
     @Input
@@ -441,10 +828,13 @@ public class ArtifactoryTask extends DefaultTask {
         if (defaultProps == null) {
             defaultProps = new HashMap<>();
             PublicationUtils.addProps(defaultProps, getProperties());
-            // Add the publisher properties
-            ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(getProject().getRootProject());
-            if (publisher != null) {
-                defaultProps.putAll(publisher.getMatrixParams());
+            // Add the publisher properties from the root config snapshot
+            if (rootConfigSnapshot != null) {
+                ArtifactoryClientConfiguration.PublisherHandler publisher =
+                        ClientConfigHelper.restoreConfig(rootConfigSnapshot).publisher;
+                if (publisher != null) {
+                    defaultProps.putAll(publisher.getMatrixParams());
+                }
             }
         }
         return defaultProps;
@@ -500,6 +890,88 @@ public class ArtifactoryTask extends DefaultTask {
     @Internal
     public boolean isEvaluated() {
         return evaluated;
+    }
+
+    @Input
+    @Optional
+    public String getProjectPath() {
+        return projectPath;
+    }
+
+    @Input
+    @Optional
+    public String getProjectName() {
+        return projectName;
+    }
+
+    @Input
+    @Optional
+    public String getProjectGroup() {
+        return projectGroup;
+    }
+
+    @Input
+    @Optional
+    public String getProjectVersion() {
+        return projectVersion;
+    }
+
+    @Input
+    @Optional
+    public Map<String, String> getConfigSnapshot() {
+        return configSnapshot;
+    }
+
+    @Input
+    @Optional
+    public Map<String, String> getRootConfigSnapshot() {
+        return rootConfigSnapshot;
+    }
+
+    @Input
+    public boolean isHasSignTasks() {
+        return hasSignTasks;
+    }
+
+    @Internal
+    public List<ModuleMetadataInfo> getModuleMetadataInfos() {
+        return moduleMetadataInfos;
+    }
+
+    @Internal
+    public List<MavenPomInfo> getMavenPomInfos() {
+        return mavenPomInfos;
+    }
+
+    @Internal
+    public List<IvyDescriptorInfo> getIvyDescriptorInfos() {
+        return ivyDescriptorInfos;
+    }
+
+    @Internal
+    public List<MavenPublicationData> getMavenPublicationSnapshots() {
+        return mavenPublicationSnapshots;
+    }
+
+    @Internal
+    public List<IvyPublicationData> getIvyPublicationSnapshots() {
+        return ivyPublicationSnapshots;
+    }
+
+    /**
+     * Get publisher handler from the config snapshot.
+     */
+    @Internal
+    public ArtifactoryClientConfiguration.PublisherHandler getPublisherFromSnapshot() {
+        if (configSnapshot == null) {
+            return null;
+        }
+        return ClientConfigHelper.restoreConfig(configSnapshot).publisher;
+    }
+
+    @Internal
+    public Property<ArtifactoryBuildService> getBuildServiceProperty() {
+        return buildService;
     }
 
     private Boolean toBoolean(Object o) {
