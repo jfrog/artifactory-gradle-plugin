@@ -16,6 +16,15 @@ public abstract class ArtifactoryBuildService implements BuildService<BuildServi
     public static final String SERVICE_NAME = "artifactoryBuildService";
 
     private final Map<String, TaskData> taskDataMap = new ConcurrentHashMap<>();
+    private volatile String projectVersion;
+
+    public void setProjectVersion(String version) {
+        this.projectVersion = version;
+    }
+
+    public String getProjectVersion() {
+        return projectVersion;
+    }
 
     public void registerTaskData(String taskPath, TaskData data) {
         taskDataMap.put(taskPath, data);

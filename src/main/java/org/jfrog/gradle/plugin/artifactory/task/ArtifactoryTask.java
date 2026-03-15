@@ -110,9 +110,22 @@ public class ArtifactoryTask extends DefaultTask {
     // BuildService for inter-task communication
     private final Property<ArtifactoryBuildService> buildService;
 
+    // Lazy version provider — resolved at execution time, not tracked as a configuration cache input.
+    private final Property<String> projectVersionProvider;
+
     @Inject
     public ArtifactoryTask(ObjectFactory objectFactory) {
         this.buildService = objectFactory.property(ArtifactoryBuildService.class);
+        this.projectVersionProvider = objectFactory.property(String.class);
+    }
+
+    /**
+     * Lazy project version resolved at execution time.
+     * Set via providers.environmentVariable() to avoid configuration cache invalidation.
+     */
+    @Internal
+    public Property<String> getProjectVersionProvider() {
+        return projectVersionProvider;
     }
 
     /**
@@ -458,6 +471,13 @@ public class ArtifactoryTask extends DefaultTask {
      */
     @TaskAction
     public void collectDeployDetails() {
+        // Resolve lazy version provider at execution time (not a configuration cache input)
+        if (projectVersionProvider.isPresent()) {
+            this.projectVersion = projectVersionProvider.get();
+            if (buildService.isPresent()) {
+                buildService.get().setProjectVersion(this.projectVersion);
+            }
+        }
         log.info("Collecting deployment details in task '{}'", getPath());
         // Restore ArtifactSpecs from config snapshot (nulled before serialization)
         if (artifactSpecs == null) {
@@ -501,7 +521,10 @@ public class ArtifactoryTask extends DefaultTask {
         MavenPublicationExtractor publicationExtractor = new MavenPublicationExtractor(this);
         publicationExtractor.extractModuleInfo();
         for (MavenPublicationData data : mavenPublicationSnapshots) {
-            publicationExtractor.extractDeployDetails(data);
+            MavenPublicationData effective = projectVersion != null && !projectVersion.equals(data.getVersion())
+                    ? new MavenPublicationData(data.getName(), data.getGroupId(), data.getArtifactId(), projectVersion, data.getArtifacts())
+                    : data;
+            publicationExtractor.extractDeployDetails(effective);
         }
     }
 

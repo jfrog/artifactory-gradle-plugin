@@ -143,11 +143,14 @@ public class ExtractModuleTask extends DefaultTask {
 
         // Get dependency data from static maps (populated by afterResolve listener during execution)
         modulesHierarchyMap = ArtifactoryDependencyResolutionListener.getModulesHierarchyMap();
-        String moduleId = storedProjectGroup + ":" + storedProjectName + ":" + storedProjectVersion;
+        String effectiveVersion = (buildService != null && buildService.get().getProjectVersion() != null)
+                ? buildService.get().getProjectVersion()
+                : storedProjectVersion;
+        String moduleId = storedProjectGroup + ":" + storedProjectName + ":" + effectiveVersion;
         deps = ArtifactoryDependencyResolutionListener.getModulesDependenciesMap().get(moduleId);
 
         Module module = new GradleModuleExtractor().extractModule(
-                storedProjectPath, storedProjectName, storedProjectGroup, storedProjectVersion,
+                storedProjectPath, storedProjectName, storedProjectGroup, effectiveVersion,
                 configSnapshot, taskData, modulesHierarchyMap, deps);
         try {
             // Export
