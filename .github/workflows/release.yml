@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      NEXT_VERSION:
+        description: "The version to release (e.g. 6.2.1)"
+        required: true
+      NEXT_DEVELOPMENT_VERSION:
+        description: "The next development/snapshot version (e.g. 6.2.2-SNAPSHOT)"
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      JFROG_BUILD_STATUS: PASS
+      JFROG_CLI_BUILD_NAME: ecosystem-artifactory-gradle-plugin-release
+      JFROG_CLI_BUILD_NUMBER: ${{ github.run_number }}
+      JFROG_CLI_BUILD_PROJECT: ecosys
+      NEXT_VERSION: ${{ github.event.inputs.NEXT_VERSION }}
+      NEXT_DEVELOPMENT_VERSION: ${{ github.event.inputs.NEXT_DEVELOPMENT_VERSION }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.IL_AUTOMATION_TOKEN }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
+
+      - name: Configure git identity
+        run: |
+          git config user.name "JFrog CI"
+          git config user.email "eco-system@jfrog.com"
+
+      - name: Check required inputs
+        run: |
+          test -n "$NEXT_VERSION" -a "$NEXT_VERSION" != "0.0.0"
+          test -n "$NEXT_DEVELOPMENT_VERSION" -a "$NEXT_DEVELOPMENT_VERSION" != "0.0.x-SNAPSHOT"
+
+      - name: Configure JFrog CLI servers
+        env:
+          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+          ARTIFACTORY_APIKEY: ${{ secrets.ARTIFACTORY_APIKEY }}
+        run: |
+          jf c rm --quiet
+          jf c add internal --url=$ARTIFACTORY_URL --user=$ARTIFACTORY_USER --password=$ARTIFACTORY_APIKEY
+          jf gradlec --use-wrapper --repo-resolve ecosys-maven-remote --repo-deploy ecosys-oss-release-local --deploy-maven-desc
+
+      - name: Run audit
+        run: jf audit --exclusions "*node_modules*;*target*;*venv*;*test*;*functionalTest*"
+
+      - name: Update release version
+        run: |
+          sed -i -e "/version=/ s/=.*/=$NEXT_VERSION/" gradle.properties
+          git commit -am "[artifactory-release] Release version ${NEXT_VERSION} [skipRun]" --allow-empty
+          git tag ${NEXT_VERSION}
+
+      - name: Build and publish to Artifactory
+        run: jf gradle clean validatePlugins build artifactoryPublish -x test -x functionalTest
+
+      - name: Publish build info
+        run: |
+          jf rt bag && jf rt bce
+          jf rt bp
+
+      - name: Distribute release bundle
+        run: |
+          jf ds rbc ecosystem-artifactory-gradle-plugin $NEXT_VERSION --spec=./.jfrog-pipelines/release/specs/prod-rbc-filespec.json --spec-vars="version=$NEXT_VERSION" --sign
+          jf ds rbd ecosystem-artifactory-gradle-plugin $NEXT_VERSION --site="releases.jfrog.io" --sync
+
+      - name: Publish to Maven Central
+        env:
+          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.MVN_CENTRAL_USER }}
+          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.MVN_CENTRAL_PASSWORD }}
+          MVN_CENTRAL_SIGNING_KEY: ${{ secrets.MVN_CENTRAL_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.MVN_CENTRAL_SIGNING_PASSWORD }}
+        run: |
+          export ORG_GRADLE_PROJECT_signingKey=$(echo "$MVN_CENTRAL_SIGNING_KEY" | base64 -d)
+          ./gradlew clean build publishToSonatype closeAndReleaseSonatypeStagingRepository -x test -x functionalTest -Psign
+
+      - name: Update next development version
+        run: |
+          sed -i "s/\(version=\).*\$/\1${NEXT_DEVELOPMENT_VERSION}/" gradle.properties
+          git commit -am "[artifactory-release] Next development version [skipRun]"
+
+      - name: Push changes
+        run: |
+          git push
+          git push --tags
