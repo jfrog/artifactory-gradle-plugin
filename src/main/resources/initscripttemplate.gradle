@@ -1,8 +1,12 @@
+// jf gradle writes this file as --init-script. --include-shared-build becomes
+// ORG_GRADLE_PROJECT_includeSharedBuild=true and -PincludeSharedBuild=true, which
+// SharedBuildLogicUtils.isIncludeSharedBuildEnabled reads via Project.findProperty.
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryPlugin
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryPluginSettings
 import org.jfrog.gradle.plugin.artifactory.Constant
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask
-import org.jfrog.gradle.plugin.artifactory.utils.PluginUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.PluginUtils
+import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils
 
 initscript {
     dependencies {
@@ -22,7 +26,11 @@ projectsLoaded { Gradle gradle ->
     gradle.startParameter.setProjectProperties(projectProperties)
     Project root = gradle.getRootProject()
     root.logger.debug("Artifactory plugin: projectsEvaluated: ${root.name}")
-    if (!"buildSrc".equals(root.name)) {
+
+    if (SharedBuildLogicUtils.isIncludeSharedBuildEnabled(root)) {
+        applySharedBuildPlugin(root)
+    } else if (!"buildSrc".equals(root.name)) {
+        // Flag off: same apply as main (including a second apply if build.gradle also applies the plugin).
         root.allprojects {
             apply {
                 apply plugin: ArtifactoryPlugin
@@ -30,7 +38,6 @@ projectsLoaded { Gradle gradle ->
         }
     }
 
-    // Set the CI Server mode to all Artifactory tasks.
     for (Project p : root.getAllprojects()) {
         try {
             TaskProvider<? extends Task> subCollectInfoTask = p.getTasks().named(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, ArtifactoryTask.class);
@@ -41,4 +48,17 @@ projectsLoaded { Gradle gradle ->
             root.logger.debug("Can't find sub project configured for {}", p.getPath());
         }
     }
+}
+
+void applySharedBuildPlugin(Project root) {
+    root.allprojects { Project p ->
+        applyArtifactoryIfMissing(p)
+    }
+}
+
+void applyArtifactoryIfMissing(Project project) {
+    if (project.extensions.findByName(Constant.ARTIFACTORY) != null) {
+        return
+    }
+    project.pluginManager.apply(ArtifactoryPlugin)
 }

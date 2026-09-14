@@ -11,6 +11,7 @@ import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.gradle.plugin.artifactory.extractor.PublishArtifactInfo;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils;
 
 import java.io.File;
 import java.util.Map;
@@ -91,10 +92,10 @@ public class MavenPublicationExtractor extends PublicationExtractor<MavenPublica
         Boolean publishPom = publisher.isMaven();
         // It the value is null, it means that there's no CI plugin configuration, so the value should be taken from the
         // artifactory DSL inside the gradle script:
-        if (publishPom == null) {
-            publishPom = artifactoryTask.getPublishPom();
-        }
-        return publishPom != null ? publishPom : true;
+        return SharedBuildLogicUtils.shouldPublishMavenDescriptor(
+                publishPom,
+                artifactoryTask.getPublishPom(),
+                SharedBuildLogicUtils.isIncludeSharedBuildEnabled(artifactoryTask.getProject()));
     }
 
     /**

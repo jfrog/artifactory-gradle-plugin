@@ -13,6 +13,7 @@ import org.jfrog.build.extractor.ci.*;
 import org.jfrog.build.extractor.ci.Module;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.packageManager.PackageManagerUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,6 +31,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
 
     private final ArtifactoryClientConfiguration clientConf;
     private final List<ModuleInfoFileProducer> moduleInfoFileProducers;
+    private Project rootProject;
 
     public GradleBuildInfoExtractor(ArtifactoryClientConfiguration clientConf, List<ModuleInfoFileProducer> moduleInfoFileProducers) {
         this.clientConf = clientConf;
@@ -38,6 +40,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
 
     @Override
     public BuildInfo extract(Project rootProject) {
+        this.rootProject = rootProject;
         BuildInfo buildInfo = createBuildInfoBuilder().build();
         PackageManagerUtils.collectEnvAndFilterProperties(clientConf, buildInfo);
         log.debug("BuildInfo extracted = " + buildInfo);
@@ -91,6 +94,9 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
      * @param bib - the builder to set its fields
      */
     private void populateBuilderModulesFields(BuildInfoBuilder bib) {
+        boolean includeSharedBuild = rootProject != null
+                && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(rootProject);
+
         Set<File> moduleFilesWithModules = moduleInfoFileProducers.stream()
                 .filter(ModuleInfoFileProducer::hasModules)
                 .flatMap(moduleInfoFileProducer -> moduleInfoFileProducer.getModuleInfoFiles().getFiles().stream())
@@ -101,7 +107,10 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
                 Module module = ModuleExtractorUtils.readModuleFromFile(moduleFile);
                 List<Artifact> artifacts = module.getArtifacts();
                 List<Dependency> dependencies = module.getDependencies();
-                if ((artifacts != null && !artifacts.isEmpty()) || (dependencies != null && !dependencies.isEmpty())) {
+                boolean hasContent = (artifacts != null && !artifacts.isEmpty())
+                        || (dependencies != null && !dependencies.isEmpty());
+                // includeSharedBuild keeps registered shared builds even when they have no files yet.
+                if (includeSharedBuild || hasContent) {
                     bib.addModule(module);
                 }
             } catch (IOException e) {

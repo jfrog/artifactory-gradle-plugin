@@ -14,6 +14,7 @@ import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
 import static org.jfrog.gradle.plugin.artifactory.utils.PluginUtils.assertGradleVersionSupported;
+import static org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils.isIncludeSharedBuildEnabled;
 
 public class ArtifactoryPlugin implements Plugin<Project> {
     private static final Logger log = Logging.getLogger(ArtifactoryPlugin.class);
@@ -25,8 +26,19 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         if (!shouldApplyPluginOnProject(project)) {
             return;
         }
-        // Get / Add an Artifactory plugin extension to the project module
-        ArtifactoryPluginConvention extension = ExtensionsUtils.getOrCreateArtifactoryExtension(project);
+
+        // Flag off: same as main — create/reuse the extension and continue even on a second apply.
+        // Flag on: skip a second apply so init script + plugins { id } do not crash.
+        ArtifactoryPluginConvention extension;
+        if (isIncludeSharedBuildEnabled(project)) {
+            extension = extensionForSharedBuildApply(project);
+            if (extension == null) {
+                return;
+            }
+        } else {
+            extension = ExtensionsUtils.getOrCreateArtifactoryExtension(project);
+        }
+
         // Add the collect publications for deploy details and extract module-info tasks to the project module
         TaskProvider<ArtifactoryTask> collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
         TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask, project);
@@ -42,6 +54,7 @@ public class ArtifactoryPlugin implements Plugin<Project> {
                     subproject.afterEvaluate((projectsEvaluatedBuildListener::afterEvaluate));
                 }
             });
+
             // Add projects_evaluated listener to evaluate all the ArtifactoryTask tasks for the entire project that are not yet evaluated.
             project.getGradle().projectsEvaluated(projectsEvaluatedBuildListener::projectsEvaluated);
         } else {
@@ -58,8 +71,31 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         log.debug("Using Artifactory Plugin for " + project.getPath());
     }
 
+    /**
+     * Flag-on only. Null means this apply is a duplicate and should stop.
+     */
+    private ArtifactoryPluginConvention extensionForSharedBuildApply(Project project) {
+        try {
+            if (project.getExtensions().findByName(Constant.ARTIFACTORY) != null) {
+                log.debug("Artifactory extension already present on {}, skipping duplicate apply", project.getPath());
+                return null;
+            }
+            return ExtensionsUtils.getOrCreateArtifactoryExtension(project);
+        } catch (IllegalArgumentException e) {
+            if (e.getMessage() != null && e.getMessage().contains("already registered")) {
+                ArtifactoryPluginConvention existing = project.getExtensions().findByType(ArtifactoryPluginConvention.class);
+                if (existing != null) {
+                    return existing;
+                }
+                log.debug("Could not retrieve extension after duplicate apply attempt on {}", project.getPath());
+                return null;
+            }
+            throw e;
+        }
+    }
+
     private boolean shouldApplyPluginOnProject(Project project) {
-        if ("buildSrc".equals(project.getName())) {
+        if ("buildSrc".equals(project.getName()) && !isIncludeSharedBuildEnabled(project)) {
             log.debug("Artifactory Plugin disabled for {}", project.getPath());
             return false;
         }
