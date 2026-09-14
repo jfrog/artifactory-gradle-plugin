@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      NEXT_VERSION:
+        description: "The version to release (e.g. 5.2.1)"
+        required: true
+      NEXT_DEVELOPMENT_VERSION:
+        description: "The next development/snapshot version (e.g. 5.2.2-SNAPSHOT)"
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      JFROG_BUILD_STATUS: PASS
+      JFROG_CLI_BUILD_NAME: ecosystem-artifactory-gradle-plugin-release
+      JFROG_CLI_BUILD_NUMBER: ${{ github.run_number }}
+      JFROG_CLI_BUILD_PROJECT: ecosys
+      NEXT_VERSION: ${{ github.event.inputs.NEXT_VERSION }}
+      NEXT_DEVELOPMENT_VERSION: ${{ github.event.inputs.NEXT_DEVELOPMENT_VERSION }}
+    steps:
+      - name: Checkout v5
+        uses: actions/checkout@v4
+        with:
+          ref: v5
+          fetch-depth: 0
+          token: ${{ secrets.IL_AUTOMATION_TOKEN }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "8"
+
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
+
+      - name: Run release script
+        env:
+          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+          ARTIFACTORY_APIKEY: ${{ secrets.ARTIFACTORY_APIKEY }}
+          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.MVN_CENTRAL_USER }}
+          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.MVN_CENTRAL_PASSWORD }}
+          MVN_CENTRAL_SIGNING_KEY: ${{ secrets.MVN_CENTRAL_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.MVN_CENTRAL_SIGNING_PASSWORD }}
+        run: .github/scripts/release.sh
