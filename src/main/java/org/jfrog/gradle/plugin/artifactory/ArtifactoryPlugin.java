@@ -95,7 +95,7 @@ public class ArtifactoryPlugin implements Plugin<Project> {
     }
 
     private boolean shouldApplyPluginOnProject(Project project) {
-        if ("buildSrc".equals(project.getName()) && !isIncludeSharedBuildEnabled(project)) {
+        if ("buildSrc".equals(project.getName())) {
             log.debug("Artifactory Plugin disabled for {}", project.getPath());
             return false;
         }

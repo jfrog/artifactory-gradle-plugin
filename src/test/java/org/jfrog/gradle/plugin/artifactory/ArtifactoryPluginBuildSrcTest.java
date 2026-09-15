@@ -24,10 +24,8 @@ public class ArtifactoryPluginBuildSrcTest {
         // Create mock buildSrc project
         Project buildSrcProject = createMockBuildSrcProject();
 
-        // In the new implementation, buildSrc should be allowed (method should return true)
-        // Previously it returned false to skip buildSrc
-        assertTrue(shouldApplyPluginOnProject(buildSrcProject),
-            "Artifactory Plugin should now be applied to buildSrc projects");
+        assertFalse(shouldApplyPluginOnProject(buildSrcProject),
+            "Artifactory Plugin is not applied to buildSrc");
     }
 
     @Test
@@ -57,11 +55,10 @@ public class ArtifactoryPluginBuildSrcTest {
         Project buildSrcWithParent = createMockBuildSrcProject();
         Project buildSrcWithoutParent = createMockBuildSrcProjectWithoutParent();
 
-        // Both should be allowed by plugin (detection is in GradleModuleExtractor)
-        assertTrue(shouldApplyPluginOnProject(buildSrcWithParent),
-            "buildSrc with parent should be applied");
-        assertTrue(shouldApplyPluginOnProject(buildSrcWithoutParent),
-            "Even buildSrc without parent should be applied (real detection in GradleModuleExtractor)");
+        assertFalse(shouldApplyPluginOnProject(buildSrcWithParent),
+            "buildSrc with parent is not applied");
+        assertFalse(shouldApplyPluginOnProject(buildSrcWithoutParent),
+            "buildSrc without parent is not applied");
     }
 
     @Test
@@ -82,10 +79,7 @@ public class ArtifactoryPluginBuildSrcTest {
      * Note: The actual method is private, so we're testing the logic it should implement.
      */
     private boolean shouldApplyPluginOnProject(Project project) {
-        // In the new implementation:
-        // - buildSrc is now allowed (returns true instead of false)
-        // - Version check still applies
-        return true;  // buildSrc is now supported
+        return !"buildSrc".equals(project.getName());
     }
 
     private Project createMockBuildSrcProject() {
