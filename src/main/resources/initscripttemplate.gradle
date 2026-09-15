@@ -40,6 +40,7 @@ projectsLoaded { Gradle gradle ->
         }
     }
 
+    // Set the CI Server mode to all Artifactory tasks.
     for (Project p : root.getAllprojects()) {
         try {
             TaskProvider<? extends Task> subCollectInfoTask = p.getTasks().named(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, ArtifactoryTask.class);

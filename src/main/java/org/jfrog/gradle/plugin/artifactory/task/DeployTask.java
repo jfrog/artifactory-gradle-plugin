@@ -183,6 +183,7 @@ public class DeployTask extends DefaultTask {
      * (optional: export an additional file with the deployed artifacts)
      */
     private void handleBuildInfoOperations(ArtifactoryClientConfiguration accRoot, Map<String, Set<DeployDetails>> allDeployedDetails) throws IOException {
+        // Extract build-info
         GradleBuildInfoExtractor gbie = new GradleBuildInfoExtractor(accRoot, moduleInfoFileProducers);
         BuildInfo buildInfo = gbie.extract(getProject().getRootProject());
         // Export in Json format to file system
