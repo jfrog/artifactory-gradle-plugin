@@ -1,7 +1,6 @@
 package org.jfrog.gradle.plugin.artifactory.utils;
 
 import org.gradle.api.Project;
-import org.gradle.api.initialization.IncludedBuild;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.jfrog.build.extractor.ci.Dependency;
@@ -14,9 +13,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Collects build-info for every includeBuild (and buildSrc), not only ones already resolved.
- * Root-level includes come from Gradle's IncludedBuild API (handles dynamic paths).
- * Nested includes come from SettingsGradleParser (Gradle API does not expose them).
+ * Collects only shared builds Gradle already used: resolved project components
+ * or applied plugins whose code lives under the include. Does not run assemble.
+ * Nested includeBuilds are kept only when the parent declared them or the consumer
+ * already resolved them ({@link UsedSharedBuilds#isNestedIncludeUsed}).
  */
 public final class SharedBuildCollector {
     private static final Logger log = Logging.getLogger(SharedBuildCollector.class);
@@ -28,21 +28,21 @@ public final class SharedBuildCollector {
         Set<File> registered = new HashSet<File>();
         String inheritedGroup = rootProject.getGroup() != null ? rootProject.getGroup().toString() : "";
         String consumerModuleId = ProjectUtils.getId(rootProject);
+        Set<String> resolvedNames = UsedSharedBuilds.resolvedIncludedBuildNames(rootProject);
 
         File buildSrcDir = new File(rootProject.getProjectDir(), "buildSrc");
         if (buildSrcDir.isDirectory()) {
-            register(rootProject, deployTask, buildSrcDir, "buildSrc", consumerModuleId, inheritedGroup, registered);
+            register(rootProject, deployTask, buildSrcDir, "buildSrc", consumerModuleId, inheritedGroup, registered, resolvedNames);
         }
 
-        // Collect every root-level includeBuild — listing it in settings.gradle is enough.
-        for (IncludedBuild included : rootProject.getGradle().getIncludedBuilds()) {
-            register(rootProject, deployTask, included.getProjectDir(), included.getName(),
-                    consumerModuleId, inheritedGroup, registered);
+        // Root-level: only includes Gradle already used (resolution or applied plugin).
+        for (File usedInclude : UsedSharedBuilds.findUsedIncludeDirs(rootProject)) {
+            register(rootProject, deployTask, usedInclude, usedInclude.getName(), consumerModuleId, inheritedGroup, registered, resolvedNames);
         }
     }
 
     private static void register(Project rootProject, DeployTask deployTask, File sharedBuildDir, String defaultName,
-                                 String parentModuleId, String inheritedGroup, Set<File> registered) {
+                                 String parentModuleId, String inheritedGroup, Set<File> registered, Set<String> resolvedNames) {
         File canonical;
         try {
             canonical = sharedBuildDir.getCanonicalFile();
@@ -75,12 +75,13 @@ public final class SharedBuildCollector {
 
         File buildSrcDir = new File(canonical, "buildSrc");
         if (buildSrcDir.isDirectory()) {
-            register(rootProject, deployTask, buildSrcDir, "buildSrc", moduleId, effectiveGroup, registered);
+            register(rootProject, deployTask, buildSrcDir, "buildSrc", moduleId, effectiveGroup, registered, resolvedNames);
         }
-        // Nested includeBuilds: collect all of them (no "used" filter).
+        // Nested includeBuilds: only if declared by parent or already resolved by consumer.
         for (File childInclude : SettingsGradleParser.listIncludeBuildDirs(canonical)) {
-            register(rootProject, deployTask, childInclude, childInclude.getName(),
-                    moduleId, effectiveGroup, registered);
+            if (UsedSharedBuilds.isNestedIncludeUsed(canonical, childInclude, resolvedNames)) {
+                register(rootProject, deployTask, childInclude, childInclude.getName(), moduleId, effectiveGroup, registered, resolvedNames);
+            }
         }
     }
 }
