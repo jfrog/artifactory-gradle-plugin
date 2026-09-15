@@ -13,10 +13,13 @@ import org.jfrog.build.extractor.builder.ModuleBuilder;
 import org.jfrog.build.extractor.ci.Artifact;
 import org.jfrog.build.extractor.ci.Dependency;
 import org.jfrog.build.extractor.ci.Module;
+import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
+import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildDependencies;
 import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -95,6 +98,7 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
 
     /**
      * Local files to deploy. artifactPath is the Maven path without the repo key.
+     * POM descriptors follow the same publishPom / publisher.maven rules as main publications.
      */
     public List<ArtifactToPublish> getArtifactsToPublish() {
         List<ArtifactToPublish> toPublish = new ArrayList<>();
@@ -103,9 +107,34 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
         }
 
         addBinaryArtifacts(toPublish);
-        ensurePublicationMetadata();
-        addPublicationMetadata(toPublish);
+        if (isPublishMaven()) {
+            ensurePublicationMetadata();
+            addPublicationMetadata(toPublish);
+        } else {
+            addGradleModuleMetadata(toPublish);
+        }
         return toPublish;
+    }
+
+    /**
+     * Same resolution as {@code MavenPublicationExtractor.isPublishMaven}:
+     * CI publisher.maven if set, else artifactoryPublish task publishPom, else true.
+     */
+    private boolean isPublishMaven() {
+        ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(anchorProject);
+        if (publisher == null) {
+            return false;
+        }
+        Boolean publishPom = publisher.isMaven();
+        if (publishPom == null) {
+            for (ArtifactoryTask task : TaskUtils.getAllArtifactoryPublishTasks(anchorProject)) {
+                if (task.getPublishPom() != null) {
+                    publishPom = task.getPublishPom();
+                    break;
+                }
+            }
+        }
+        return publishPom != null ? publishPom : true;
     }
 
     private Module getOrExtractModule() {
@@ -187,6 +216,24 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
         String baseName = artifactBaseName();
         for (File pubDir : publicationDirs) {
             addMetadataIfPresent(toPublish, new File(pubDir, "pom-default.xml"), baseName + ".pom");
+            addMetadataIfPresent(toPublish, new File(pubDir, "module.json"), baseName + ".module");
+        }
+    }
+
+    /**
+     * When Maven POM publish is off, still pick up Gradle module metadata if present.
+     */
+    private void addGradleModuleMetadata(List<ArtifactToPublish> toPublish) {
+        File publicationsDir = new File(buildDirectory, "build/publications");
+        if (!publicationsDir.isDirectory()) {
+            return;
+        }
+        File[] publicationDirs = publicationsDir.listFiles(File::isDirectory);
+        if (publicationDirs == null) {
+            return;
+        }
+        String baseName = artifactBaseName();
+        for (File pubDir : publicationDirs) {
             addMetadataIfPresent(toPublish, new File(pubDir, "module.json"), baseName + ".module");
         }
     }
