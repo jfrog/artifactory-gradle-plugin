@@ -82,13 +82,10 @@ public class ArtifactoryPlugin implements Plugin<Project> {
             }
             return ExtensionsUtils.getOrCreateArtifactoryExtension(project);
         } catch (IllegalArgumentException e) {
-            if (e.getMessage() != null && e.getMessage().contains("already registered")) {
-                ArtifactoryPluginConvention existing = project.getExtensions().findByType(ArtifactoryPluginConvention.class);
-                if (existing != null) {
-                    return existing;
-                }
-                log.debug("Could not retrieve extension after duplicate apply attempt on {}", project.getPath());
-                return null;
+            ArtifactoryPluginConvention existing = project.getExtensions().findByType(ArtifactoryPluginConvention.class);
+            if (existing != null) {
+                log.debug("Artifactory extension already registered on {}, reusing existing instance", project.getPath());
+                return existing;
             }
             throw e;
         }

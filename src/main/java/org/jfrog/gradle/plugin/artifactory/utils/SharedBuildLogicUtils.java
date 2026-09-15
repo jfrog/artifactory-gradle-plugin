@@ -16,6 +16,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.regex.Matcher;
@@ -210,6 +212,10 @@ public final class SharedBuildLogicUtils {
         return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
+    // Guards concurrent synthetic-jar creation for the same target path when multiple consumer
+    // subprojects resolve the same shared build in parallel within this Gradle daemon.
+    private static final ConcurrentMap<String, Object> JAR_PACK_LOCKS = new ConcurrentHashMap<>();
+
     public static File ensurePublishedJar(File projectDir, String name, String version) {
         File existing = firstBuiltJar(projectDir);
         if (existing != null) {
@@ -224,12 +230,18 @@ public final class SharedBuildLogicUtils {
             return null;
         }
         File jar = new File(libs, name + "-" + StringUtils.defaultIfBlank(version, "unspecified") + ".jar");
-        try {
-            packRootsToJar(Arrays.asList(classes, new File(projectDir, "build/resources/main")), jar);
-            return jar.isFile() ? jar : null;
-        } catch (Exception e) {
-            log.debug("Could not pack classes for {}: {}", projectDir, e.getMessage());
-            return null;
+        Object lock = JAR_PACK_LOCKS.computeIfAbsent(jar.getAbsolutePath(), k -> new Object());
+        synchronized (lock) {
+            if (jar.isFile()) {
+                return jar;
+            }
+            try {
+                packRootsToJar(Arrays.asList(classes, new File(projectDir, "build/resources/main")), jar);
+                return jar.isFile() ? jar : null;
+            } catch (Exception e) {
+                log.debug("Could not pack classes for {}: {}", projectDir, e.getMessage());
+                return null;
+            }
         }
     }
 

@@ -123,7 +123,8 @@ public final class UsedSharedBuilds {
         }
         String includePath = canonicalPath(includeDir);
         String sourcePath = pathFromCodeSource(codeSource);
-        return sourcePath != null && includePath != null && sourcePath.contains(includePath);
+        return sourcePath != null && includePath != null
+                && (sourcePath.equals(includePath) || sourcePath.startsWith(includePath + File.separator));
     }
 
     private static Set<String> collectPluginCodeSources(Project root) {

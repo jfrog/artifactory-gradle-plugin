@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.jfrog.build.extractor.ci.BuildInfoProperties.BUILD_INFO_ENVIRONMENT_PREFIX;
 import static org.jfrog.gradle.plugin.artifactory.Constant.*;
@@ -97,12 +96,18 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
         boolean includeSharedBuild = rootProject != null
                 && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(rootProject);
 
-        Set<File> moduleFilesWithModules = moduleInfoFileProducers.stream()
+        // Track, per module-info file, whether it came from a shared-build producer specifically -
+        // the "keep empty modules" override below must only apply to those, not to every producer.
+        Map<File, Boolean> moduleFileIsSharedBuild = new LinkedHashMap<>();
+        moduleInfoFileProducers.stream()
                 .filter(ModuleInfoFileProducer::hasModules)
-                .flatMap(moduleInfoFileProducer -> moduleInfoFileProducer.getModuleInfoFiles().getFiles().stream())
-                .collect(Collectors.toSet());
+                .forEach(moduleInfoFileProducer -> {
+                    boolean isSharedBuildProducer = moduleInfoFileProducer instanceof SubprocessModuleInfoFileProducer;
+                    moduleInfoFileProducer.getModuleInfoFiles().getFiles()
+                            .forEach(file -> moduleFileIsSharedBuild.merge(file, isSharedBuildProducer, Boolean::logicalOr));
+                });
 
-        moduleFilesWithModules.forEach(moduleFile -> {
+        moduleFileIsSharedBuild.forEach((moduleFile, isSharedBuild) -> {
             try {
                 Module module = ModuleExtractorUtils.readModuleFromFile(moduleFile);
                 List<Artifact> artifacts = module.getArtifacts();
@@ -110,7 +115,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
                 boolean hasContent = (artifacts != null && !artifacts.isEmpty())
                         || (dependencies != null && !dependencies.isEmpty());
                 // includeSharedBuild keeps registered shared builds even when they have no files yet.
-                if (includeSharedBuild || hasContent) {
+                if ((includeSharedBuild && isSharedBuild) || hasContent) {
                     bib.addModule(module);
                 }
             } catch (IOException e) {

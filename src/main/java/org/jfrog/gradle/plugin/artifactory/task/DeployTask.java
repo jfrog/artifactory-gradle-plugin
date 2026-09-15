@@ -14,6 +14,7 @@ import org.jfrog.build.extractor.BuildInfoExtractorUtils;
 import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.BuildInfoConfigProperties;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
+import org.jfrog.build.extractor.clientConfiguration.client.artifactory.ArtifactoryManager;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleBuildInfoExtractor;
@@ -73,9 +74,19 @@ public class DeployTask extends DefaultTask {
         ArtifactoryClientConfiguration accRoot = ExtensionsUtils.getArtifactoryExtension(getProject()).getClientConfig();
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
         if (SharedBuildLogicUtils.isIncludeSharedBuildEnabled(getProject())) {
-            SharedBuildCollector.collectUsed(getProject().getRootProject(), this);
-            ensureModuleInfoFilesAreWritten();
-            publishNestedBuildArtifacts(accRoot, allDeployedDetails);
+            try {
+                // Publish before writing module-info (in the finally below) so failed uploads
+                // are excluded from it, and the file is still written even if publish throws -
+                // GradleBuildInfoExtractor expects every registered producer's file to exist.
+                try {
+                    SharedBuildCollector.collectUsed(getProject().getRootProject(), this);
+                    publishNestedBuildArtifacts(accRoot, allDeployedDetails);
+                } finally {
+                    ensureModuleInfoFilesAreWritten();
+                }
+            } catch (Exception e) {
+                log.error("Failed to collect/publish shared-build artifacts: {}", e.getMessage(), e);
+            }
         }
         handleBuildInfoOperations(accRoot, allDeployedDetails);
         deleteBuildInfoPropertiesFile();
@@ -127,7 +138,7 @@ public class DeployTask extends DefaultTask {
      * Deploy shared-build files with Maven paths and build.name / build.number / build.timestamp
      * so Artifactory and Xray can correlate them with build-info.
      */
-    private void publishNestedBuildArtifacts(ArtifactoryClientConfiguration accRoot, Map<String, Set<DeployDetails>> allDeployedDetails) {
+    private void publishNestedBuildArtifacts(ArtifactoryClientConfiguration accRoot, Map<String, Set<DeployDetails>> allDeployedDetails) throws IOException {
         String repoKey = accRoot.publisher.getRepoKey();
         if (StringUtils.isBlank(repoKey) || StringUtils.isBlank(accRoot.publisher.getContextUrl())) {
             log.debug("Skipping shared-build artifact publishing: repository or context URL is not configured");
@@ -141,40 +152,51 @@ public class DeployTask extends DefaultTask {
         artifactProps.putAll(SharedBuildLogicUtils.buildArtifactProperties(
                 accRoot.info.getBuildName(), accRoot.info.getBuildNumber(), accRoot.info.getBuildTimestamp()));
 
-        for (ModuleInfoFileProducer producer : moduleInfoFileProducers) {
-            if (!(producer instanceof SubprocessModuleInfoFileProducer)) {
-                continue;
-            }
-            SubprocessModuleInfoFileProducer subprocess = (SubprocessModuleInfoFileProducer) producer;
-            List<SubprocessModuleInfoFileProducer.ArtifactToPublish> artifacts = subprocess.getArtifactsToPublish();
-            if (artifacts.isEmpty()) {
-                continue;
-            }
-            for (SubprocessModuleInfoFileProducer.ArtifactToPublish artifact : artifacts) {
-                try {
-                    Map<String, String> checksums = FileChecksumCalculator.calculateChecksums(
-                            artifact.sourceFile, MD5_ALGORITHM, SHA1_ALGORITHM, SHA256_ALGORITHM);
-                    DeployDetails deployDetails = new DeployDetails.Builder()
-                            .file(artifact.sourceFile)
-                            .targetRepository(repoKey)
-                            .artifactPath(artifact.artifactPath)
-                            .packageType(DeployDetails.PackageType.GRADLE)
-                            .md5(checksums.get(MD5_ALGORITHM))
-                            .sha1(checksums.get(SHA1_ALGORITHM))
-                            .sha256(checksums.get(SHA256_ALGORITHM))
-                            .addProperties(artifactProps)
-                            .build();
-                    DeployUtils.deployFile(accRoot, deployDetails);
-                    log.info("Published shared-build artifact {} to {}/{}",
-                            artifact.sourceFile.getName(), repoKey, artifact.artifactPath);
-                    allDeployedDetails.computeIfAbsent(subprocess.getModuleId(),
-                                    k -> Collections.newSetFromMap(new ConcurrentHashMap<>()))
-                            .add(deployDetails);
-                } catch (Exception e) {
-                    log.error("Failed to publish shared-build artifact {}: {}",
-                            artifact.sourceFile.getAbsolutePath(), e.getMessage());
+        List<String> failures = new ArrayList<>();
+        // One ArtifactoryManager for the whole batch, instead of one per artifact.
+        try (ArtifactoryManager artifactoryManager = DeployUtils.createConfiguredArtifactoryManager(accRoot)) {
+            for (ModuleInfoFileProducer producer : moduleInfoFileProducers) {
+                if (!(producer instanceof SubprocessModuleInfoFileProducer)) {
+                    continue;
+                }
+                SubprocessModuleInfoFileProducer subprocess = (SubprocessModuleInfoFileProducer) producer;
+                List<SubprocessModuleInfoFileProducer.ArtifactToPublish> artifacts = subprocess.getArtifactsToPublish();
+                if (artifacts.isEmpty()) {
+                    continue;
+                }
+                for (SubprocessModuleInfoFileProducer.ArtifactToPublish artifact : artifacts) {
+                    try {
+                        Map<String, String> checksums = FileChecksumCalculator.calculateChecksums(
+                                artifact.sourceFile, MD5_ALGORITHM, SHA1_ALGORITHM, SHA256_ALGORITHM);
+                        DeployDetails deployDetails = new DeployDetails.Builder()
+                                .file(artifact.sourceFile)
+                                .targetRepository(repoKey)
+                                .artifactPath(artifact.artifactPath)
+                                .packageType(DeployDetails.PackageType.GRADLE)
+                                .md5(checksums.get(MD5_ALGORITHM))
+                                .sha1(checksums.get(SHA1_ALGORITHM))
+                                .sha256(checksums.get(SHA256_ALGORITHM))
+                                .addProperties(artifactProps)
+                                .build();
+                        artifactoryManager.upload(deployDetails, null, accRoot.publisher.getMinChecksumDeploySizeKb());
+                        log.info("Published shared-build artifact {} to {}/{}",
+                                artifact.sourceFile.getName(), repoKey, artifact.artifactPath);
+                        allDeployedDetails.computeIfAbsent(subprocess.getModuleId(),
+                                        k -> Collections.newSetFromMap(new ConcurrentHashMap<>()))
+                                .add(deployDetails);
+                    } catch (Exception e) {
+                        log.error("Failed to publish shared-build artifact {}: {}",
+                                artifact.sourceFile.getAbsolutePath(), e.getMessage());
+                        // Exclude from the module so build-info never claims this artifact was published.
+                        subprocess.markArtifactFailed(artifact.artifactPath);
+                        failures.add(artifact.sourceFile.getAbsolutePath() + ": " + e.getMessage());
+                    }
                 }
             }
+        }
+        if (!failures.isEmpty()) {
+            throw new IOException("Failed to publish " + failures.size()
+                    + " shared-build artifact(s): " + String.join("; ", failures));
         }
     }
 

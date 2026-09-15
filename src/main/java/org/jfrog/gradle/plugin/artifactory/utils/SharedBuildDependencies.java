@@ -39,7 +39,7 @@ import static org.jfrog.build.api.util.FileChecksumCalculator.SHA256_ALGORITHM;
 public final class SharedBuildDependencies {
     private static final Logger log = Logging.getLogger(SharedBuildDependencies.class);
     private static final Pattern DECLARED_DEP = Pattern.compile(
-            "(implementation|api|compileOnly|runtimeOnly|testImplementation)\\s*\\(?\\s*['\"]([^:'\"]+:[^:'\"]+:[^'\"]+)['\"]");
+            "(implementation|api|compileOnly|runtimeOnly|testImplementation|compile|testCompile)\\s*\\(?\\s*['\"]([^:'\"]+:[^:'\"]+:[^'\"]+)['\"]");
     private static final Pattern POM_DEPENDENCY = Pattern.compile(
             "<dependency>(.*?)</dependency>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
     private static final Pattern POM_GROUP = Pattern.compile("<groupId>\\s*([^<\\s]+)\\s*</groupId>", Pattern.CASE_INSENSITIVE);

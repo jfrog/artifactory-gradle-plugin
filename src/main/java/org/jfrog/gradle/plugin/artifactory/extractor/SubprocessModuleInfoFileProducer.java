@@ -25,8 +25,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.jfrog.build.api.util.FileChecksumCalculator.MD5_ALGORITHM;
 import static org.jfrog.build.api.util.FileChecksumCalculator.SHA1_ALGORITHM;
@@ -47,6 +49,14 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
     private final String artifactModuleId;
     private Module cachedModule;
     private File cachedModuleFile;
+    // Artifact paths that failed to deploy; excluded from the module so build-info never
+    // claims an artifact was published when it was not. Must be populated before the module
+    // is extracted/cached (i.e. before ensureModuleInfoFilesAreWritten() is called).
+    private final Set<String> failedArtifactPaths = new HashSet<>();
+
+    public void markArtifactFailed(String artifactPath) {
+        failedArtifactPaths.add(artifactPath);
+    }
 
     public SubprocessModuleInfoFileProducer(Project anchorProject, String moduleId, List<Dependency> collectedDependencies,
                                             File buildDirectory, String artifactModuleId) {
@@ -144,6 +154,9 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
 
                 List<Artifact> artifacts = new ArrayList<>();
                 for (ArtifactToPublish item : getArtifactsToPublish()) {
+                    if (failedArtifactPaths.contains(item.artifactPath)) {
+                        continue;
+                    }
                     Artifact artifact = toBuildInfoArtifact(item);
                     if (artifact != null) {
                         artifacts.add(artifact);
