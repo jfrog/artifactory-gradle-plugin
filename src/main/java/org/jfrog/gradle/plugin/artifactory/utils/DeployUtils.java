@@ -173,6 +173,17 @@ public class DeployUtils {
         return deployDetailsSet;
     }
 
+    /**
+     * Deploy a single file using the same ArtifactoryManager configuration as task artifacts
+     * (proxy, TLS, retries). Used for shared-build outputs that are not collected by ArtifactoryTask.
+     */
+    public static void deployFile(ArtifactoryClientConfiguration accRoot, DeployDetails deployDetails) throws IOException {
+        try (ArtifactoryManager artifactoryManager = createArtifactoryManager(accRoot.publisher)) {
+            configureArtifactoryManager(accRoot, artifactoryManager);
+            artifactoryManager.upload(deployDetails, null, accRoot.publisher.getMinChecksumDeploySizeKb());
+        }
+    }
+
     public static void deployBuildInfo(ArtifactoryClientConfiguration accRoot, BuildInfo buildInfo, Map<String, Set<DeployDetails>> allDeployDetails) throws IOException {
         if (accRoot.publisher.getContextUrl() == null) {
             return;

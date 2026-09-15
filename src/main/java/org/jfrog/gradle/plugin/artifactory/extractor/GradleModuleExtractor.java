@@ -27,6 +27,8 @@ import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolut
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildDependencies;
+import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
 import java.io.File;
@@ -82,9 +84,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
                 .id(moduleId)
                 .repository(repo);
         try {
-            // Extract the module's dependencies
             builder.dependencies(calculateDependencies(project, moduleId));
-            // Extract the module's artifacts
             ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(project);
             if (publisher == null) {
                 log.warn("No publisher config found for project: " + project.getName());
@@ -133,7 +133,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
             }
             Set<? extends DependencyResult> dependencyResults = configuration.getIncoming().getResolutionResult().getAllDependencies();
             for (ResolvedArtifactResult artifact : configuration.getIncoming().artifactView(view -> view.setLenient(true)).getArtifacts()) {
-                Dependency extractedDependency = extractDependencyFromResolvedArtifact(configuration, artifact, dependencyResults, requestedByMap, dependencies);
+                Dependency extractedDependency = extractDependencyFromResolvedArtifact(project, configuration, artifact, dependencyResults, requestedByMap, dependencies);
                 if (extractedDependency == null) {
                     continue;
                 }
@@ -143,11 +143,18 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
         return dependencies;
     }
 
-    private Dependency extractDependencyFromResolvedArtifact(Configuration configuration, ResolvedArtifactResult artifact, Set<? extends DependencyResult> dependencyResults,
+    private Dependency extractDependencyFromResolvedArtifact(Project project, Configuration configuration, ResolvedArtifactResult artifact, Set<? extends DependencyResult> dependencyResults,
                                                              Map<String, String[][]> requestedByMap, List<Dependency> dependencies) throws NoSuchAlgorithmException, IOException {
         File file = artifact.getFile();
         if (!file.exists()) {
             return null;
+        }
+        if (!file.isFile() && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(project)) {
+            File jar = SharedBuildDependencies.jarForProjectComponent(
+                    artifact.getId().getComponentIdentifier(), project);
+            if (jar != null && jar.isFile()) {
+                file = jar;
+            }
         }
         String depId = extractDependencyId(artifact, dependencyResults);
         Dependency existingDependency = dependencies.stream()
