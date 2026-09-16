@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -373,13 +374,11 @@ public final class SharedBuildLogicUtils {
     }
 
     /**
-     * Deploy GAV. A nested 3-part module ID is used so same-named includes and buildSrc
-     * do not share a Maven folder. Falls back to the project GAV when nesting is unavailable.
+     * Deploy GAV is the shared project's own coordinates. Module IDs stay nested in build-info
+     * for uniqueness; the Maven path does not include the consumer name or Artifactory repo key.
+     * Repo name is {@code module.repository}.
      */
     public static String deployCoordinates(String moduleId, String group, String name, String version) {
-        if (isThreePartGav(moduleId)) {
-            return moduleId;
-        }
         return ownModuleCoordinates(group, name, version);
     }
 
@@ -410,6 +409,19 @@ public final class SharedBuildLogicUtils {
         }
         String fromJar = versionFromJarFileName(moduleName, buildDirectory);
         return hasRealVersion(fromJar) ? fromJar : StringUtils.defaultIfBlank(version, "unspecified");
+    }
+
+    /**
+     * Prefer the consumer version when publishing a shared build from a consumer.
+     * Includes keep a stable own version (e.g. 1.0.0); stamping the consumer version
+     * keeps each consumer build on its own Maven path instead of overwriting jar/module.
+     */
+    public static String resolvePublishedVersion(String version, String moduleName, File buildDirectory,
+                                                 String fallbackVersion) {
+        if (hasRealVersion(fallbackVersion)) {
+            return fallbackVersion;
+        }
+        return resolvePublishedVersion(version, moduleName, buildDirectory);
     }
 
     public static boolean hasRealVersion(String version) {
@@ -485,6 +497,22 @@ public final class SharedBuildLogicUtils {
             return hasOwnGroup(parts[0]) ? parts[0] + "." + parts[1] : parts[1];
         }
         return moduleId.replace(':', '.');
+    }
+
+    /**
+     * Build name / number / timestamp from the jf gradle extractor properties file.
+     * Those values are what {@code jf rt bp} publishes; artifacts must be stamped with the same
+     * properties or the build browser reports "No path found".
+     */
+    public static String[] extractorBuildCoordinates(Properties extractorProps) {
+        if (extractorProps == null) {
+            return new String[]{"", "", ""};
+        }
+        return new String[]{
+                StringUtils.defaultString(extractorProps.getProperty("buildInfo.build.name")),
+                StringUtils.defaultString(extractorProps.getProperty("buildInfo.build.number")),
+                StringUtils.defaultString(extractorProps.getProperty("buildInfo.build.timestamp"))
+        };
     }
 
     /**

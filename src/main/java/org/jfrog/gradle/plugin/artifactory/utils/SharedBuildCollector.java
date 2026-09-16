@@ -13,10 +13,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Collects only shared builds Gradle already used: resolved project components
- * or applied plugins whose code lives under the include. Does not run assemble.
- * Nested includeBuilds are kept only when the parent declared them or the consumer
- * already resolved them ({@link UsedSharedBuilds#isNestedIncludeUsed}).
+ * Collects first-level shared build logic only: consumer {@code buildSrc} if present,
+ * and used direct {@code includeBuild}s from {@link UsedSharedBuilds#findUsedIncludeDirs}.
+ * Nested includes and an include's own {@code buildSrc} are not registered as modules.
  */
 public final class SharedBuildCollector {
     private static final Logger log = Logging.getLogger(SharedBuildCollector.class);
@@ -28,21 +27,19 @@ public final class SharedBuildCollector {
         Set<File> registered = new HashSet<File>();
         String inheritedGroup = rootProject.getGroup() != null ? rootProject.getGroup().toString() : "";
         String consumerModuleId = ProjectUtils.getId(rootProject);
-        Set<String> resolvedNames = UsedSharedBuilds.resolvedIncludedBuildNames(rootProject);
 
         File buildSrcDir = new File(rootProject.getProjectDir(), "buildSrc");
         if (buildSrcDir.isDirectory()) {
-            register(rootProject, deployTask, buildSrcDir, "buildSrc", consumerModuleId, inheritedGroup, registered, resolvedNames);
+            register(rootProject, deployTask, buildSrcDir, "buildSrc", consumerModuleId, inheritedGroup, registered);
         }
 
-        // Root-level: only includes Gradle already used (resolution or applied plugin).
         for (File usedInclude : UsedSharedBuilds.findUsedIncludeDirs(rootProject)) {
-            register(rootProject, deployTask, usedInclude, usedInclude.getName(), consumerModuleId, inheritedGroup, registered, resolvedNames);
+            register(rootProject, deployTask, usedInclude, usedInclude.getName(), consumerModuleId, inheritedGroup, registered);
         }
     }
 
     private static void register(Project rootProject, DeployTask deployTask, File sharedBuildDir, String defaultName,
-                                 String parentModuleId, String inheritedGroup, Set<File> registered, Set<String> resolvedNames) {
+                                 String parentModuleId, String inheritedGroup, Set<File> registered) {
         File canonical;
         try {
             canonical = sharedBuildDir.getCanonicalFile();
@@ -60,8 +57,9 @@ public final class SharedBuildCollector {
                 ? resolved
                 : SharedBuildLogicUtils.readGroupAndVersionFromBuildScript(canonical);
         String effectiveGroup = SharedBuildLogicUtils.resolveEffectiveGroup(groupAndVersion[0], inheritedGroup);
+        String consumerVersion = SharedBuildLogicUtils.gavParts(parentModuleId)[2];
         String publishedVersion = SharedBuildLogicUtils.resolvePublishedVersion(
-                groupAndVersion[1], moduleName, canonical);
+                groupAndVersion[1], moduleName, canonical, consumerVersion);
         String moduleId = SharedBuildLogicUtils.buildQualifiedModuleId(
                 parentModuleId, effectiveGroup, moduleName, publishedVersion);
         String artifactModuleId = SharedBuildLogicUtils.deployCoordinates(
@@ -72,16 +70,5 @@ public final class SharedBuildCollector {
         deployTask.registerModuleInfoProducer(
                 new SubprocessModuleInfoFileProducer(rootProject, moduleId, dependencies,
                         canonical, artifactModuleId));
-
-        File buildSrcDir = new File(canonical, "buildSrc");
-        if (buildSrcDir.isDirectory()) {
-            register(rootProject, deployTask, buildSrcDir, "buildSrc", moduleId, effectiveGroup, registered, resolvedNames);
-        }
-        // Nested includeBuilds: only if declared by parent or already resolved by consumer.
-        for (File childInclude : SettingsGradleParser.listIncludeBuildDirs(canonical)) {
-            if (UsedSharedBuilds.isNestedIncludeUsed(canonical, childInclude, resolvedNames)) {
-                register(rootProject, deployTask, childInclude, childInclude.getName(), moduleId, effectiveGroup, registered, resolvedNames);
-            }
-        }
     }
 }

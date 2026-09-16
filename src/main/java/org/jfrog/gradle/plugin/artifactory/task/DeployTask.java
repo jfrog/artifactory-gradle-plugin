@@ -62,6 +62,28 @@ public class DeployTask extends DefaultTask {
     }
 
     /**
+     * jf gradle writes build name/number into the extractor properties file. The Gradle DSL may
+     * overwrite those values; re-apply them before deploy so artifact properties match {@code jf rt bp}.
+     */
+    private void applyExtractorBuildCoordinates(ArtifactoryClientConfiguration accRoot) {
+        if (accRoot == null || accRoot.info == null) {
+            return;
+        }
+        Properties merged = BuildInfoExtractorUtils.mergePropertiesWithSystemAndPropertyFile(
+                new Properties(), accRoot.info.getLog());
+        String[] coords = SharedBuildLogicUtils.extractorBuildCoordinates(merged);
+        if (StringUtils.isNotBlank(coords[0])) {
+            accRoot.info.setBuildName(coords[0]);
+        }
+        if (StringUtils.isNotBlank(coords[1])) {
+            accRoot.info.setBuildNumber(coords[1]);
+        }
+        if (StringUtils.isNotBlank(coords[2])) {
+            accRoot.info.setBuildTimestamp(coords[2]);
+        }
+    }
+
+    /**
      * Write module-info files during task execution so they survive a preceding :clean.
      */
     private void ensureModuleInfoFilesAreWritten() {
@@ -72,6 +94,7 @@ public class DeployTask extends DefaultTask {
     public void extractBuildInfoAndDeploy() throws IOException {
         log.debug("Extracting build-info and deploying build details in task '{}'", getPath());
         ArtifactoryClientConfiguration accRoot = ExtensionsUtils.getArtifactoryExtension(getProject()).getClientConfig();
+        applyExtractorBuildCoordinates(accRoot);
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
         if (SharedBuildLogicUtils.isIncludeSharedBuildEnabled(getProject())) {
             try {

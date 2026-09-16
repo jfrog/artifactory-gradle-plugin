@@ -129,22 +129,21 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
     /**
      * Same resolution as {@code MavenPublicationExtractor.isPublishMaven}:
      * CI publisher.maven if set, else artifactoryPublish task publishPom, else true.
+     * Flag-on keeps POMs even when jf gradle injects publish.maven=false.
      */
     private boolean isPublishMaven() {
         ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(anchorProject);
-        if (publisher == null) {
-            return false;
-        }
-        Boolean publishPom = publisher.isMaven();
-        if (publishPom == null) {
-            for (ArtifactoryTask task : TaskUtils.getAllArtifactoryPublishTasks(anchorProject)) {
-                if (task.getPublishPom() != null) {
-                    publishPom = task.getPublishPom();
-                    break;
-                }
+        Boolean publisherMaven = publisher != null ? publisher.isMaven() : null;
+        Boolean taskPublishPom = null;
+        for (ArtifactoryTask task : TaskUtils.getAllArtifactoryPublishTasks(anchorProject)) {
+            if (task.getPublishPom() != null) {
+                taskPublishPom = task.getPublishPom();
+                break;
             }
         }
-        return publishPom != null ? publishPom : true;
+        return SharedBuildLogicUtils.shouldPublishMavenDescriptor(
+                publisherMaven, taskPublishPom,
+                SharedBuildLogicUtils.isIncludeSharedBuildEnabled(anchorProject));
     }
 
     private Module getOrExtractModule() {

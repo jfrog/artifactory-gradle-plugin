@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Shared builds the consumer actually used: a resolved composite project,
- * or an applied plugin whose code lives under that include folder.
+ * First-level shared builds the consumer actually used: a resolved composite
+ * project, or an applied plugin whose code lives under that include folder.
  */
 public final class UsedSharedBuilds {
     private UsedSharedBuilds() {
@@ -72,28 +72,6 @@ public final class UsedSharedBuilds {
             }
         }
         return null;
-    }
-
-    /**
-     * Nested includeBuild is used when the parent declares it or the consumer already resolved it.
-     * A leftover jar in build/libs is not enough.
-     */
-    public static boolean isNestedIncludeUsed(File parentDir, File childDir, Collection<String> resolvedBuildNames) {
-        if (childDir == null) {
-            return false;
-        }
-        String childName = SharedBuildLogicUtils.readRootProjectName(childDir, childDir.getName());
-        if (childName != null && resolvedBuildNames != null && resolvedBuildNames.contains(childName)) {
-            return true;
-        }
-        for (String gav : SharedBuildDependencies.parseDeclaredDependencies(
-                SharedBuildLogicUtils.readBuildScript(parentDir))) {
-            String[] parts = gav.split(":");
-            if (parts.length >= 2 && childName != null && childName.equals(parts[1])) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public static Set<String> resolvedIncludedBuildNames(Project root) {

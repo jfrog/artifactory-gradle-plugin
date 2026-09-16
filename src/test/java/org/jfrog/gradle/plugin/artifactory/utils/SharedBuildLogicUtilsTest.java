@@ -40,25 +40,21 @@ public class SharedBuildLogicUtilsTest {
     }
 
     @Test
-    public void testNestedDemoProducesFiveDistinctModuleIds() {
-        // Consumer plus buildSrc, first-level include, that include's buildSrc, and the nested include.
+    public void testFirstLevelSharedLogicProducesDistinctModuleIds() {
         String consumer = "com.example:nested-app:1.0.0";
         String consumerBuildSrc = SharedBuildLogicUtils.buildQualifiedModuleId(
                 consumer, "com.example", "buildSrc", "unspecified");
         String buildLogic1 = SharedBuildLogicUtils.buildQualifiedModuleId(
                 consumer, "com.example", "build-logic-1", "1.0.0");
-        String buildLogic1BuildSrc = SharedBuildLogicUtils.buildQualifiedModuleId(
-                buildLogic1, "com.example", "buildSrc", "unspecified");
-        String buildLogic2 = SharedBuildLogicUtils.buildQualifiedModuleId(
-                buildLogic1, "com.example", "build-logic-2", "1.0.0");
+        String buildLogic3 = SharedBuildLogicUtils.buildQualifiedModuleId(
+                consumer, "com.example", "build-logic-3", "1.0.0");
 
         assertEquals(consumerBuildSrc, "com.example.nested-app:buildSrc:unspecified");
         assertEquals(buildLogic1, "com.example.nested-app:build-logic-1:1.0.0");
-        assertEquals(buildLogic1BuildSrc, "com.example.nested-app.build-logic-1:buildSrc:unspecified");
-        assertEquals(buildLogic2, "com.example.nested-app.build-logic-1:build-logic-2:1.0.0");
+        assertEquals(buildLogic3, "com.example.nested-app:build-logic-3:1.0.0");
         java.util.Set<String> ids = new java.util.HashSet<>(java.util.Arrays.asList(
-                consumer, consumerBuildSrc, buildLogic1, buildLogic1BuildSrc, buildLogic2));
-        assertEquals(ids.size(), 5, "Shared-build collection must keep all five modules");
+                consumer, consumerBuildSrc, buildLogic1, buildLogic3));
+        assertEquals(ids.size(), 4, "First-level collection is consumer plus buildSrc and used includeBuilds");
     }
 
     @Test
@@ -108,23 +104,22 @@ public class SharedBuildLogicUtilsTest {
     }
 
     @Test
-    public void testDeployCoordinatesForBuildSrcUseNestedModuleId() {
+    public void testDeployCoordinatesUseProjectGavWithoutConsumerOrRepoName() {
         String consumerBuildSrc = SharedBuildLogicUtils.deployCoordinates(
-                "com.example.nested-app:buildSrc:unspecified", "com.example", "buildSrc", "unspecified");
+                "com.example.nested-app:buildSrc:1.0.1", "com.example", "buildSrc", "1.0.1");
         String nestedBuildSrc = SharedBuildLogicUtils.deployCoordinates(
-                "com.example.nested-app.build-logic-1:buildSrc:unspecified", "com.example", "buildSrc", "unspecified");
+                "com.example.nested-app.build-logic-1:buildSrc:1.0.1", "com.example", "buildSrc", "1.0.1");
 
-        assertEquals(consumerBuildSrc, "com.example.nested-app:buildSrc:unspecified");
-        assertEquals(nestedBuildSrc, "com.example.nested-app.build-logic-1:buildSrc:unspecified");
-        assertNotEquals(consumerBuildSrc, nestedBuildSrc);
-        assertEquals(SharedBuildLogicUtils.buildMavenArtifactPath(consumerBuildSrc, "buildSrc-unspecified.jar"),
-                "com/example/nested-app/buildSrc/unspecified/buildSrc-unspecified.jar");
-        assertEquals(SharedBuildLogicUtils.buildMavenArtifactPath(nestedBuildSrc, "buildSrc-unspecified.jar"),
-                "com/example/nested-app/build-logic-1/buildSrc/unspecified/buildSrc-unspecified.jar");
+        assertEquals(consumerBuildSrc, "com.example:buildSrc:1.0.1");
+        assertEquals(nestedBuildSrc, "com.example:buildSrc:1.0.1");
+        String path = SharedBuildLogicUtils.buildMavenArtifactPath(consumerBuildSrc, "buildSrc-1.0.1.jar");
+        assertEquals(path, "com/example/buildSrc/1.0.1/buildSrc-1.0.1.jar");
+        assertFalse(path.startsWith("gradle-local/"), "Artifact path must not include the Artifactory repo key");
+        assertFalse(path.contains("nested-app/"), "Artifact path must not include the consumer project name");
     }
 
     @Test
-    public void testDeployCoordinatesAlwaysUseNestedModuleId() {
+    public void testDeployCoordinatesUseProjectGav() {
         String firstLevel = SharedBuildLogicUtils.deployCoordinates(
                 "com.example.nested-app:build-logic-1:1.0.0", "com.example", "build-logic-1", "1.0.0");
         String nested = SharedBuildLogicUtils.deployCoordinates(
@@ -132,16 +127,13 @@ public class SharedBuildLogicUtilsTest {
         String sameNameSibling = SharedBuildLogicUtils.deployCoordinates(
                 "com.example.nested-app:build-logic-2:1.0.0", "com.example", "build-logic-2", "1.0.0");
 
-        assertEquals(firstLevel, "com.example.nested-app:build-logic-1:1.0.0");
-        assertEquals(nested, "com.example.nested-app.build-logic-1:build-logic-2:1.0.0");
-        assertEquals(sameNameSibling, "com.example.nested-app:build-logic-2:1.0.0");
-        assertNotEquals(nested, sameNameSibling);
+        assertEquals(firstLevel, "com.example:build-logic-1:1.0.0");
+        assertEquals(nested, "com.example:build-logic-2:1.0.0");
+        assertEquals(sameNameSibling, "com.example:build-logic-2:1.0.0");
         assertEquals(SharedBuildLogicUtils.buildMavenArtifactPath(firstLevel, "build-logic-1-1.0.0.jar"),
-                "com/example/nested-app/build-logic-1/1.0.0/build-logic-1-1.0.0.jar");
+                "com/example/build-logic-1/1.0.0/build-logic-1-1.0.0.jar");
         assertEquals(SharedBuildLogicUtils.buildMavenArtifactPath(nested, "build-logic-2-1.0.0.jar"),
-                "com/example/nested-app/build-logic-1/build-logic-2/1.0.0/build-logic-2-1.0.0.jar");
-        assertEquals(SharedBuildLogicUtils.buildMavenArtifactPath(sameNameSibling, "build-logic-2-1.0.0.jar"),
-                "com/example/nested-app/build-logic-2/1.0.0/build-logic-2-1.0.0.jar");
+                "com/example/build-logic-2/1.0.0/build-logic-2-1.0.0.jar");
     }
 
     @Test
@@ -151,6 +143,44 @@ public class SharedBuildLogicUtilsTest {
         assertEquals(SharedBuildLogicUtils.buildMavenArtifactPath(
                 "com.example:build-logic-1:1.0.0", "build-logic-1-1.0.0.jar"),
                 "com/example/build-logic-1/1.0.0/build-logic-1-1.0.0.jar");
+    }
+
+    @Test
+    public void testUnspecifiedVersionInheritsConsumerVersion() {
+        java.io.File unusedDir = new java.io.File("/tmp");
+        assertEquals(SharedBuildLogicUtils.resolvePublishedVersion("unspecified", "buildSrc", unusedDir, "1.0.1"),
+                "1.0.1");
+        assertEquals(SharedBuildLogicUtils.resolvePublishedVersion("1.0.0", "build-logic-1", unusedDir, "1.0.1"),
+                "1.0.1");
+        assertEquals(SharedBuildLogicUtils.resolvePublishedVersion("unspecified", "buildSrc", unusedDir, "unspecified"),
+                "unspecified");
+
+        String published = SharedBuildLogicUtils.resolvePublishedVersion(
+                "unspecified", "buildSrc", unusedDir, "1.0.1");
+        String moduleId = SharedBuildLogicUtils.buildQualifiedModuleId(
+                "com.example:nested-app:1.0.1", "com.example", "buildSrc", published);
+        assertEquals(moduleId, "com.example.nested-app:buildSrc:1.0.1");
+        String deployId = SharedBuildLogicUtils.deployCoordinates(
+                moduleId, "com.example", "buildSrc", published);
+        assertEquals(deployId, "com.example:buildSrc:1.0.1");
+        assertEquals(SharedBuildLogicUtils.buildMavenArtifactPath(deployId, "buildSrc-1.0.1.jar"),
+                "com/example/buildSrc/1.0.1/buildSrc-1.0.1.jar");
+    }
+
+    @Test
+    public void testIncludeWithOwnVersionPublishesUnderConsumerVersion() {
+        java.io.File unusedDir = new java.io.File("/tmp");
+        String published = SharedBuildLogicUtils.resolvePublishedVersion(
+                "1.0.0", "build-logic-1", unusedDir, "1.0.1");
+        assertEquals(published, "1.0.1");
+        String moduleId = SharedBuildLogicUtils.buildQualifiedModuleId(
+                "com.example:nested-app:1.0.1", "com.example", "build-logic-1", published);
+        assertEquals(moduleId, "com.example.nested-app:build-logic-1:1.0.1");
+        String deployId = SharedBuildLogicUtils.deployCoordinates(
+                moduleId, "com.example", "build-logic-1", published);
+        assertEquals(deployId, "com.example:build-logic-1:1.0.1");
+        assertEquals(SharedBuildLogicUtils.buildMavenArtifactPath(deployId, "build-logic-1-1.0.1.jar"),
+                "com/example/build-logic-1/1.0.1/build-logic-1-1.0.1.jar");
     }
 
     @Test
@@ -222,13 +252,14 @@ public class SharedBuildLogicUtilsTest {
         assertNotEquals(rootInclude, nestedInclude);
         assertEquals(nestedInclude.split(":").length, 3);
         assertEquals(SharedBuildLogicUtils.deployCoordinates(
-                rootInclude, "com.example", "build-logic-2", "1.0.0"), rootInclude);
+                rootInclude, "com.example", "build-logic-2", "1.0.0"),
+                "com.example:build-logic-2:1.0.0");
         assertEquals(SharedBuildLogicUtils.deployCoordinates(
-                nestedInclude, "com.example", "build-logic-2", "1.0.0"), nestedInclude);
-        assertTrue(SharedBuildLogicUtils.buildMavenArtifactPath(rootInclude, "build-logic-2-1.0.0.jar")
-                .startsWith("com/example/nested-app/"));
-        assertTrue(SharedBuildLogicUtils.buildMavenArtifactPath(nestedInclude, "build-logic-2-1.0.0.jar")
-                .startsWith("com/example/nested-app/"));
+                nestedInclude, "com.example", "build-logic-2", "1.0.0"),
+                "com.example:build-logic-2:1.0.0");
+        assertEquals(SharedBuildLogicUtils.buildMavenArtifactPath(
+                "com.example:build-logic-2:1.0.0", "build-logic-2-1.0.0.jar"),
+                "com/example/build-logic-2/1.0.0/build-logic-2-1.0.0.jar");
     }
 
     @Test
@@ -236,6 +267,19 @@ public class SharedBuildLogicUtilsTest {
         assertEquals(SharedBuildLogicUtils.deployCoordinates(
                 ":convention-plugins:unspecified", "com.example", "convention-plugins", "unspecified"),
                 "com.example:convention-plugins:unspecified");
+    }
+
+    @Test
+    public void testExtractorBuildCoordinatesPreferCiValues() {
+        java.util.Properties props = new java.util.Properties();
+        props.setProperty("buildInfo.build.name", "nested-app-classic");
+        props.setProperty("buildInfo.build.number", "classic-1.0.4");
+        props.setProperty("buildInfo.build.timestamp", "1789530013866");
+        String[] coords = SharedBuildLogicUtils.extractorBuildCoordinates(props);
+        assertEquals(coords[0], "nested-app-classic");
+        assertEquals(coords[1], "classic-1.0.4");
+        assertEquals(coords[2], "1789530013866");
+        assertEquals(SharedBuildLogicUtils.extractorBuildCoordinates(new java.util.Properties())[0], "");
     }
 
     @Test
