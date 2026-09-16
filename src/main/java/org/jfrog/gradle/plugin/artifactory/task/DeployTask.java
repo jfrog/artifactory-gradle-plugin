@@ -9,19 +9,28 @@ import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.api.tasks.UntrackedTask;
 import org.jfrog.build.extractor.BuildInfoExtractorUtils;
 import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.BuildInfoConfigProperties;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
+import org.jfrog.build.extractor.clientConfiguration.client.artifactory.ArtifactoryManager;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleBuildInfoExtractor;
 import org.jfrog.gradle.plugin.artifactory.extractor.ModuleInfoFileProducer;
+import org.jfrog.gradle.plugin.artifactory.extractor.SubprocessModuleInfoFileProducer;
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.DeployUtils;
+import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildCollector;
+import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 import java.io.File;
+
+import static org.jfrog.build.api.util.FileChecksumCalculator.MD5_ALGORITHM;
+import static org.jfrog.build.api.util.FileChecksumCalculator.SHA1_ALGORITHM;
+import static org.jfrog.build.api.util.FileChecksumCalculator.SHA256_ALGORITHM;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,6 +40,7 @@ import java.util.concurrent.*;
 
 import static org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration.addDefaultPublisherAttributes;
 
+@UntrackedTask(because = "Deployment task publishes artifacts to Artifactory and generates build-info - not cacheable")
 public class DeployTask extends DefaultTask {
     private static final Logger log = Logging.getLogger(DeployTask.class);
 
@@ -50,13 +60,69 @@ public class DeployTask extends DefaultTask {
         return moduleInfoFiles;
     }
 
+    /**
+     * jf gradle writes build name/number into the extractor properties file. The Gradle DSL may
+     * overwrite those values; re-apply them before deploy so artifact properties match {@code jf rt bp}.
+     * Flag-scoped to includeSharedBuild: this fixes a real classic-mode correlation issue, but is
+     * only applied when the flag is on so legacy (flag-off) behavior stays byte-for-byte unchanged.
+     */
+    private void applyExtractorBuildCoordinates(ArtifactoryClientConfiguration accRoot) {
+        if (accRoot == null || accRoot.info == null) {
+            return;
+        }
+        Properties merged = BuildInfoExtractorUtils.mergePropertiesWithSystemAndPropertyFile(
+                new Properties(), accRoot.info.getLog());
+        String[] coords = SharedBuildLogicUtils.extractorBuildCoordinates(merged);
+        if (StringUtils.isNotBlank(coords[0])) {
+            accRoot.info.setBuildName(coords[0]);
+        }
+        if (StringUtils.isNotBlank(coords[1])) {
+            accRoot.info.setBuildNumber(coords[1]);
+        }
+        if (StringUtils.isNotBlank(coords[2])) {
+            accRoot.info.setBuildTimestamp(coords[2]);
+        }
+    }
+
+    /**
+     * Write module-info files during task execution so they survive a preceding :clean.
+     */
+    private void ensureModuleInfoFilesAreWritten() {
+        moduleInfoFileProducers.forEach(ModuleInfoFileProducer::ensureModuleInfoFilesAreWritten);
+    }
+
     @TaskAction
     public void extractBuildInfoAndDeploy() throws IOException {
         log.debug("Extracting build-info and deploying build details in task '{}'", getPath());
         ArtifactoryClientConfiguration accRoot = ExtensionsUtils.getArtifactoryExtension(getProject()).getClientConfig();
+        boolean includeSharedBuild = SharedBuildLogicUtils.isIncludeSharedBuildEnabled(getProject());
+        if (includeSharedBuild) {
+            applyExtractorBuildCoordinates(accRoot);
+        }
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
-        // Deploy Artifacts to artifactory
-        // Generate build-info and handle deployment (and artifact exports if configured)
+        if (includeSharedBuild) {
+            // Collection failures are logged and swallowed: they mean a shared build's own
+            // dependencies/module could not be built, not that anything was falsely reported as
+            // deployed, so they should not fail an otherwise-successful consumer build.
+            try {
+                SharedBuildCollector.collectUsed(getProject().getRootProject(), this);
+            } catch (Exception e) {
+                log.error("Failed to collect shared-build modules: {}", e.getMessage(), e);
+            }
+            // Publish before writing module-info (in the finally below) so failed uploads are
+            // excluded from it, and the file is still written even if publish throws -
+            // GradleBuildInfoExtractor expects every registered producer's file to exist.
+            // Unlike collection above, a publish failure here is NOT swallowed: it is allowed to
+            // propagate (this method already declares "throws IOException") so the task fails the
+            // same way a normal (non-shared-build) artifact upload failure does in
+            // deployArtifactsFromTasks/DeployUtils.deployTaskArtifacts - a shared-build publish
+            // failure must not make the Gradle task, and therefore CI, report SUCCESS.
+            try {
+                publishNestedBuildArtifacts(accRoot, allDeployedDetails);
+            } finally {
+                ensureModuleInfoFilesAreWritten();
+            }
+        }
         handleBuildInfoOperations(accRoot, allDeployedDetails);
         deleteBuildInfoPropertiesFile();
     }
@@ -101,6 +167,74 @@ public class DeployTask extends DefaultTask {
             }
         }
         return allDeployDetails;
+    }
+
+    /**
+     * Deploy shared-build files with Maven paths and build.name / build.number / build.timestamp
+     * so Artifactory and Xray can correlate them with build-info.
+     */
+    private void publishNestedBuildArtifacts(ArtifactoryClientConfiguration accRoot, Map<String, Set<DeployDetails>> allDeployedDetails) throws IOException {
+        String repoKey = accRoot.publisher.getRepoKey();
+        if (StringUtils.isBlank(repoKey) || StringUtils.isBlank(accRoot.publisher.getContextUrl())) {
+            log.debug("Skipping shared-build artifact publishing: repository or context URL is not configured");
+            return;
+        }
+
+        Map<String, String> artifactProps = new HashMap<>();
+        if (accRoot.publisher.getMatrixParams() != null) {
+            artifactProps.putAll(accRoot.publisher.getMatrixParams());
+        }
+        artifactProps.putAll(SharedBuildLogicUtils.buildArtifactProperties(
+                accRoot.info.getBuildName(), accRoot.info.getBuildNumber(), accRoot.info.getBuildTimestamp()));
+
+        List<String> failures = new ArrayList<>();
+        // One ArtifactoryManager for the whole batch, instead of one per artifact.
+        try (ArtifactoryManager artifactoryManager = DeployUtils.createConfiguredArtifactoryManager(accRoot)) {
+            for (ModuleInfoFileProducer producer : moduleInfoFileProducers) {
+                if (!(producer instanceof SubprocessModuleInfoFileProducer)) {
+                    continue;
+                }
+                SubprocessModuleInfoFileProducer subprocess = (SubprocessModuleInfoFileProducer) producer;
+                List<SubprocessModuleInfoFileProducer.ArtifactToPublish> artifacts = subprocess.getArtifactsToPublish();
+                if (artifacts.isEmpty()) {
+                    continue;
+                }
+                for (SubprocessModuleInfoFileProducer.ArtifactToPublish artifact : artifacts) {
+                    try {
+                        // Shared with SubprocessModuleInfoFileProducer.toBuildInfoArtifact(), so this
+                        // file is only ever hashed once even though both the upload (here) and the
+                        // build-info Artifact entry need its checksums.
+                        Map<String, String> checksums = artifact.getOrComputeChecksums();
+                        DeployDetails deployDetails = new DeployDetails.Builder()
+                                .file(artifact.sourceFile)
+                                .targetRepository(repoKey)
+                                .artifactPath(artifact.artifactPath)
+                                .packageType(DeployDetails.PackageType.GRADLE)
+                                .md5(checksums.get(MD5_ALGORITHM))
+                                .sha1(checksums.get(SHA1_ALGORITHM))
+                                .sha256(checksums.get(SHA256_ALGORITHM))
+                                .addProperties(artifactProps)
+                                .build();
+                        artifactoryManager.upload(deployDetails, null, accRoot.publisher.getMinChecksumDeploySizeKb());
+                        log.info("Published shared-build artifact {} to {}/{}",
+                                artifact.sourceFile.getName(), repoKey, artifact.artifactPath);
+                        allDeployedDetails.computeIfAbsent(subprocess.getModuleId(),
+                                        k -> Collections.newSetFromMap(new ConcurrentHashMap<>()))
+                                .add(deployDetails);
+                    } catch (Exception e) {
+                        log.error("Failed to publish shared-build artifact {}: {}",
+                                artifact.sourceFile.getAbsolutePath(), e.getMessage());
+                        // Exclude from the module so build-info never claims this artifact was published.
+                        subprocess.markArtifactFailed(artifact.artifactPath);
+                        failures.add(artifact.sourceFile.getAbsolutePath() + ": " + e.getMessage());
+                    }
+                }
+            }
+        }
+        if (!failures.isEmpty()) {
+            throw new IOException("Failed to publish " + failures.size()
+                    + " shared-build artifact(s): " + String.join("; ", failures));
+        }
     }
 
     /**

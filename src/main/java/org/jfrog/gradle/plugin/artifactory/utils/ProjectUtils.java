@@ -43,7 +43,9 @@ public class ProjectUtils {
         return getAsGavString(module.getGroup(), module.getName(), module.getVersion());
     }
 
-    private static String getAsGavString(String group, String name, String version) {
+    // Package-visible: shared with SharedBuildLogicUtils.ownModuleCoordinates, which had its own
+    // near-identical group:name:version concatenation.
+    static String getAsGavString(String group, String name, String version) {
         return group + ':' + name + ':' + version;
     }
 
