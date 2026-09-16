@@ -63,6 +63,8 @@ public class DeployTask extends DefaultTask {
     /**
      * jf gradle writes build name/number into the extractor properties file. The Gradle DSL may
      * overwrite those values; re-apply them before deploy so artifact properties match {@code jf rt bp}.
+     * Flag-scoped to includeSharedBuild: this fixes a real classic-mode correlation issue, but is
+     * only applied when the flag is on so legacy (flag-off) behavior stays byte-for-byte unchanged.
      */
     private void applyExtractorBuildCoordinates(ArtifactoryClientConfiguration accRoot) {
         if (accRoot == null || accRoot.info == null) {
@@ -93,9 +95,12 @@ public class DeployTask extends DefaultTask {
     public void extractBuildInfoAndDeploy() throws IOException {
         log.debug("Extracting build-info and deploying build details in task '{}'", getPath());
         ArtifactoryClientConfiguration accRoot = ExtensionsUtils.getArtifactoryExtension(getProject()).getClientConfig();
-        applyExtractorBuildCoordinates(accRoot);
+        boolean includeSharedBuild = SharedBuildLogicUtils.isIncludeSharedBuildEnabled(getProject());
+        if (includeSharedBuild) {
+            applyExtractorBuildCoordinates(accRoot);
+        }
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
-        if (SharedBuildLogicUtils.isIncludeSharedBuildEnabled(getProject())) {
+        if (includeSharedBuild) {
             // Collection failures are logged and swallowed: they mean a shared build's own
             // dependencies/module could not be built, not that anything was falsely reported as
             // deployed, so they should not fail an otherwise-successful consumer build.
