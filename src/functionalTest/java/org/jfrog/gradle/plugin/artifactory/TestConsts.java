@@ -68,7 +68,7 @@ public class TestConsts {
     public static final String MIN_GRADLE_VERSION_CATALOG_VERSION = "7.0";
 
     // Configuration cache
-    public static final Version MIN_GRADLE_VERSION_CONFIG_CACHE = new Version("7.4.2");
+    public static final Version MIN_GRADLE_VERSION_CONFIG_CACHE = new Version("7.5");
 
     // Results
     public static final String ARTIFACTS_GROUP_ID = "/org/jfrog/test/gradle/publish/";
