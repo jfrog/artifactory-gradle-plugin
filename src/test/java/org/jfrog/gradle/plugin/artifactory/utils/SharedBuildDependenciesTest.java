@@ -1,9 +1,18 @@
 package org.jfrog.gradle.plugin.artifactory.utils;
 
+import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.ModuleVersionIdentifier;
+import org.gradle.api.artifacts.ResolvableDependencies;
+import org.gradle.api.artifacts.result.ResolutionResult;
+import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.testng.annotations.Test;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -37,6 +46,97 @@ public class SharedBuildDependenciesTest {
 
         assertEquals(gavs.size(), 1);
         assertTrue(gavs.contains("com.fasterxml.jackson.core:jackson-databind:2.14.0"));
+    }
+
+    @Test
+    public void testParseDeclaredDependenciesHandlesClassifiedNotation() {
+        // Regression test: the version group used to allow ':', so gavParts() would read
+        // "sources" as the version instead of "5.9.0".
+        String buildScript =
+                "dependencies {\n" +
+                "    implementation 'org.junit:junit-jupiter:5.9.0:sources'\n" +
+                "}\n";
+
+        List<String> gavs = SharedBuildDependencies.parseDeclaredDependencies(buildScript);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("org.junit:junit-jupiter:5.9.0"));
+    }
+
+    @Test
+    public void testParseDeclaredDependenciesHandlesExtensionNotation() {
+        String buildScript =
+                "dependencies {\n" +
+                "    implementation 'com.example:widget:1.2.3@aar'\n" +
+                "}\n";
+
+        List<String> gavs = SharedBuildDependencies.parseDeclaredDependencies(buildScript);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("com.example:widget:1.2.3"));
+    }
+
+    @Test
+    public void testFindComponentPrefersExactVersionMatchWhenGivenARealVersion() {
+        ResolvedComponentResult older = mockComponent("com.example", "build-logic-1", "1.0.0");
+        ResolvedComponentResult newer = mockComponent("com.example", "build-logic-1", "1.0.1");
+        Configuration configuration = mockConfigurationWithComponents(older, newer);
+
+        ResolvedComponentResult found = SharedBuildDependencies.findComponent(
+                configuration, "com.example", "build-logic-1", "1.0.1");
+
+        assertEquals(found, newer);
+    }
+
+    @Test
+    public void testFindComponentFallsBackToFirstMatchWhenVersionIsNotReal() {
+        ResolvedComponentResult first = mockComponent("com.example", "build-logic-1", "1.0.0");
+        ResolvedComponentResult second = mockComponent("com.example", "build-logic-1", "1.0.1");
+        Configuration configuration = mockConfigurationWithComponents(first, second);
+
+        // "unspecified" and blank are not real versions - version-agnostic behavior is kept so a
+        // shared build that only ever resolves to one version within a consumer build (the common
+        // case) is unaffected by making this method version-aware.
+        assertEquals(SharedBuildDependencies.findComponent(
+                configuration, "com.example", "build-logic-1", "unspecified"), first);
+        assertEquals(SharedBuildDependencies.findComponent(
+                configuration, "com.example", "build-logic-1", null), first);
+    }
+
+    @Test
+    public void testFindComponentFallsBackToFirstMatchWhenRequestedVersionIsNotResolved() {
+        ResolvedComponentResult only = mockComponent("com.example", "build-logic-1", "1.0.0");
+        Configuration configuration = mockConfigurationWithComponents(only);
+
+        // Requested version was never actually resolved for this configuration - still return
+        // the group:name match rather than nothing, matching the pre-existing version-agnostic
+        // behavior for the common single-version case.
+        assertEquals(SharedBuildDependencies.findComponent(
+                configuration, "com.example", "build-logic-1", "9.9.9"), only);
+    }
+
+    private static ResolvedComponentResult mockComponent(String group, String name, String version) {
+        ModuleVersionIdentifier module = mock(ModuleVersionIdentifier.class);
+        when(module.getGroup()).thenReturn(group);
+        when(module.getName()).thenReturn(name);
+        when(module.getVersion()).thenReturn(version);
+        ResolvedComponentResult component = mock(ResolvedComponentResult.class);
+        when(component.getModuleVersion()).thenReturn(module);
+        return component;
+    }
+
+    private static Configuration mockConfigurationWithComponents(ResolvedComponentResult... components) {
+        Set<ResolvedComponentResult> all = new LinkedHashSet<>();
+        for (ResolvedComponentResult component : components) {
+            all.add(component);
+        }
+        ResolutionResult resolutionResult = mock(ResolutionResult.class);
+        when(resolutionResult.getAllComponents()).thenReturn(all);
+        ResolvableDependencies incoming = mock(ResolvableDependencies.class);
+        when(incoming.getResolutionResult()).thenReturn(resolutionResult);
+        Configuration configuration = mock(Configuration.class);
+        when(configuration.getIncoming()).thenReturn(incoming);
+        return configuration;
     }
 
     @Test

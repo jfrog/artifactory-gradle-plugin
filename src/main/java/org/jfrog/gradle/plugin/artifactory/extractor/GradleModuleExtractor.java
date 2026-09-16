@@ -149,16 +149,26 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
         if (!file.exists()) {
             return null;
         }
+        ComponentIdentifier componentIdentifier = artifact.getId().getComponentIdentifier();
         if (!file.isFile() && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(project)) {
-            File jar = SharedBuildDependencies.jarForProjectComponent(
-                    artifact.getId().getComponentIdentifier(), project);
+            File jar = SharedBuildDependencies.jarForProjectComponent(componentIdentifier, project);
             if (jar != null && jar.isFile()) {
                 file = jar;
             }
         }
         String depId = extractDependencyId(artifact, dependencyResults);
+        if (depId != null && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(project)) {
+            // Same version-consistency fix as SharedBuildDependencies: a dependency edge onto a
+            // used shared build must be recorded with the version SharedBuildCollector.register()
+            // actually publishes it under, not the shared build's raw own version.
+            String published = SharedBuildDependencies.publishedGavForProjectComponent(componentIdentifier, project, depId);
+            if (published != null) {
+                depId = published;
+            }
+        }
+        String resolvedDepId = depId;
         Dependency existingDependency = dependencies.stream()
-                .filter(input -> input.getId().equals(depId)).findAny().orElse(null);
+                .filter(input -> input.getId().equals(resolvedDepId)).findAny().orElse(null);
         if (existingDependency != null) {
             // Already extracted, update the dependency with the artifact info
             Set<String> existingScopes = existingDependency.getScopes();

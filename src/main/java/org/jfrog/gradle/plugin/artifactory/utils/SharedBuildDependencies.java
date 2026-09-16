@@ -38,8 +38,12 @@ import static org.jfrog.build.api.util.FileChecksumCalculator.SHA256_ALGORITHM;
  */
 public final class SharedBuildDependencies {
     private static final Logger log = Logging.getLogger(SharedBuildDependencies.class);
+    // The version group excludes ':' (like group/artifact) so a classifier (":sources") or
+    // extension ("@aar") suffix is not swallowed into the captured GAV; those suffixes are
+    // matched by the trailing non-capturing groups and discarded - see RTECO-136 review notes.
     private static final Pattern DECLARED_DEP = Pattern.compile(
-            "(implementation|api|compileOnly|runtimeOnly|testImplementation|compile|testCompile)\\s*\\(?\\s*['\"]([^:'\"]+:[^:'\"]+:[^'\"]+)['\"]");
+            "(implementation|api|compileOnly|runtimeOnly|testImplementation|compile|testCompile)\\s*\\(?\\s*['\"]" +
+                    "([^:'\"]+:[^:'\"]+:[^:'\"@]+)(?::[^'\"@]*)?(?:@[^'\"]*)?['\"]");
     private static final Pattern POM_DEPENDENCY = Pattern.compile(
             "<dependency>(.*?)</dependency>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
     private static final Pattern POM_GROUP = Pattern.compile("<groupId>\\s*([^<\\s]+)\\s*</groupId>", Pattern.CASE_INSENSITIVE);
@@ -54,7 +58,10 @@ public final class SharedBuildDependencies {
     public static List<Dependency> collect(Project consumer, File sharedDir, String group, String name, String version) {
         Map<String, Dependency> byId = new LinkedHashMap<String, Dependency>();
         collectDeclaredAndPomTransitives(consumer, sharedDir, byId);
-        collectFromResolvedGraph(consumer, group, name, byId);
+        // version disambiguates which resolved component to walk when more than one configuration
+        // resolved a same-named shared build to different versions (rare, but possible when a
+        // consumer overrides a version for one classpath and not another).
+        collectFromResolvedGraph(consumer, group, name, version, byId);
         return new ArrayList<Dependency>(byId.values());
     }
 
@@ -144,13 +151,13 @@ public final class SharedBuildDependencies {
             if (POM_OPTIONAL.matcher(block).find()) {
                 continue;
             }
-            String scope = pomScopeToGradle(firstMatch(POM_SCOPE, block));
+            String scope = pomScopeToGradle(SharedBuildLogicUtils.firstMatch(POM_SCOPE, block));
             if (scope == null) {
                 continue;
             }
-            String depGroup = firstMatch(POM_GROUP, block);
-            String depName = firstMatch(POM_ARTIFACT, block);
-            String depVersion = firstMatch(POM_VERSION, block);
+            String depGroup = SharedBuildLogicUtils.firstMatch(POM_GROUP, block);
+            String depName = SharedBuildLogicUtils.firstMatch(POM_ARTIFACT, block);
+            String depVersion = SharedBuildLogicUtils.firstMatch(POM_VERSION, block);
             if (StringUtils.isAnyBlank(depGroup, depName, depVersion) || depVersion.contains("${")) {
                 continue;
             }
@@ -169,12 +176,7 @@ public final class SharedBuildDependencies {
         return matcher.find() ? matcher.group(1) : "";
     }
 
-    private static String firstMatch(Pattern pattern, String text) {
-        Matcher matcher = pattern.matcher(text);
-        return matcher.find() ? matcher.group(1) : "";
-    }
-
-    private static void collectFromResolvedGraph(Project consumer, String group, String name,
+    private static void collectFromResolvedGraph(Project consumer, String group, String name, String version,
                                                  Map<String, Dependency> byId) {
         if (consumer == null) {
             return;
@@ -187,7 +189,7 @@ public final class SharedBuildDependencies {
                 if (isConsumerClasspathNoise(configuration.getName())) {
                     continue;
                 }
-                ResolvedComponentResult moduleRoot = findComponent(configuration, group, name);
+                ResolvedComponentResult moduleRoot = findComponent(configuration, group, name, version);
                 if (moduleRoot == null) {
                     continue;
                 }
@@ -209,6 +211,15 @@ public final class SharedBuildDependencies {
                 continue;
             }
             String id = ProjectUtils.getId(module);
+            // If this edge is itself a project dependency onto another used shared build, the GAV
+            // recorded here must be the version SharedBuildCollector.register() will actually
+            // publish it under (own version stamped with the consumer's, when real) - not Gradle's
+            // raw ModuleVersionIdentifier - or build-info records a dependency edge to a version
+            // nothing was ever deployed as.
+            String published = publishedGavForProjectComponent(selected.getId(), consumer, id);
+            if (published != null) {
+                id = published;
+            }
             if (id == null || !visited.add(id)) {
                 continue;
             }
@@ -221,7 +232,7 @@ public final class SharedBuildDependencies {
             }
             file = artifactFileForDependency(
                     file, SharedBuildLogicUtils.resolveGradleUserHome(), id);
-            addDiscoveredDependency(byId, id, file);
+            addDependency(byId, id, file, null);
             collectReachable(consumer, selected, filesById, visited, byId);
         }
     }
@@ -248,7 +259,7 @@ public final class SharedBuildDependencies {
             return;
         }
         try {
-            String pomXml = new String(java.nio.file.Files.readAllBytes(pom.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            String pomXml = org.apache.commons.io.FileUtils.readFileToString(pom, java.nio.charset.StandardCharsets.UTF_8);
             for (String[] transitive : parsePomDependenciesWithScopes(pomXml)) {
                 addGavAndPomTransitives(consumer, transitive[0], transitive[1], gradleUserHome, visitedPoms, byId);
             }
@@ -257,15 +268,23 @@ public final class SharedBuildDependencies {
         }
     }
 
-    private static void addDiscoveredDependency(Map<String, Dependency> byId, String id, File file) {
+    /**
+     * Merge a discovered id/file into the map. A null scope (edges found while walking the
+     * already-resolved dependency graph, which carries no per-configuration scope of its own)
+     * leaves an existing entry's scopes untouched and defaults a new entry to compileClasspath.
+     * A non-null scope (declared/POM-derived dependencies, which do carry one) is always added
+     * to the entry's scope set. This is the merged form of what used to be two near-identical
+     * methods (addDiscoveredDependency / addDependency) differing only in that behavior.
+     */
+    private static void addDependency(Map<String, Dependency> byId, String id, File file, String scope) {
         Dependency existing = byId.get(id);
         if (existing != null) {
+            if (scope != null) {
+                existing.getScopes().add(scope);
+            }
             if (StringUtils.isBlank(existing.getSha1()) && file != null && file.isFile()) {
-                String existingScope = "compileClasspath";
-                if (existing.getScopes() != null && !existing.getScopes().isEmpty()) {
-                    existingScope = existing.getScopes().iterator().next();
-                }
-                Dependency replacement = toDependency(id, file, existingScope);
+                String replacementScope = scope != null ? scope : firstScopeOrDefault(existing);
+                Dependency replacement = toDependency(id, file, replacementScope);
                 if (replacement != null) {
                     replacement.getScopes().clear();
                     replacement.getScopes().addAll(existing.getScopes());
@@ -274,36 +293,39 @@ public final class SharedBuildDependencies {
             }
             return;
         }
-        addDependency(byId, id, file, "compileClasspath");
-    }
-
-    private static void addDependency(Map<String, Dependency> byId, String id, File file, String scope) {
-        Dependency existing = byId.get(id);
-        if (existing != null) {
-            existing.getScopes().add(scope);
-            if (StringUtils.isBlank(existing.getSha1()) && file != null && file.isFile()) {
-                Dependency replacement = toDependency(id, file, scope);
-                if (replacement != null) {
-                    replacement.getScopes().addAll(existing.getScopes());
-                    byId.put(id, replacement);
-                }
-            }
-            return;
-        }
-        Dependency created = toDependency(id, file, scope);
+        Dependency created = toDependency(id, file, scope != null ? scope : "compileClasspath");
         if (created != null) {
             byId.put(id, created);
         }
     }
 
-    private static ResolvedComponentResult findComponent(Configuration detached, String group, String name) {
+    private static String firstScopeOrDefault(Dependency existing) {
+        if (existing.getScopes() != null && !existing.getScopes().isEmpty()) {
+            return existing.getScopes().iterator().next();
+        }
+        return "compileClasspath";
+    }
+
+    /**
+     * version, when a real one is given, disambiguates between same group:name components at
+     * different versions across configurations; otherwise the first group:name match wins,
+     * unchanged from before version-awareness was added here (see RTECO-136 review notes).
+     */
+    static ResolvedComponentResult findComponent(Configuration detached, String group, String name, String version) {
+        ResolvedComponentResult fallback = null;
         for (ResolvedComponentResult component : detached.getIncoming().getResolutionResult().getAllComponents()) {
             ModuleVersionIdentifier module = component.getModuleVersion();
-            if (module != null && group.equals(module.getGroup()) && name.equals(module.getName())) {
+            if (module == null || !group.equals(module.getGroup()) || !name.equals(module.getName())) {
+                continue;
+            }
+            if (SharedBuildLogicUtils.hasRealVersion(version) && version.equals(module.getVersion())) {
                 return component;
             }
+            if (fallback == null) {
+                fallback = component;
+            }
         }
-        return null;
+        return fallback;
     }
 
     private static Map<String, File> artifactFiles(Project consumer, Configuration detached) {
@@ -324,6 +346,10 @@ public final class SharedBuildDependencies {
                     if (module != null) {
                         depId = ProjectUtils.getId(module);
                     }
+                    String published = publishedGavForProjectComponent(id, consumer, depId);
+                    if (published != null) {
+                        depId = published;
+                    }
                     if (file == null || !file.isFile()) {
                         file = jarForProjectComponent(id, consumer);
                     }
@@ -339,6 +365,35 @@ public final class SharedBuildDependencies {
     }
 
     public static File jarForProjectComponent(ComponentIdentifier id, Project consumer) {
+        ResolvedSharedBuild shared = resolveSharedBuildProjectComponent(id, consumer);
+        if (shared == null) {
+            return null;
+        }
+        return SharedBuildLogicUtils.ensurePublishedJar(shared.dir, shared.name, shared.version);
+    }
+
+    /**
+     * GAV that {@code SharedBuildCollector.register()} will actually publish this project
+     * component under (own version, consumer-version-stamped the same way register() stamps it),
+     * so a dependency edge onto a used shared build is recorded with the version that was truly
+     * deployed rather than the shared build's raw/own {@link ModuleVersionIdentifier} version.
+     * Returns null when {@code id} is not a project component resolving to a used shared build,
+     * in which case the caller's own already-computed GAV should be kept unchanged.
+     *
+     * @param fallbackGav the caller's already-computed GAV, used only for its group when the
+     *                    shared build's own build script does not declare one.
+     */
+    public static String publishedGavForProjectComponent(ComponentIdentifier id, Project consumer, String fallbackGav) {
+        ResolvedSharedBuild shared = resolveSharedBuildProjectComponent(id, consumer);
+        if (shared == null) {
+            return null;
+        }
+        String fallbackGroup = StringUtils.isNotBlank(fallbackGav) ? SharedBuildLogicUtils.gavParts(fallbackGav)[0] : "";
+        String group = SharedBuildLogicUtils.hasOwnGroup(shared.group) ? shared.group : fallbackGroup;
+        return group + ":" + shared.name + ":" + shared.version;
+    }
+
+    private static ResolvedSharedBuild resolveSharedBuildProjectComponent(ComponentIdentifier id, Project consumer) {
         if (!(id instanceof ProjectComponentIdentifier) || consumer == null) {
             return null;
         }
@@ -350,38 +405,53 @@ public final class SharedBuildDependencies {
         }
         String moduleName = SharedBuildLogicUtils.readRootProjectName(dir, dir.getName());
         String[] groupAndVersion = SharedBuildLogicUtils.readGroupAndVersionFromBuildScript(dir);
-        String version = SharedBuildLogicUtils.resolvePublishedVersion(groupAndVersion[1], moduleName, dir);
-        return SharedBuildLogicUtils.ensurePublishedJar(dir, moduleName, version);
+        // Same consumer-version fallback SharedBuildCollector.register() stamps the deploy with -
+        // always the root project's version, regardless of which project in the build is asking.
+        Project rootProject = consumer.getRootProject();
+        String consumerVersion = rootProject != null && rootProject.getVersion() != null
+                ? rootProject.getVersion().toString() : null;
+        String version = SharedBuildLogicUtils.resolvePublishedVersion(groupAndVersion[1], moduleName, dir, consumerVersion);
+        return new ResolvedSharedBuild(dir, groupAndVersion[0], moduleName, version);
+    }
+
+    private static final class ResolvedSharedBuild {
+        final File dir;
+        final String group;
+        final String name;
+        final String version;
+
+        ResolvedSharedBuild(File dir, String group, String name, String version) {
+            this.dir = dir;
+            this.group = group;
+            this.name = name;
+            this.version = version;
+        }
     }
 
     static File findIncludeDir(Project consumer, String includeName) {
-        if (includeName == null || includeName.isEmpty()) {
+        if (includeName == null || includeName.isEmpty() || consumer == null) {
             return null;
         }
         for (IncludedBuild included : consumer.getGradle().getIncludedBuilds()) {
-            File found = findNamedBuild(included.getProjectDir(), includeName);
-            if (found != null) {
-                return found;
+            File dir = included.getProjectDir();
+            if (matchesInclude(dir, included.getName(), includeName)) {
+                return dir;
             }
         }
-        return findNamedBuild(consumer.getProjectDir(), includeName);
-    }
-
-    private static File findNamedBuild(File dir, String includeName) {
-        if (dir == null || !dir.isDirectory()) {
-            return null;
-        }
-        String name = SharedBuildLogicUtils.readRootProjectName(dir, dir.getName());
-        if (includeName.equals(name) || includeName.equals(dir.getName())) {
-            return dir;
-        }
-        for (File child : SettingsGradleParser.listIncludeBuildDirs(dir)) {
-            File found = findNamedBuild(child, includeName);
-            if (found != null) {
-                return found;
-            }
+        File buildSrc = new File(consumer.getProjectDir(), "buildSrc");
+        if (buildSrc.isDirectory() && matchesInclude(buildSrc, "buildSrc", includeName)) {
+            return buildSrc;
         }
         return null;
+    }
+
+    private static boolean matchesInclude(File dir, String includedName, String includeName) {
+        if (dir == null || !dir.isDirectory()) {
+            return false;
+        }
+        return includeName.equals(includedName)
+                || includeName.equals(dir.getName())
+                || includeName.equals(SharedBuildLogicUtils.readRootProjectName(dir, dir.getName()));
     }
 
     /**
@@ -477,7 +547,7 @@ public final class SharedBuildDependencies {
             DependencyBuilder builder = new DependencyBuilder()
                     .id(id)
                     .scopes(scopes)
-                    .type(file != null && file.isFile() ? typeOf(file.getName()) : "");
+                    .type(file != null && file.isFile() ? StringUtils.substringAfterLast(file.getName(), ".") : "");
             if (file != null && file.isFile()) {
                 Map<String, String> checksums = FileChecksumCalculator.calculateChecksums(
                         file, MD5_ALGORITHM, SHA1_ALGORITHM, SHA256_ALGORITHM);
@@ -492,8 +562,4 @@ public final class SharedBuildDependencies {
         }
     }
 
-    private static String typeOf(String fileName) {
-        int dot = fileName.lastIndexOf('.');
-        return dot < 0 ? "" : fileName.substring(dot + 1);
-    }
 }
