@@ -3,15 +3,21 @@ package org.jfrog.gradle.plugin.artifactory.utils;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.UnknownTaskException;
+import org.gradle.api.artifacts.ResolvableDependencies;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
 import org.jfrog.gradle.plugin.artifactory.Constant;
+import org.jfrog.gradle.plugin.artifactory.extractor.DependencyExtractor;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.task.DeployTask;
 import org.jfrog.gradle.plugin.artifactory.task.ExtractModuleTask;
+import org.jfrog.gradle.plugin.artifactory.extractor.PreCollectedDependency;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class TaskUtils {
     private static final Logger log = LoggerFactory.getLogger(TaskUtils.class);
@@ -93,6 +99,40 @@ public class TaskUtils {
         // Wire the ExtractModuleTask output files to the DeployTask inputs
         project.getRootProject().getTasks().withType(DeployTask.class).configureEach(deployTask -> {
             deployTask.addModuleInfoFiles(finalTaskProvider.get().getOutputs().getFiles());
+        });
+
+        // Configuration-cache-compatible dependency capture: for each resolvable configuration, wire a lazy
+        // provider that transforms its resolution result + resolved artifacts into serializable dependency
+        // records. The transform runs at execution time and its result is stored in the configuration cache,
+        // so dependencies survive a cache hit without a config-time resolution listener.
+        wireDependencyProviders(project, finalTaskProvider);
+    }
+
+    /**
+     * Wire a lazy dependency-capture provider for every resolvable configuration of the given project onto
+     * its ExtractModuleTask. Deferred to afterEvaluate so source-set configurations (compileClasspath,
+     * runtimeClasspath, ...) added by the java/java-library plugins already exist.
+     */
+    private static void wireDependencyProviders(Project project, TaskProvider<ExtractModuleTask> extractTaskProvider) {
+        project.afterEvaluate(evaluatedProject -> {
+            // Collect all providers first, then configure the task once.
+            List<Provider<List<PreCollectedDependency>>> providers = new ArrayList<>();
+            evaluatedProject.getConfigurations().forEach(configuration -> {
+                if (!configuration.isCanBeResolved()) {
+                    return;
+                }
+                String configName = configuration.getName();
+                ResolvableDependencies incoming = configuration.getIncoming();
+                Provider<List<PreCollectedDependency>> depsProvider =
+                        incoming.getResolutionResult().getRootComponent().zip(
+                                incoming.artifactView(view -> view.setLenient(true))
+                                        .getArtifacts()
+                                        .getResolvedArtifacts(),
+                                (root, artifacts) -> DependencyExtractor.extract(configName, root, artifacts));
+                providers.add(depsProvider);
+            });
+            extractTaskProvider.configure(extractModuleTask ->
+                    providers.forEach(p -> extractModuleTask.getPreCollectedDependencies().addAll(p)));
         });
     }
 

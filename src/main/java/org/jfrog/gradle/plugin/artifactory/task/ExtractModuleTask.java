@@ -5,6 +5,7 @@ import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.gradle.api.model.ObjectFactory;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
@@ -15,10 +16,13 @@ import org.jfrog.build.extractor.ModuleExtractorUtils;
 import org.jfrog.build.extractor.ci.Module;
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleModuleExtractor;
-import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
+import org.jfrog.gradle.plugin.artifactory.extractor.PreCollectedDependency;
+
 import javax.inject.Inject;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 public class ExtractModuleTask extends DefaultTask {
 
@@ -31,44 +35,24 @@ public class ExtractModuleTask extends DefaultTask {
     private String storedProjectVersion;
     private Map<String, String> configSnapshot;
 
-    /**
-     * Pre-collected dependency data.
-     */
-    public static class PreCollectedDependency {
-        private final String id;
-        private final String type;
-        private final Set<String> scopes;
-        private final String md5;
-        private final String sha1;
-        private final String sha256;
-        private final String[][] requestedBy;
-
-        public PreCollectedDependency(String id, String type, Set<String> scopes, String md5, String sha1, String sha256, String[][] requestedBy) {
-            this.id = id;
-            this.type = type;
-            this.scopes = scopes;
-            this.md5 = md5;
-            this.sha1 = sha1;
-            this.sha256 = sha256;
-            this.requestedBy = requestedBy;
-        }
-
-        public String getId() { return id; }
-        public String getType() { return type; }
-        public Set<String> getScopes() { return scopes; }
-        public String getMd5() { return md5; }
-        public String getSha1() { return sha1; }
-        public String getSha256() { return sha256; }
-        public String[][] getRequestedBy() { return requestedBy; }
-    }
-
     // BuildService for inter-task communication
     private final Property<ArtifactoryBuildService> buildService;
+
+    // Dependency records captured lazily from each resolvable configuration's resolution result.
+    // Populated at configuration time via provider transforms; the resolved values are serialized into
+    // the configuration cache and reloaded on a cache hit (unlike a config-time resolution listener).
+    private final ListProperty<PreCollectedDependency> preCollectedDependencies;
 
     @Inject
     public ExtractModuleTask(ObjectFactory objectFactory) {
         this.moduleFile = objectFactory.fileProperty();
         this.buildService = objectFactory.property(ArtifactoryBuildService.class);
+        this.preCollectedDependencies = objectFactory.listProperty(PreCollectedDependency.class);
+    }
+
+    @Internal
+    public ListProperty<PreCollectedDependency> getPreCollectedDependencies() {
+        return preCollectedDependencies;
     }
 
     @OutputFile
@@ -125,14 +109,10 @@ public class ExtractModuleTask extends DefaultTask {
     @TaskAction
     public void extractModule() {
         log.info("Extracting details for {}", getPath());
-        // Get data from BuildService (populated at execution time by ArtifactoryTask and resolution listener)
+        // Get deploy details from BuildService (populated at execution time by ArtifactoryTask)
         ArtifactoryBuildService.TaskData taskData = null;
-        Map<String, Map<String, String[][]>> modulesHierarchyMap = null;
-        List<PreCollectedDependency> deps = null;
-
         if (buildService != null && buildService.isPresent()) {
             ArtifactoryBuildService service = buildService.get();
-            // Find the task data for our project path
             for (ArtifactoryBuildService.TaskData data : service.getAllTaskData()) {
                 if (data.getProjectPath().equals(storedProjectPath)) {
                     taskData = data;
@@ -141,23 +121,21 @@ public class ExtractModuleTask extends DefaultTask {
             }
         }
 
-        // Get dependency data from static maps (populated by afterResolve listener during execution)
-        modulesHierarchyMap = ArtifactoryDependencyResolutionListener.getModulesHierarchyMap();
-        String effectiveVersion = (buildService != null && buildService.get().getProjectVersion() != null)
+        String effectiveVersion = (buildService != null && buildService.isPresent() && buildService.get().getProjectVersion() != null)
                 ? buildService.get().getProjectVersion()
                 : storedProjectVersion;
-        String moduleId = storedProjectGroup + ":" + storedProjectName + ":" + effectiveVersion;
-        deps = ArtifactoryDependencyResolutionListener.getModulesDependenciesMap().get(moduleId);
+
+        // Dependency records captured from each configuration's resolution result via lazy providers.
+        // The values are serialized into the configuration cache and reloaded on a cache hit.
+        List<PreCollectedDependency> deps = preCollectedDependencies.getOrElse(Collections.emptyList());
 
         Module module = new GradleModuleExtractor().extractModule(
                 storedProjectPath, storedProjectName, storedProjectGroup, effectiveVersion,
-                configSnapshot, taskData, modulesHierarchyMap, deps);
+                configSnapshot, taskData, deps);
         try {
-            // Export
             ModuleExtractorUtils.saveModuleToFile(module, moduleFile.getAsFile().get());
         } catch (IOException e) {
             throw new RuntimeException("Could not save module file", e);
         }
     }
-
 }
