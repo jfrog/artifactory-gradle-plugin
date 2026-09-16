@@ -321,7 +321,7 @@ public final class SharedBuildLogicUtils {
                 continue;
             }
             try {
-                return new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+                return org.apache.commons.io.FileUtils.readFileToString(file, StandardCharsets.UTF_8);
             } catch (Exception e) {
                 log.debug("Could not read {}: {}", file, e.getMessage());
             }
@@ -329,7 +329,8 @@ public final class SharedBuildLogicUtils {
         return "";
     }
 
-    private static String firstMatch(Pattern pattern, String text) {
+    // Package-visible: shared with SharedBuildDependencies, which had a verbatim duplicate.
+    static String firstMatch(Pattern pattern, String text) {
         if (StringUtils.isBlank(text)) {
             return "";
         }
@@ -367,19 +368,12 @@ public final class SharedBuildLogicUtils {
     }
 
     /**
-     * Project GAV without consumer nesting. Used when there is no usable 3-part module ID.
-     */
-    public static String ownModuleCoordinates(String group, String name, String version) {
-        return StringUtils.defaultString(group) + ":" + name + ":" + StringUtils.defaultIfBlank(version, "unspecified");
-    }
-
-    /**
-     * Deploy GAV is the shared project's own coordinates. Module IDs stay nested in build-info
-     * for uniqueness; the Maven path does not include the consumer name or Artifactory repo key.
+     * Shared project's own GAV. Maven deploy path uses this, not the consumer-nested module ID.
      * Repo name is {@code module.repository}.
      */
-    public static String deployCoordinates(String moduleId, String group, String name, String version) {
-        return ownModuleCoordinates(group, name, version);
+    public static String ownModuleCoordinates(String group, String name, String version) {
+        return ProjectUtils.getAsGavString(
+                StringUtils.defaultString(group), name, StringUtils.defaultIfBlank(version, "unspecified"));
     }
 
     /**
@@ -441,7 +435,7 @@ public final class SharedBuildLogicUtils {
                 continue;
             }
             try {
-                Matcher matcher = versionTag.matcher(new String(Files.readAllBytes(pom.toPath()), StandardCharsets.UTF_8));
+                Matcher matcher = versionTag.matcher(org.apache.commons.io.FileUtils.readFileToString(pom, StandardCharsets.UTF_8));
                 if (matcher.find()) {
                     return matcher.group(1).trim();
                 }

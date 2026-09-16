@@ -62,8 +62,8 @@ public final class SharedBuildCollector {
                 groupAndVersion[1], moduleName, canonical, consumerVersion);
         String moduleId = SharedBuildLogicUtils.buildQualifiedModuleId(
                 parentModuleId, effectiveGroup, moduleName, publishedVersion);
-        String artifactModuleId = SharedBuildLogicUtils.deployCoordinates(
-                moduleId, effectiveGroup, moduleName, publishedVersion);
+        String artifactModuleId = SharedBuildLogicUtils.ownModuleCoordinates(
+                effectiveGroup, moduleName, publishedVersion);
 
         List<Dependency> dependencies = SharedBuildDependencies.collect(
                 rootProject, canonical, effectiveGroup, moduleName, publishedVersion);

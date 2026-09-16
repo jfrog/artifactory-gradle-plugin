@@ -50,7 +50,11 @@ public final class UsedSharedBuilds {
         }
         for (Project project : root.getAllprojects()) {
             for (Configuration configuration : project.getConfigurations()) {
-                if (!configuration.isCanBeResolved()) {
+                // Not just isCanBeResolved(): that only says the configuration is *capable* of
+                // resolving, and forcing getResolutionResult() on one that hasn't actually
+                // resolved yet triggers eager, unwanted resolution as a side effect here. Matches
+                // the RESOLVED-state check SharedBuildDependencies already uses.
+                if (configuration.getState() != Configuration.State.RESOLVED) {
                     continue;
                 }
                 try {
@@ -72,10 +76,6 @@ public final class UsedSharedBuilds {
             }
         }
         return null;
-    }
-
-    public static Set<String> resolvedIncludedBuildNames(Project root) {
-        return collectResolvedIncludedBuildNames(root);
     }
 
     static boolean isUsed(File includeDir, String includeName,
@@ -130,7 +130,7 @@ public final class UsedSharedBuilds {
         Set<String> names = new LinkedHashSet<String>();
         for (Project project : root.getAllprojects()) {
             for (Configuration configuration : project.getConfigurations()) {
-                if (!configuration.isCanBeResolved()) {
+                if (configuration.getState() != Configuration.State.RESOLVED) {
                     continue;
                 }
                 try {
