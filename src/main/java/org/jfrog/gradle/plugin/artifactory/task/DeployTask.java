@@ -26,7 +26,6 @@ import org.jfrog.gradle.plugin.artifactory.utils.DeployUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildCollector;
 import org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
-import org.jfrog.build.api.util.FileChecksumCalculator;
 import java.io.File;
 
 import static org.jfrog.build.api.util.FileChecksumCalculator.MD5_ALGORITHM;
@@ -97,18 +96,26 @@ public class DeployTask extends DefaultTask {
         applyExtractorBuildCoordinates(accRoot);
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
         if (SharedBuildLogicUtils.isIncludeSharedBuildEnabled(getProject())) {
+            // Collection failures are logged and swallowed: they mean a shared build's own
+            // dependencies/module could not be built, not that anything was falsely reported as
+            // deployed, so they should not fail an otherwise-successful consumer build.
             try {
-                // Publish before writing module-info (in the finally below) so failed uploads
-                // are excluded from it, and the file is still written even if publish throws -
-                // GradleBuildInfoExtractor expects every registered producer's file to exist.
-                try {
-                    SharedBuildCollector.collectUsed(getProject().getRootProject(), this);
-                    publishNestedBuildArtifacts(accRoot, allDeployedDetails);
-                } finally {
-                    ensureModuleInfoFilesAreWritten();
-                }
+                SharedBuildCollector.collectUsed(getProject().getRootProject(), this);
             } catch (Exception e) {
-                log.error("Failed to collect/publish shared-build artifacts: {}", e.getMessage(), e);
+                log.error("Failed to collect shared-build modules: {}", e.getMessage(), e);
+            }
+            // Publish before writing module-info (in the finally below) so failed uploads are
+            // excluded from it, and the file is still written even if publish throws -
+            // GradleBuildInfoExtractor expects every registered producer's file to exist.
+            // Unlike collection above, a publish failure here is NOT swallowed: it is allowed to
+            // propagate (this method already declares "throws IOException") so the task fails the
+            // same way a normal (non-shared-build) artifact upload failure does in
+            // deployArtifactsFromTasks/DeployUtils.deployTaskArtifacts - a shared-build publish
+            // failure must not make the Gradle task, and therefore CI, report SUCCESS.
+            try {
+                publishNestedBuildArtifacts(accRoot, allDeployedDetails);
+            } finally {
+                ensureModuleInfoFilesAreWritten();
             }
         }
         handleBuildInfoOperations(accRoot, allDeployedDetails);
@@ -189,8 +196,10 @@ public class DeployTask extends DefaultTask {
                 }
                 for (SubprocessModuleInfoFileProducer.ArtifactToPublish artifact : artifacts) {
                     try {
-                        Map<String, String> checksums = FileChecksumCalculator.calculateChecksums(
-                                artifact.sourceFile, MD5_ALGORITHM, SHA1_ALGORITHM, SHA256_ALGORITHM);
+                        // Shared with SubprocessModuleInfoFileProducer.toBuildInfoArtifact(), so this
+                        // file is only ever hashed once even though both the upload (here) and the
+                        // build-info Artifact entry need its checksums.
+                        Map<String, String> checksums = artifact.getOrComputeChecksums();
                         DeployDetails deployDetails = new DeployDetails.Builder()
                                 .file(artifact.sourceFile)
                                 .targetRepository(repoKey)
