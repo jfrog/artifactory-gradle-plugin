@@ -143,6 +143,23 @@ public class TaskUtils {
     }
 
     /**
+     * Same as {@link #getAllArtifactoryPublishTasks(Project)} but scoped to one project's own
+     * ArtifactoryTask(s), instead of every ArtifactoryTask in the whole build's task graph.
+     * {@code getAllArtifactoryPublishTasks} ignores its {@code project} argument by design (its
+     * existing callers want build-wide semantics) - this variant is for callers that need a
+     * per-project decision, such as a shared build's own Maven-descriptor setting.
+     */
+    public static List<ArtifactoryTask> getArtifactoryPublishTasksForProject(Project project) {
+        List<ArtifactoryTask> tasks = new ArrayList<>();
+        for (ArtifactoryTask task : getAllArtifactoryPublishTasks(project)) {
+            if (project.equals(task.getProject())) {
+                tasks.add(task);
+            }
+        }
+        return tasks;
+    }
+
+    /**
      * Produce module info files if the module has publications to deploy from the collecting task
      */
     private static class DefaultModuleInfoFileProducer implements ModuleInfoFileProducer {

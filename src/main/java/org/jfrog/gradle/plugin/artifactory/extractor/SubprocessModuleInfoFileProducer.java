@@ -49,6 +49,14 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
     private final String artifactModuleId;
     private Module cachedModule;
     private File cachedModuleFile;
+    private String cachedPublishedVersion;
+    private String cachedPublishedOwnCoordinates;
+    private List<ArtifactToPublish> cachedArtifactsToPublish;
+    // Set when writing the module-info file failed, so hasModules() reports false for this
+    // producer instead of GradleBuildInfoExtractor later trying to read a file that was never
+    // written. getOrExtractModule() alone can't signal this: extraction itself still succeeds
+    // (it's the write to disk that failed), so cachedModule would stay non-null either way.
+    private boolean moduleFileWriteFailed;
     // Artifact paths that failed to deploy; excluded from the module so build-info never
     // claims an artifact was published when it was not. Must be populated before the module
     // is extracted/cached (i.e. before ensureModuleInfoFilesAreWritten() is called).
@@ -75,13 +83,19 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
      * Version from the project's own GAV, or from pom/jar if export still said unspecified.
      */
     private String publishedVersion() {
-        String[] own = SharedBuildLogicUtils.gavParts(artifactModuleId);
-        return SharedBuildLogicUtils.resolvePublishedVersion(own[2], own[1], buildDirectory);
+        if (cachedPublishedVersion == null) {
+            String[] own = SharedBuildLogicUtils.gavParts(artifactModuleId);
+            cachedPublishedVersion = SharedBuildLogicUtils.resolvePublishedVersion(own[2], own[1], buildDirectory);
+        }
+        return cachedPublishedVersion;
     }
 
     private String publishedOwnCoordinates() {
-        String[] own = SharedBuildLogicUtils.gavParts(artifactModuleId);
-        return SharedBuildLogicUtils.ownModuleCoordinates(own[0], own[1], publishedVersion());
+        if (cachedPublishedOwnCoordinates == null) {
+            String[] own = SharedBuildLogicUtils.gavParts(artifactModuleId);
+            cachedPublishedOwnCoordinates = SharedBuildLogicUtils.ownModuleCoordinates(own[0], own[1], publishedVersion());
+        }
+        return cachedPublishedOwnCoordinates;
     }
 
     private String publishedModuleId() {
@@ -90,6 +104,9 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
 
     @Override
     public boolean hasModules() {
+        if (moduleFileWriteFailed) {
+            return false;
+        }
         // Keep a registered shared build even when assemble/export found no files yet.
         return getOrExtractModule() != null;
     }
@@ -111,6 +128,17 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
      * POM descriptors follow the same publishPom / publisher.maven rules as main publications.
      */
     public List<ArtifactToPublish> getArtifactsToPublish() {
+        // Memoized: this scans the filesystem, and both DeployTask (to upload) and
+        // getOrExtractModule() (to build the module's Artifact list) call this - they must see
+        // the exact same ArtifactToPublish instances so a checksum computed by one side is
+        // reused by the other instead of being hashed twice (see ArtifactToPublish.getOrComputeChecksums).
+        if (cachedArtifactsToPublish == null) {
+            cachedArtifactsToPublish = computeArtifactsToPublish();
+        }
+        return cachedArtifactsToPublish;
+    }
+
+    private List<ArtifactToPublish> computeArtifactsToPublish() {
         List<ArtifactToPublish> toPublish = new ArrayList<>();
         if (buildDirectory == null || !buildDirectory.exists()) {
             return toPublish;
@@ -119,9 +147,9 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
         addBinaryArtifacts(toPublish);
         if (isPublishMaven()) {
             ensurePublicationMetadata();
-            addPublicationMetadata(toPublish);
+            addPublicationMetadata(toPublish, true);
         } else {
-            addGradleModuleMetadata(toPublish);
+            addPublicationMetadata(toPublish, false);
         }
         return toPublish;
     }
@@ -135,7 +163,7 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
         ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(anchorProject);
         Boolean publisherMaven = publisher != null ? publisher.isMaven() : null;
         Boolean taskPublishPom = null;
-        for (ArtifactoryTask task : TaskUtils.getAllArtifactoryPublishTasks(anchorProject)) {
+        for (ArtifactoryTask task : TaskUtils.getArtifactoryPublishTasksForProject(anchorProject)) {
             if (task.getPublishPom() != null) {
                 taskPublishPom = task.getPublishPom();
                 break;
@@ -215,8 +243,12 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
 
     /**
      * Maven Publish writes pom-default.xml / module.json; publish them as name-version.pom / .module.
+     * The pom is only included when includePom is true (Maven POM publish is on) - when it's off,
+     * Gradle module metadata is still picked up if present. Merged form of what used to be two
+     * near-identical methods (addPublicationMetadata / addGradleModuleMetadata) differing only
+     * in whether the pom was included.
      */
-    private void addPublicationMetadata(List<ArtifactToPublish> toPublish) {
+    private void addPublicationMetadata(List<ArtifactToPublish> toPublish, boolean includePom) {
         File publicationsDir = new File(buildDirectory, "build/publications");
         if (!publicationsDir.isDirectory()) {
             return;
@@ -227,25 +259,9 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
         }
         String baseName = artifactBaseName();
         for (File pubDir : publicationDirs) {
-            addMetadataIfPresent(toPublish, new File(pubDir, "pom-default.xml"), baseName + ".pom");
-            addMetadataIfPresent(toPublish, new File(pubDir, "module.json"), baseName + ".module");
-        }
-    }
-
-    /**
-     * When Maven POM publish is off, still pick up Gradle module metadata if present.
-     */
-    private void addGradleModuleMetadata(List<ArtifactToPublish> toPublish) {
-        File publicationsDir = new File(buildDirectory, "build/publications");
-        if (!publicationsDir.isDirectory()) {
-            return;
-        }
-        File[] publicationDirs = publicationsDir.listFiles(File::isDirectory);
-        if (publicationDirs == null) {
-            return;
-        }
-        String baseName = artifactBaseName();
-        for (File pubDir : publicationDirs) {
+            if (includePom) {
+                addMetadataIfPresent(toPublish, new File(pubDir, "pom-default.xml"), baseName + ".pom");
+            }
             addMetadataIfPresent(toPublish, new File(pubDir, "module.json"), baseName + ".module");
         }
     }
@@ -260,11 +276,13 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
 
     private Artifact toBuildInfoArtifact(ArtifactToPublish item) {
         try {
-            Map<String, String> checksums = FileChecksumCalculator.calculateChecksums(
-                    item.sourceFile, MD5_ALGORITHM, SHA1_ALGORITHM, SHA256_ALGORITHM);
+            // Reuses the checksums DeployTask.publishNestedBuildArtifacts already computed for
+            // this exact artifact (same cached instance, see getArtifactsToPublish) instead of
+            // hashing the file a second time.
+            Map<String, String> checksums = item.getOrComputeChecksums();
             String publishedName = item.artifactPath.substring(item.artifactPath.lastIndexOf('/') + 1);
             return new ArtifactBuilder(publishedName)
-                    .type(artifactType(publishedName))
+                    .type(StringUtils.substringAfterLast(publishedName, "."))
                     .md5(checksums.get(MD5_ALGORITHM))
                     .sha1(checksums.get(SHA1_ALGORITHM))
                     .sha256(checksums.get(SHA256_ALGORITHM))
@@ -274,14 +292,6 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
             log.warn("Could not collect artifact {} for '{}': {}", item.sourceFile.getName(), moduleId, e.getMessage());
             return null;
         }
-    }
-
-    private String artifactType(String fileName) {
-        int dot = fileName.lastIndexOf('.');
-        if (dot < 0) {
-            return "";
-        }
-        return fileName.substring(dot + 1);
     }
 
     private String artifactBaseName() {
@@ -338,6 +348,12 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
             return cachedModuleFile;
         } catch (IOException e) {
             log.error("Could not write module-info file for '{}': {}", moduleId, e.getMessage(), e);
+            // hasModules() must report false from here on: the module object extracted fine, so
+            // cachedModule staying non-null would make hasModules() true forever, and
+            // GradleBuildInfoExtractor would then try to read a module-info file that was never
+            // written and throw, failing build-info generation for the whole build over one
+            // shared-build's write failure (RTECO-136 review notes).
+            moduleFileWriteFailed = true;
             return null;
         }
     }
@@ -369,10 +385,21 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
     public static class ArtifactToPublish {
         public final File sourceFile;
         public final String artifactPath;
+        // Computed once and shared: DeployTask (upload) and getOrExtractModule() (build-info
+        // Artifact) both need this file's checksums for the same file - see toBuildInfoArtifact.
+        private Map<String, String> checksums;
 
         public ArtifactToPublish(File sourceFile, String artifactPath) {
             this.sourceFile = sourceFile;
             this.artifactPath = artifactPath;
+        }
+
+        public synchronized Map<String, String> getOrComputeChecksums() throws Exception {
+            if (checksums == null) {
+                checksums = FileChecksumCalculator.calculateChecksums(
+                        sourceFile, MD5_ALGORITHM, SHA1_ALGORITHM, SHA256_ALGORITHM);
+            }
+            return checksums;
         }
     }
 }
