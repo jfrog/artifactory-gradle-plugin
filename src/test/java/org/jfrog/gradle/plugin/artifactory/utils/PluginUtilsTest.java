@@ -19,20 +19,21 @@ public class PluginUtilsTest {
     public void testAssertGradleVersionSupported() {
         Gradle gradle = mock(Gradle.class);
 
-        // Assert 6.0 not supported
+        // Below minimum — not supported
         when(gradle.getGradleVersion()).thenReturn("6.0");
         assertThrows(GradleException.class, () -> assertGradleVersionSupported(gradle));
 
-        // Assert 6.8 not supported
-        when(gradle.getGradleVersion()).thenReturn("6.8");
+        when(gradle.getGradleVersion()).thenReturn("7.9");
         assertThrows(GradleException.class, () -> assertGradleVersionSupported(gradle));
 
-        // Assert 6.8.1 supported
-        when(gradle.getGradleVersion()).thenReturn("6.8.1");
+        // At minimum (8) and above — supported
+        when(gradle.getGradleVersion()).thenReturn("8");
         assertGradleVersionSupported(gradle);
 
-        // Assert 7.0 supported
-        when(gradle.getGradleVersion()).thenReturn("7.0");
+        when(gradle.getGradleVersion()).thenReturn("8.8");
+        assertGradleVersionSupported(gradle);
+
+        when(gradle.getGradleVersion()).thenReturn("9.0");
         assertGradleVersionSupported(gradle);
     }
 
