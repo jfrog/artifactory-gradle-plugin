@@ -95,18 +95,19 @@ public class GradleFunctionalTestBase {
     public void runPublishTest(String gradleVersion, Path sourceDir, ValidationUtils.BuildResultValidation validation) throws IOException {
         // Create test environment
         Utils.createTestDir(sourceDir);
-        // Config-cache: run twice (store + reuse), validate build-info from the reuse run
+        // Normal publish first — ensures Artifactory repos are ready and artifacts are built.
+        BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, envVars, false);
+        validation.validate(buildResult);
+        Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
+        Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
+        // Config-cache: run twice (store + reuse). Runs after Artifactory is warm; compiled classes
+        // from the normal publish are present so the CC store run skips compilation.
         BuildResult ccReuseResult = runConfigCacheIfSupported(gradleVersion, envVars, false);
         if (ccReuseResult != null) {
             validation.validate(ccReuseResult);
             Pair<String, String> ccBuild = Utils.getBuildDetails(ccReuseResult);
             Utils.cleanTestBuilds(artifactoryManager, ccBuild.getLeft(), ccBuild.getRight(), null);
         }
-        // Normal publish (without config cache)
-        BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, envVars, false);
-        validation.validate(buildResult);
-        Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
-        Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
     }
 
     public interface TestEnvCreator {
@@ -122,20 +123,19 @@ public class GradleFunctionalTestBase {
         Map<String, String> extendedEnv = new HashMap<String, String>(envVars) {{
             put(BuildInfoConfigProperties.PROP_PROPS_FILE, TestConsts.BUILD_INFO_PROPERTIES_TARGET.toString());
         }};
-        // Config-cache: run twice (store + reuse), validate build-info from the reuse run
+        // Normal publish first — ensures Artifactory is ready.
+        BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, extendedEnv, true);
+        validation.validate(buildResult, deployableArtifacts);
+        if (cleanUp) {
+            Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
+            Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
+        }
+        // Config-cache: run twice (store + reuse) after Artifactory is warm.
         BuildResult ccReuseResult = runConfigCacheIfSupported(gradleVersion, extendedEnv, true);
         if (ccReuseResult != null) {
             validation.validate(ccReuseResult, deployableArtifacts);
             Pair<String, String> ccBuild = Utils.getBuildDetails(ccReuseResult);
             Utils.cleanTestBuilds(artifactoryManager, ccBuild.getLeft(), ccBuild.getRight(), null);
-        }
-        // Normal publish (without config cache)
-        BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, extendedEnv, true);
-        validation.validate(buildResult, deployableArtifacts);
-        // Cleanup
-        if (cleanUp) {
-            Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
-            Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
         }
         Files.deleteIfExists(deployableArtifacts);
     }
