@@ -2,25 +2,30 @@ package org.jfrog.gradle.plugin.artifactory.task;
 
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.DefaultTask;
-import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.api.model.ObjectFactory;
+import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
+import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.TaskAction;
 import org.jfrog.build.extractor.BuildInfoExtractorUtils;
 import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.BuildInfoConfigProperties;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
-import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
-import org.jfrog.gradle.plugin.artifactory.extractor.GradleBuildInfoExtractor;
-import org.jfrog.gradle.plugin.artifactory.extractor.ModuleInfoFileProducer;
+import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
 import org.jfrog.gradle.plugin.artifactory.Constant;
-import org.jfrog.gradle.plugin.artifactory.utils.ExtensionsUtils;
+import org.jfrog.gradle.plugin.artifactory.extractor.GradleBuildInfoExtractor;
+import org.jfrog.gradle.plugin.artifactory.utils.ClientConfigHelper;
 import org.jfrog.gradle.plugin.artifactory.utils.DeployUtils;
-import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
+
+import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,26 +39,83 @@ import static org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientCon
 public class DeployTask extends DefaultTask {
     private static final Logger log = Logging.getLogger(DeployTask.class);
 
-    private final List<ModuleInfoFileProducer> moduleInfoFileProducers = new ArrayList<>();
+    private final ConfigurableFileCollection moduleInfoFiles;
 
-    public void registerModuleInfoProducer(ModuleInfoFileProducer moduleInfoFileProducer) {
-        this.moduleInfoFileProducers.add(moduleInfoFileProducer);
+    private String rootProjectName;
+    private String gradleVersion;
+    private Map<String, String> rootConfigSnapshot;
+    private final DirectoryProperty rootBuildDirectory;
+
+    // BuildService for inter-task communication
+    private final Property<ArtifactoryBuildService> buildService;
+
+    @Inject
+    public DeployTask(ObjectFactory objectFactory) {
+        this.moduleInfoFiles = objectFactory.fileCollection();
+        this.rootBuildDirectory = objectFactory.directoryProperty();
+        this.buildService = objectFactory.property(ArtifactoryBuildService.class);
+    }
+
+    /**
+     * Add module info files to the input file collection.
+     */
+    public void addModuleInfoFiles(FileCollection files) {
+        this.moduleInfoFiles.from(files);
     }
 
     @InputFiles
     public FileCollection getModuleInfoFiles() {
-        ConfigurableFileCollection moduleInfoFiles = getProject().files();
-        moduleInfoFileProducers.forEach(moduleInfoFileProducer -> {
-            moduleInfoFiles.from(moduleInfoFileProducer.getModuleInfoFiles());
-            moduleInfoFiles.builtBy(moduleInfoFileProducer.getModuleInfoFiles().getBuildDependencies());
-        });
         return moduleInfoFiles;
+    }
+
+    public void setRootProjectName(String rootProjectName) {
+        this.rootProjectName = rootProjectName;
+    }
+
+    public void setGradleVersion(String gradleVersion) {
+        this.gradleVersion = gradleVersion;
+    }
+
+    public void setRootConfigSnapshot(Map<String, String> rootConfigSnapshot) {
+        this.rootConfigSnapshot = rootConfigSnapshot;
+    }
+
+    @Internal
+    public DirectoryProperty getRootBuildDirectory() {
+        return rootBuildDirectory;
+    }
+
+    @Input
+    @Optional
+    public String getRootProjectName() {
+        return rootProjectName;
+    }
+
+    @Input
+    @Optional
+    public String getGradleVersion() {
+        return gradleVersion;
+    }
+
+    @Input
+    @Optional
+    public Map<String, String> getRootConfigSnapshot() {
+        return rootConfigSnapshot;
+    }
+
+    @Internal
+    public Property<ArtifactoryBuildService> getBuildServiceProperty() {
+        return buildService;
     }
 
     @TaskAction
     public void extractBuildInfoAndDeploy() throws IOException {
         log.debug("Extracting build-info and deploying build details in task '{}'", getPath());
-        ArtifactoryClientConfiguration accRoot = ExtensionsUtils.getArtifactoryExtension(getProject()).getClientConfig();
+        if (rootConfigSnapshot == null) {
+            log.warn("No root config snapshot available for deploy task");
+            return;
+        }
+        ArtifactoryClientConfiguration accRoot = ClientConfigHelper.restoreConfig(rootConfigSnapshot);
         Map<String, Set<DeployDetails>> allDeployedDetails = deployArtifactsFromTasks(accRoot);
         // Deploy Artifacts to artifactory
         // Generate build-info and handle deployment (and artifact exports if configured)
@@ -70,28 +132,35 @@ public class DeployTask extends DefaultTask {
     private Map<String, Set<DeployDetails>> deployArtifactsFromTasks(ArtifactoryClientConfiguration accRoot) {
         // Reset the default properties, they may have changed
         Map<String, String> propsRoot = accRoot.publisher.getProps();
-        addDefaultPublisherAttributes(accRoot, getProject().getRootProject().getName(), Constant.GRADLE, getProject().getGradle().getGradleVersion());
+        addDefaultPublisherAttributes(accRoot, rootProjectName, Constant.GRADLE, gradleVersion);
 
         Map<String, Set<DeployDetails>> allDeployDetails = new ConcurrentHashMap<>();
-        List<ArtifactoryTask> orderedTasks = TaskUtils.getAllArtifactoryPublishTasks(getProject());
+
+        // Get task data from BuildService instead of task graph
+        List<ArtifactoryBuildService.TaskData> allTaskData;
+        if (buildService != null && buildService.isPresent()) {
+            allTaskData = buildService.get().getAllTaskData();
+        } else {
+            allTaskData = Collections.emptyList();
+        }
 
         // Deploy
         int publishForkCount = accRoot.publisher.getPublishForkCount();
         if (publishForkCount <= 1) {
-            orderedTasks.forEach(t -> {
-                ArtifactoryPluginConvention convention = ExtensionsUtils.getExtensionWithPublisher(t.getProject());
-                if (convention != null) {
-                    DeployUtils.deployTaskArtifacts(convention.getClientConfig(), propsRoot, allDeployDetails, t, null);
+            for (ArtifactoryBuildService.TaskData taskData : allTaskData) {
+                if (taskData.getConfigSnapshot() != null) {
+                    ArtifactoryClientConfiguration taskConfig = ClientConfigHelper.restoreConfig(taskData.getConfigSnapshot());
+                    DeployUtils.deployTaskArtifacts(taskConfig, propsRoot, allDeployDetails, taskData, null);
                 }
-            });
+            }
         } else {
             try {
                 ExecutorService executor = Executors.newFixedThreadPool(publishForkCount);
-                CompletableFuture<Void> allUploads = CompletableFuture.allOf(orderedTasks.stream()
-                        .map(t -> CompletableFuture.runAsync(() -> {
-                            ArtifactoryPluginConvention convention = ExtensionsUtils.getExtensionWithPublisher(t.getProject());
-                            if (convention != null) {
-                                DeployUtils.deployTaskArtifacts(convention.getClientConfig(), propsRoot, allDeployDetails, t, "[" + Thread.currentThread().getName() + "]");
+                CompletableFuture<Void> allUploads = CompletableFuture.allOf(allTaskData.stream()
+                        .map(taskData -> CompletableFuture.runAsync(() -> {
+                            if (taskData.getConfigSnapshot() != null) {
+                                ArtifactoryClientConfiguration taskConfig = ClientConfigHelper.restoreConfig(taskData.getConfigSnapshot());
+                                DeployUtils.deployTaskArtifacts(taskConfig, propsRoot, allDeployDetails, taskData, "[" + Thread.currentThread().getName() + "]");
                             }
                         }, executor))
                         .toArray(CompletableFuture[]::new));
@@ -109,8 +178,8 @@ public class DeployTask extends DefaultTask {
      */
     private void handleBuildInfoOperations(ArtifactoryClientConfiguration accRoot, Map<String, Set<DeployDetails>> allDeployedDetails) throws IOException {
         // Extract build-info
-        GradleBuildInfoExtractor gbie = new GradleBuildInfoExtractor(accRoot, moduleInfoFileProducers);
-        BuildInfo buildInfo = gbie.extract(getProject().getRootProject());
+        GradleBuildInfoExtractor gbie = new GradleBuildInfoExtractor(accRoot, moduleInfoFiles);
+        BuildInfo buildInfo = gbie.extract(null);
         // Export in Json format to file system
         exportBuildInfoToFileSystem(accRoot, buildInfo);
         // Deploy build-info file and export deployed artifacts
@@ -136,9 +205,8 @@ public class DeployTask extends DefaultTask {
         if (StringUtils.isNotBlank(fileExportPath)) {
             return new File(fileExportPath);
         }
-        // Default path
-        Project rootProject = getProject().getRootProject();
-        return rootProject.getLayout().getBuildDirectory().file(Constant.BUILD_INFO_FILE_NAME).get().getAsFile();
+        // Default path - use stored rootBuildDirectory
+        return rootBuildDirectory.file(Constant.BUILD_INFO_FILE_NAME).get().getAsFile();
     }
 
     private void exportBuildInfo(BuildInfo buildInfo, File toFile) throws IOException {
@@ -157,7 +225,7 @@ public class DeployTask extends DefaultTask {
         }
 
         try {
-            Path buildDir = getProject().getRootProject().getLayout().getBuildDirectory().get().getAsFile().toPath().toAbsolutePath().normalize();
+            Path buildDir = rootBuildDirectory.get().getAsFile().toPath().toAbsolutePath().normalize();
             Path filePath = Paths.get(propertyFilePath).toAbsolutePath().normalize();
 
             // Ensure file is in build dir and named build-info.json

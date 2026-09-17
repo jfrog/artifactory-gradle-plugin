@@ -6,8 +6,6 @@ import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.artifacts.PublishArtifact;
-import org.gradle.api.artifacts.PublishArtifactSet;
 import org.gradle.api.publish.PublishingExtension;
 import org.gradle.api.publish.ivy.IvyPublication;
 import org.gradle.api.publish.ivy.plugins.IvyPublishPlugin;
@@ -119,20 +117,18 @@ public class PublicationUtils {
     /**
      * Extract archive configuration artifacts, creates deploy details for it and stores them at the given destination
      *
-     * @param configuration - configuration containing the artifacts to publish
-     * @param publisher     - publisher handler of the project
-     * @param destination   - task to collect and store the created details
+     * @param configData - snapshot of the configuration and its artifacts
+     * @param publisher  - publisher handler of the project
+     * @param destination - task to collect and store the created details
      */
-    public static void extractArchivesDeployDetails(Configuration configuration, ArtifactoryClientConfiguration.PublisherHandler publisher, ArtifactoryTask destination) {
-        Project project = destination.getProject();
-        PublishArtifactSet artifacts = configuration.getAllArtifacts();
-        for (PublishArtifact artifact : artifacts) {
+    public static void extractArchivesDeployDetails(ArtifactoryTask.ArchiveConfigurationData configData, ArtifactoryClientConfiguration.PublisherHandler publisher, ArtifactoryTask destination) {
+        for (ArtifactoryTask.ArchiveArtifactData artifact : configData.getArtifacts()) {
             File file = artifact.getFile();
-            DeployDetails.Builder builder = createArtifactBuilder(file, configuration.getName());
+            DeployDetails.Builder builder = createArtifactBuilder(file, configData.getConfigurationName());
             if (builder == null) {
                 continue;
             }
-            String gid = project.getGroup().toString();
+            String gid = destination.getProjectGroup();
             if (publisher.isM2Compatible()) {
                 gid = gid.replace(".", "/");
             }
@@ -140,15 +136,15 @@ public class PublicationUtils {
             if (StringUtils.isNotBlank(artifact.getClassifier())) {
                 extraTokens.put("classifier", artifact.getClassifier());
             }
-            String artifactPath = IvyPatternHelper.substitute(publisher.getIvyArtifactPattern(), gid, project.getName(),
-                    project.getVersion().toString(), artifact.getName(), artifact.getType(),
-                    artifact.getExtension(), configuration.getName(),
+            String artifactPath = IvyPatternHelper.substitute(publisher.getIvyArtifactPattern(), gid, destination.getProjectName(),
+                    destination.getProjectVersion(), artifact.getName(), artifact.getType(),
+                    artifact.getExtension(), configData.getConfigurationName(),
                     extraTokens, null);
 
             builder.artifactPath(artifactPath);
 
             PublishArtifactInfo artifactInfo = new PublishArtifactInfo(artifact.getName(), artifact.getExtension(), artifact.getType(), artifact.getClassifier(), null, file);
-            addArtifactInfoToDeployDetails(destination, configuration.getName(), builder, artifactInfo, artifactPath);
+            addArtifactInfoToDeployDetails(destination, configData.getConfigurationName(), builder, artifactInfo, artifactPath);
         }
     }
 
@@ -163,13 +159,12 @@ public class PublicationUtils {
      */
     public static void addArtifactInfoToDeployDetails(ArtifactoryTask destination, String publicationName,
                                                       DeployDetails.Builder builder, PublishArtifactInfo artifactInfo, String artifactPath) {
-        Project project = destination.getProject();
-        ArtifactoryClientConfiguration.PublisherHandler publisher = ExtensionsUtils.getPublisherHandler(project);
+        ArtifactoryClientConfiguration.PublisherHandler publisher = destination.getPublisherFromSnapshot();
         if (publisher != null) {
             builder.targetRepository(getTargetRepository(artifactPath, publisher));
             Map<String, String> propsToAdd = getPropsToAdd(destination, artifactInfo, publicationName);
             builder.addProperties(propsToAdd);
-            destination.getDeployDetails().add(new GradleDeployDetails(artifactInfo, builder.build(), project));
+            destination.getDeployDetails().add(new GradleDeployDetails(artifactInfo, builder.build(), destination.getProjectPath()));
         }
     }
 
@@ -192,13 +187,12 @@ public class PublicationUtils {
     }
 
     private static Map<String, String> getPropsToAdd(ArtifactoryTask destination, PublishArtifactInfo artifact, String publicationName) {
-        Project project = destination.getProject();
         Map<String, String> propsToAdd = new HashMap<>(destination.getDefaultProps());
         // Apply artifact-specific props from the artifact specs
         ArtifactSpec spec =
                 ArtifactSpec.builder().configuration(publicationName)
-                        .group(project.getGroup().toString())
-                        .name(project.getName()).version(project.getVersion().toString())
+                        .group(destination.getProjectGroup())
+                        .name(destination.getProjectName()).version(destination.getProjectVersion())
                         .classifier(artifact.getClassifier())
                         .type(artifact.getType()).build();
         Multimap<String, CharSequence> artifactSpecsProperties = destination.artifactSpecs.getProperties(spec);

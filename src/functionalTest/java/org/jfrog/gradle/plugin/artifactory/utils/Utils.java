@@ -105,8 +105,29 @@ public class Utils {
      * @return result of the task
      * @throws IOException in case of any IO error
      */
+    /**
+     * Run 'artifactoryPublish --configuration-cache' twice against the current test directory.
+     * Run 1 stores the configuration cache; run 2 must reuse it.
+     * No 'clean' between runs — cleaning deletes generated artifact files, which would trigger
+     * "file system entry created" cache invalidation and silently turn run 2 into another store.
+     *
+     * @return the BuildResult of the second (reuse) run for caller validation.
+     */
+    /**
+     * Run 'build artifactoryPublish --configuration-cache' twice against the current test directory.
+     * Run 1 stores the configuration cache; run 2 must reuse it.
+     * No 'clean' between runs — cleaning deletes generated artifact files, which would trigger
+     * "file system entry created" cache invalidation and silently turn run 2 into another store.
+     *
+     * @return the BuildResult of the second (reuse) run for caller validation.
+     */
     public static BuildResult runConfigurationCache(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
-        List<String> arguments = new ArrayList<>(Collections.singletonList("--configuration-cache"));
+        List<String> arguments = new ArrayList<>(Arrays.asList(
+                "build", Constant.ARTIFACTORY_PUBLISH_TASK_NAME,
+                "--configuration-cache", "--configuration-cache-problems=fail", "--stacktrace"));
+        // Run 1: store the configuration cache.
+        runPluginTasks(gradleVersion, new ArrayList<>(arguments), envVars, applyInitScript);
+        // Run 2: must reuse the cache with no problems.
         return runPluginTasks(gradleVersion, arguments, envVars, applyInitScript);
     }
 
