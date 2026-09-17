@@ -166,8 +166,9 @@ public class TaskUtils {
      *     a {@code src/test} directory report its test dependencies while a module without one does not.</li>
      * </ul>
      * Android variants keep their classpaths outside the java {@code SourceSetContainer}, so any remaining
-     * {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath} configuration is included as well,
-     * excluding the test variants.
+     * {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath} configuration is included as well
+     * — its test variants included, since an Android build resolves them and the build-info reported their
+     * dependencies before the configuration-cache migration.
      */
     private static Set<String> collectDependencyClasspathNames(Project project) {
         Set<String> selected = new LinkedHashSet<>();
@@ -188,7 +189,7 @@ public class TaskUtils {
         }
         project.getConfigurations().forEach(configuration -> {
             String name = configuration.getName();
-            if (sourceSetOwned.contains(name) || !isVariantClasspath(name)) {
+            if (sourceSetOwned.contains(name) || !isClasspathConfigurationName(name)) {
                 return;
             }
             selected.add(name);
@@ -197,14 +198,14 @@ public class TaskUtils {
     }
 
     /**
-     * @return true for a non-test {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath}
-     * configuration, the form the Android plugin uses for its per-variant classpaths.
+     * @return true for a {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath} configuration,
+     * the form the Android plugin uses for its per-variant classpaths (including its unit-test and
+     * android-test variants, whose dependencies the build resolves and the published build-info reports).
+     * Java source-set classpaths are selected by source set instead and never reach this check, so the
+     * naming rule here only governs plugins that manage their own variant classpaths.
      */
-    private static boolean isVariantClasspath(String configName) {
+    private static boolean isClasspathConfigurationName(String configName) {
         String lower = configName.toLowerCase(Locale.ROOT);
-        if (lower.contains("test")) {
-            return false;
-        }
         return lower.endsWith("compileclasspath") || lower.endsWith("runtimeclasspath");
     }
 
