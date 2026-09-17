@@ -5,6 +5,8 @@ import org.gradle.api.Task;
 import org.gradle.api.UnknownTaskException;
 import org.gradle.api.artifacts.ResolvableDependencies;
 import org.gradle.api.provider.Provider;
+import org.gradle.api.tasks.SourceSet;
+import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskProvider;
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
 import org.jfrog.gradle.plugin.artifactory.Constant;
@@ -17,7 +19,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public class TaskUtils {
     private static final Logger log = LoggerFactory.getLogger(TaskUtils.class);
@@ -109,31 +114,98 @@ public class TaskUtils {
     }
 
     /**
-     * Wire a lazy dependency-capture provider for every resolvable configuration of the given project onto
-     * its ExtractModuleTask. Deferred to afterEvaluate so source-set configurations (compileClasspath,
-     * runtimeClasspath, ...) added by the java/java-library plugins already exist.
+     * Wire a lazy dependency-capture provider onto the project's ExtractModuleTask for each classpath
+     * configuration that contributes the module's published dependencies.
+     * <p>
+     * Enumeration is deferred to {@code gradle.projectsEvaluated}, which runs after every project's
+     * {@code afterEvaluate}. A per-project {@code afterEvaluate} is too early for the Android plugin, which
+     * creates its per-variant {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath}
+     * configurations in its own {@code afterEvaluate}; enumerating before that reports almost no
+     * dependencies for Android modules. Enumerating does not resolve anything — each configuration resolves
+     * only when ExtractModuleTask reads its provider at execution time, which is what makes this
+     * configuration-cache safe (the resolution result is stored in the cache entry and reloaded on a hit).
+     * <p>
+     * Which configurations are selected is decided by {@link #collectDependencyClasspathNames}; wiring every
+     * resolvable configuration would force-resolve configurations the build never resolves and report
+     * dependencies the pre-configuration-cache implementation never collected.
      */
     private static void wireDependencyProviders(Project project, TaskProvider<ExtractModuleTask> extractTaskProvider) {
-        project.afterEvaluate(evaluatedProject -> {
-            // Collect all providers first, then configure the task once.
+        project.getGradle().projectsEvaluated(gradle -> {
+            Set<String> classpathNames = collectDependencyClasspathNames(project);
             List<Provider<List<PreCollectedDependency>>> providers = new ArrayList<>();
-            evaluatedProject.getConfigurations().forEach(configuration -> {
-                if (!configuration.isCanBeResolved()) {
+            project.getConfigurations().forEach(configuration -> {
+                if (!configuration.isCanBeResolved() || !classpathNames.contains(configuration.getName())) {
                     return;
                 }
                 String configName = configuration.getName();
                 ResolvableDependencies incoming = configuration.getIncoming();
-                Provider<List<PreCollectedDependency>> depsProvider =
-                        incoming.getResolutionResult().getRootComponent().zip(
-                                incoming.artifactView(view -> view.setLenient(true))
-                                        .getArtifacts()
-                                        .getResolvedArtifacts(),
-                                (root, artifacts) -> DependencyExtractor.extract(configName, root, artifacts));
-                providers.add(depsProvider);
+                providers.add(incoming.getResolutionResult().getRootComponent().zip(
+                        incoming.artifactView(view -> view.setLenient(true))
+                                .getArtifacts()
+                                .getResolvedArtifacts(),
+                        (root, artifacts) -> DependencyExtractor.extract(configName, root, artifacts)));
             });
             extractTaskProvider.configure(extractModuleTask ->
                     providers.forEach(p -> extractModuleTask.getPreCollectedDependencies().addAll(p)));
         });
+    }
+
+    /**
+     * Select the classpath configurations whose dependencies belong in the published build-info.
+     * <p>
+     * The pre-configuration-cache implementation read every configuration whose state was already
+     * {@code RESOLVED} when the module info was extracted — that is, the configurations the build itself had
+     * resolved. Selecting by resolved state is not possible any more (the state is unknown at configuration
+     * time, and under a configuration-cache hit the Configuration objects no longer exist at execution
+     * time), so the same dependency set is reproduced from the source sets:
+     * <ul>
+     *     <li>the main source set's classpaths are always included — the build resolves them for the
+     *     artifacts it publishes even when the source set itself is empty;</li>
+     *     <li>every other source set (notably {@code test}) contributes only when it has sources, because
+     *     only then does its compile task run and resolve its classpaths. This is what makes a module with
+     *     a {@code src/test} directory report its test dependencies while a module without one does not.</li>
+     * </ul>
+     * Android variants keep their classpaths outside the java {@code SourceSetContainer}, so any remaining
+     * {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath} configuration is included as well,
+     * excluding the test variants.
+     */
+    private static Set<String> collectDependencyClasspathNames(Project project) {
+        Set<String> selected = new LinkedHashSet<>();
+        Set<String> sourceSetOwned = new LinkedHashSet<>();
+        SourceSetContainer sourceSets = project.getExtensions().findByType(SourceSetContainer.class);
+        if (sourceSets != null) {
+            sourceSets.forEach(sourceSet -> {
+                sourceSetOwned.add(sourceSet.getCompileClasspathConfigurationName());
+                sourceSetOwned.add(sourceSet.getRuntimeClasspathConfigurationName());
+                boolean isMain = SourceSet.MAIN_SOURCE_SET_NAME.equals(sourceSet.getName());
+                if (!isMain && sourceSet.getAllSource().isEmpty()) {
+                    // No sources: the compile task never runs, so the build never resolves these classpaths.
+                    return;
+                }
+                selected.add(sourceSet.getCompileClasspathConfigurationName());
+                selected.add(sourceSet.getRuntimeClasspathConfigurationName());
+            });
+        }
+        project.getConfigurations().forEach(configuration -> {
+            String name = configuration.getName();
+            if (sourceSetOwned.contains(name) || !isVariantClasspath(name)) {
+                return;
+            }
+            selected.add(name);
+        });
+        return selected;
+    }
+
+    /**
+     * @return true for a non-test {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath}
+     * configuration, the form the Android plugin uses for its per-variant classpaths.
+     */
+    private static boolean isVariantClasspath(String configName) {
+        String lower = configName.toLowerCase(Locale.ROOT);
+        if (lower.contains("test")) {
+            return false;
+        }
+        return lower.endsWith("compileclasspath") || lower.endsWith("runtimeclasspath");
     }
 
     /**

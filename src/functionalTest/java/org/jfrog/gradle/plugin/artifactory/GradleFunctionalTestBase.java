@@ -133,8 +133,11 @@ public class GradleFunctionalTestBase {
         BuildResult ccReuseResult = runConfigCacheIfSupported(gradleVersion, extendedEnv, true);
         if (ccReuseResult != null) {
             validation.validate(ccReuseResult, deployableArtifacts);
-            Pair<String, String> ccBuild = Utils.getBuildDetails(ccReuseResult);
-            Utils.cleanTestBuilds(artifactoryManager, ccBuild.getLeft(), ccBuild.getRight(), null);
+            if (cleanUp) {
+                // Only builds that publish build-info print the build-info URL getBuildDetails() parses.
+                Pair<String, String> ccBuild = Utils.getBuildDetails(ccReuseResult);
+                Utils.cleanTestBuilds(artifactoryManager, ccBuild.getLeft(), ccBuild.getRight(), null);
+            }
         }
         Files.deleteIfExists(deployableArtifacts);
     }
