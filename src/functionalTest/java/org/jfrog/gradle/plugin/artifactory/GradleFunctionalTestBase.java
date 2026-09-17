@@ -100,8 +100,7 @@ public class GradleFunctionalTestBase {
         validation.validate(buildResult);
         Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
         Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
-        // Config-cache: run twice (store + reuse). Runs after Artifactory is warm; compiled classes
-        // from the normal publish are present so the CC store run skips compilation.
+        // Config-cache: run twice (store + reuse), validate reuse run build-info.
         BuildResult ccReuseResult = runConfigCacheIfSupported(gradleVersion, envVars, false);
         if (ccReuseResult != null) {
             validation.validate(ccReuseResult);
@@ -130,7 +129,7 @@ public class GradleFunctionalTestBase {
             Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
             Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
         }
-        // Config-cache: run twice (store + reuse) after Artifactory is warm.
+        // Config-cache: run twice (store + reuse), validate reuse run build-info.
         BuildResult ccReuseResult = runConfigCacheIfSupported(gradleVersion, extendedEnv, true);
         if (ccReuseResult != null) {
             validation.validate(ccReuseResult, deployableArtifacts);
@@ -151,7 +150,11 @@ public class GradleFunctionalTestBase {
      * @throws IOException In case of any IO error.
      */
     /**
-     * @return the reuse-run BuildResult (so callers can validate build-info content), or null if skipped.
+     * Run 'build artifactoryPublish --configuration-cache' twice and assert the second run reuses
+     * the cache with no problems and no missing dependencies in the produced build-info.
+     * Skipped on Gradle versions below {@link TestConsts#MIN_GRADLE_VERSION_CONFIG_CACHE}.
+     *
+     * @return the reuse-run BuildResult for caller validation, or null if skipped.
      */
     private BuildResult runConfigCacheIfSupported(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
         if (!new Version(gradleVersion).isAtLeast(MIN_GRADLE_VERSION_CONFIG_CACHE)) {
