@@ -336,6 +336,9 @@ public class ArtifactoryTask extends DefaultTask {
         if (isSkip()) {
             log.debug("'{}' skipped for project '{}'.", getPath(), project.getName());
             artifactSpecs = null;
+            // Clear live (non-serializable) publication/configuration objects so the configuration
+            // cache can serialize this task even when we return before snapshotPublications().
+            clearLivePublicationObjects();
             return;
         }
 
@@ -378,6 +381,9 @@ public class ArtifactoryTask extends DefaultTask {
         if (extension == null) {
             log.debug("Can't find extension configured for {}", getPath());
             artifactSpecs = null;
+            // No publisher: nothing will be deployed, but we still must drop the live
+            // Configuration/Publication references so the configuration cache can serialize this task.
+            clearLivePublicationObjects();
             return;
         }
         // Add global properties to the specs
@@ -426,6 +432,16 @@ public class ArtifactoryTask extends DefaultTask {
             archiveConfigurationSnapshots.add(new ArchiveConfigurationData(config.getName(), artifacts));
         }
         // Clear non-serializable objects
+        clearLivePublicationObjects();
+    }
+
+    /**
+     * Drop all live (non-serializable) Publication/Configuration references held as task fields.
+     * Must run on every {@link #evaluateTask()} exit path so the configuration cache can serialize
+     * this task — leaving a live {@link Configuration} in a field makes the CC store fail while
+     * walking it (e.g. resolving the non-resolvable 'archives' configuration).
+     */
+    private void clearLivePublicationObjects() {
         publications.clear();
         mavenPublications.clear();
         ivyPublications.clear();
