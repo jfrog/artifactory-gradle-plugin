@@ -28,6 +28,11 @@ public class TaskUtils {
     private static final Logger log = LoggerFactory.getLogger(TaskUtils.class);
 
     /**
+     * Android plugin configuration holding the platform jar the module is compiled against.
+     */
+    private static final String ANDROID_APIS_CONFIGURATION = "androidApis";
+
+    /**
      * Register (deferring task creation) a task in a given project
      *
      * @param taskName        - the name (ID) of the task
@@ -163,12 +168,21 @@ public class TaskUtils {
      *     artifacts it publishes even when the source set itself is empty;</li>
      *     <li>every other source set (notably {@code test}) contributes only when it has sources, because
      *     only then does its compile task run and resolve its classpaths. This is what makes a module with
-     *     a {@code src/test} directory report its test dependencies while a module without one does not.</li>
+     *     a {@code src/test} directory report its test dependencies while a module without one does not;</li>
+     *     <li>each selected source set also contributes its annotation processor path, which the build
+     *     resolves for the same compile task.</li>
      * </ul>
-     * Android variants keep their classpaths outside the java {@code SourceSetContainer}, so any remaining
-     * {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath} configuration is included as well
-     * — its test variants included, since an Android build resolves them and the build-info reported their
-     * dependencies before the configuration-cache migration.
+     * Configurations the Android plugin manages itself are matched by name instead, since they are not part
+     * of the java {@code SourceSetContainer}: the per-variant
+     * {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath}/
+     * {@code <variant>AnnotationProcessorClasspath} configurations — test variants included, as an Android
+     * build resolves them — plus {@code androidApis}, which carries the compiled-against Android platform
+     * jar and which the pre-configuration-cache build-info reported as a dependency.
+     * <p>
+     * Deliberately not selected are the tooling configurations an ordinary build leaves unresolved, notably
+     * {@code androidJacocoAnt} (the JaCoCo/ASM stack) and {@code androidJdkImage} (a generated JDK image):
+     * they resolve only under coverage or desugaring setups, so the old implementation never reported them,
+     * and force-resolving them here would add dependencies that were never part of the build-info.
      */
     private static Set<String> collectDependencyClasspathNames(Project project) {
         Set<String> selected = new LinkedHashSet<>();
@@ -178,6 +192,7 @@ public class TaskUtils {
             sourceSets.forEach(sourceSet -> {
                 sourceSetOwned.add(sourceSet.getCompileClasspathConfigurationName());
                 sourceSetOwned.add(sourceSet.getRuntimeClasspathConfigurationName());
+                sourceSetOwned.add(sourceSet.getAnnotationProcessorConfigurationName());
                 boolean isMain = SourceSet.MAIN_SOURCE_SET_NAME.equals(sourceSet.getName());
                 if (!isMain && sourceSet.getAllSource().isEmpty()) {
                     // No sources: the compile task never runs, so the build never resolves these classpaths.
@@ -185,11 +200,12 @@ public class TaskUtils {
                 }
                 selected.add(sourceSet.getCompileClasspathConfigurationName());
                 selected.add(sourceSet.getRuntimeClasspathConfigurationName());
+                selected.add(sourceSet.getAnnotationProcessorConfigurationName());
             });
         }
         project.getConfigurations().forEach(configuration -> {
             String name = configuration.getName();
-            if (sourceSetOwned.contains(name) || !isClasspathConfigurationName(name)) {
+            if (sourceSetOwned.contains(name) || !isPluginManagedDependencyPath(name)) {
                 return;
             }
             selected.add(name);
@@ -198,15 +214,19 @@ public class TaskUtils {
     }
 
     /**
-     * @return true for a {@code <variant>CompileClasspath}/{@code <variant>RuntimeClasspath} configuration,
-     * the form the Android plugin uses for its per-variant classpaths (including its unit-test and
-     * android-test variants, whose dependencies the build resolves and the published build-info reports).
-     * Java source-set classpaths are selected by source set instead and never reach this check, so the
-     * naming rule here only governs plugins that manage their own variant classpaths.
+     * @return true for the dependency-bearing configurations a plugin manages outside the java
+     * {@code SourceSetContainer}: the Android per-variant compile, runtime and annotation processor
+     * classpaths, and {@code androidApis} (the Android platform jar the module compiles against).
+     * Java source-set configurations are selected by source set instead and never reach this check.
      */
-    private static boolean isClasspathConfigurationName(String configName) {
+    private static boolean isPluginManagedDependencyPath(String configName) {
+        if (ANDROID_APIS_CONFIGURATION.equals(configName)) {
+            return true;
+        }
         String lower = configName.toLowerCase(Locale.ROOT);
-        return lower.endsWith("compileclasspath") || lower.endsWith("runtimeclasspath");
+        return lower.endsWith("compileclasspath")
+                || lower.endsWith("runtimeclasspath")
+                || lower.endsWith("annotationprocessorclasspath");
     }
 
     /**
