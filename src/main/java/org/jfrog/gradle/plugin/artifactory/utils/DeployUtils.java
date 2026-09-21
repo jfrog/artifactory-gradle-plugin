@@ -173,6 +173,18 @@ public class DeployUtils {
         return deployDetailsSet;
     }
 
+    /**
+     * Create an ArtifactoryManager configured the same way as task artifact deploys (proxy, TLS,
+     * retries). Callers should upload one or more files through it and close it when done, so a
+     * batch of files (e.g. shared-build outputs not collected by ArtifactoryTask) shares a single
+     * connection instead of opening one per file.
+     */
+    public static ArtifactoryManager createConfiguredArtifactoryManager(ArtifactoryClientConfiguration accRoot) {
+        ArtifactoryManager artifactoryManager = createArtifactoryManager(accRoot.publisher);
+        configureArtifactoryManager(accRoot, artifactoryManager);
+        return artifactoryManager;
+    }
+
     public static void deployBuildInfo(ArtifactoryClientConfiguration accRoot, BuildInfo buildInfo, Map<String, Set<DeployDetails>> allDeployDetails) throws IOException {
         if (accRoot.publisher.getContextUrl() == null) {
             return;

@@ -20,4 +20,10 @@ public interface ModuleInfoFileProducer {
      * @return the module info file
      */
     FileCollection getModuleInfoFiles();
+
+    /**
+     * Write module-info during DeployTask execution (after :clean), not during task-graph construction.
+     */
+    default void ensureModuleInfoFilesAreWritten() {
+    }
 }

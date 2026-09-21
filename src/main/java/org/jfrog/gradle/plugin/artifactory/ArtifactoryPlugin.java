@@ -14,6 +14,7 @@ import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
 import static org.jfrog.gradle.plugin.artifactory.utils.PluginUtils.assertGradleVersionSupported;
+import static org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils.isIncludeSharedBuildLogicEnabled;
 
 public class ArtifactoryPlugin implements Plugin<Project> {
     private static final Logger log = Logging.getLogger(ArtifactoryPlugin.class);
@@ -25,8 +26,19 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         if (!shouldApplyPluginOnProject(project)) {
             return;
         }
-        // Get / Add an Artifactory plugin extension to the project module
-        ArtifactoryPluginConvention extension = ExtensionsUtils.getOrCreateArtifactoryExtension(project);
+
+        // Flag off: same as main — create/reuse the extension and continue even on a second apply.
+        // Flag on: skip a second apply so init script + plugins { id } do not crash.
+        ArtifactoryPluginConvention extension;
+        if (isIncludeSharedBuildLogicEnabled(project)) {
+            extension = extensionForSharedBuildApply(project);
+            if (extension == null) {
+                return;
+            }
+        } else {
+            extension = ExtensionsUtils.getOrCreateArtifactoryExtension(project);
+        }
+
         // Add the collect publications for deploy details and extract module-info tasks to the project module
         TaskProvider<ArtifactoryTask> collectDeployDetailsTask = TaskUtils.addCollectDeployDetailsTask(project);
         TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask, project);
@@ -56,6 +68,26 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         }
 
         log.debug("Using Artifactory Plugin for " + project.getPath());
+    }
+
+    /**
+     * Flag-on only. Null means this apply is a duplicate and should stop.
+     */
+    private ArtifactoryPluginConvention extensionForSharedBuildApply(Project project) {
+        try {
+            if (project.getExtensions().findByName(Constant.ARTIFACTORY) != null) {
+                log.debug("Artifactory extension already present on {}, skipping duplicate apply", project.getPath());
+                return null;
+            }
+            return ExtensionsUtils.getOrCreateArtifactoryExtension(project);
+        } catch (IllegalArgumentException e) {
+            ArtifactoryPluginConvention existing = project.getExtensions().findByType(ArtifactoryPluginConvention.class);
+            if (existing != null) {
+                log.debug("Artifactory extension already registered on {}, reusing existing instance", project.getPath());
+                return existing;
+            }
+            throw e;
+        }
     }
 
     private boolean shouldApplyPluginOnProject(Project project) {

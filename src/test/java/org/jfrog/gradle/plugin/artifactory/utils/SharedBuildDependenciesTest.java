@@ -1,0 +1,581 @@
+package org.jfrog.gradle.plugin.artifactory.utils;
+
+import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.ModuleVersionIdentifier;
+import org.gradle.api.artifacts.ResolvableDependencies;
+import org.gradle.api.artifacts.result.ResolutionResult;
+import org.gradle.api.artifacts.result.ResolvedComponentResult;
+import org.testng.annotations.Test;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
+public class SharedBuildDependenciesTest {
+
+    @Test
+    public void testParseDeclaredDependenciesReadsImplementationLines() {
+        String buildScript =
+                "dependencies {\n" +
+                "    implementation 'com.google.code.gson:gson:2.9.0'\n" +
+                "    api \"org.slf4j:slf4j-api:1.7.36\"\n" +
+                "    testImplementation 'junit:junit:4.13.2'\n" +
+                "}\n";
+
+        List<String> gavs = SharedBuildDependencies.parseDeclaredDependencies(buildScript);
+
+        assertEquals(gavs.size(), 2);
+        assertTrue(gavs.contains("com.google.code.gson:gson:2.9.0"));
+        assertTrue(gavs.contains("org.slf4j:slf4j-api:1.7.36"));
+    }
+
+    @Test
+    public void testParseDeclaredDependenciesReadsKotlinParentheses() {
+        String buildScript =
+                "dependencies {\n" +
+                "    implementation(\"com.fasterxml.jackson.core:jackson-databind:2.14.0\")\n" +
+                "}\n";
+
+        List<String> gavs = SharedBuildDependencies.parseDeclaredDependencies(buildScript);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("com.fasterxml.jackson.core:jackson-databind:2.14.0"));
+    }
+
+    @Test
+    public void testParseDeclaredDependenciesHandlesClassifiedNotation() {
+        // Regression test: the version group used to allow ':', so gavParts() would read
+        // "sources" as the version instead of "5.9.0".
+        String buildScript =
+                "dependencies {\n" +
+                "    implementation 'org.junit:junit-jupiter:5.9.0:sources'\n" +
+                "}\n";
+
+        List<String> gavs = SharedBuildDependencies.parseDeclaredDependencies(buildScript);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("org.junit:junit-jupiter:5.9.0"));
+    }
+
+    @Test
+    public void testParseDeclaredDependenciesHandlesExtensionNotation() {
+        String buildScript =
+                "dependencies {\n" +
+                "    implementation 'com.example:widget:1.2.3@aar'\n" +
+                "}\n";
+
+        List<String> gavs = SharedBuildDependencies.parseDeclaredDependencies(buildScript);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("com.example:widget:1.2.3"));
+    }
+
+    @Test
+    public void testFindComponentPrefersExactVersionMatchWhenGivenARealVersion() {
+        ResolvedComponentResult older = mockComponent("com.example", "build-logic-1", "1.0.0");
+        ResolvedComponentResult newer = mockComponent("com.example", "build-logic-1", "1.0.1");
+        Configuration configuration = mockConfigurationWithComponents(older, newer);
+
+        ResolvedComponentResult found = SharedBuildDependencies.findComponent(
+                configuration, "com.example", "build-logic-1", "1.0.1");
+
+        assertEquals(found, newer);
+    }
+
+    @Test
+    public void testFindComponentFallsBackToFirstMatchWhenVersionIsNotReal() {
+        ResolvedComponentResult first = mockComponent("com.example", "build-logic-1", "1.0.0");
+        ResolvedComponentResult second = mockComponent("com.example", "build-logic-1", "1.0.1");
+        Configuration configuration = mockConfigurationWithComponents(first, second);
+
+        // "unspecified" and blank are not real versions - version-agnostic behavior is kept so a
+        // shared build that only ever resolves to one version within a consumer build (the common
+        // case) is unaffected by making this method version-aware.
+        assertEquals(SharedBuildDependencies.findComponent(
+                configuration, "com.example", "build-logic-1", "unspecified"), first);
+        assertEquals(SharedBuildDependencies.findComponent(
+                configuration, "com.example", "build-logic-1", null), first);
+    }
+
+    @Test
+    public void testFindComponentFallsBackToFirstMatchWhenRequestedVersionIsNotResolved() {
+        ResolvedComponentResult only = mockComponent("com.example", "build-logic-1", "1.0.0");
+        Configuration configuration = mockConfigurationWithComponents(only);
+
+        // Requested version was never actually resolved for this configuration - still return
+        // the group:name match rather than nothing, matching the pre-existing version-agnostic
+        // behavior for the common single-version case.
+        assertEquals(SharedBuildDependencies.findComponent(
+                configuration, "com.example", "build-logic-1", "9.9.9"), only);
+    }
+
+    private static ResolvedComponentResult mockComponent(String group, String name, String version) {
+        ModuleVersionIdentifier module = mock(ModuleVersionIdentifier.class);
+        when(module.getGroup()).thenReturn(group);
+        when(module.getName()).thenReturn(name);
+        when(module.getVersion()).thenReturn(version);
+        ResolvedComponentResult component = mock(ResolvedComponentResult.class);
+        when(component.getModuleVersion()).thenReturn(module);
+        return component;
+    }
+
+    private static Configuration mockConfigurationWithComponents(ResolvedComponentResult... components) {
+        Set<ResolvedComponentResult> all = new LinkedHashSet<>();
+        for (ResolvedComponentResult component : components) {
+            all.add(component);
+        }
+        ResolutionResult resolutionResult = mock(ResolutionResult.class);
+        when(resolutionResult.getAllComponents()).thenReturn(all);
+        ResolvableDependencies incoming = mock(ResolvableDependencies.class);
+        when(incoming.getResolutionResult()).thenReturn(resolutionResult);
+        Configuration configuration = mock(Configuration.class);
+        when(configuration.getIncoming()).thenReturn(incoming);
+        return configuration;
+    }
+
+    @Test
+    public void testGradleScopeUsesConfigurationNames() {
+        assertEquals(SharedBuildDependencies.gradleScopeFor("implementation"), "compileClasspath");
+        assertEquals(SharedBuildDependencies.gradleScopeFor("api"), "compileClasspath");
+        assertEquals(SharedBuildDependencies.gradleScopeFor("compileOnly"), "compileOnly");
+        assertEquals(SharedBuildDependencies.gradleScopeFor("runtimeOnly"), "runtimeClasspath");
+        assertEquals(SharedBuildDependencies.gradleScopeFor("testImplementation"), "testCompileClasspath");
+    }
+
+    @Test
+    public void testPomScopeMapsToSharedBuildGradleScope() {
+        assertEquals(SharedBuildDependencies.pomScopeToGradle(null), "compileClasspath");
+        assertEquals(SharedBuildDependencies.pomScopeToGradle(""), "compileClasspath");
+        assertEquals(SharedBuildDependencies.pomScopeToGradle("compile"), "compileClasspath");
+        assertEquals(SharedBuildDependencies.pomScopeToGradle("runtime"), "runtimeClasspath");
+        assertEquals(SharedBuildDependencies.pomScopeToGradle("test"), null);
+        assertEquals(SharedBuildDependencies.pomScopeToGradle("import"), null);
+        assertEquals(SharedBuildDependencies.pomScopeToGradle("provided"), null);
+        assertEquals(SharedBuildDependencies.pomScopeToGradle("system"), null);
+    }
+
+    @Test
+    public void testParsePomDependenciesKeepsRuntimeScope() {
+        String pom =
+                "<project><dependencies>" +
+                "<dependency><groupId>com.fasterxml.jackson.core</groupId>" +
+                "<artifactId>jackson-core</artifactId><version>2.14.0</version></dependency>" +
+                "<dependency><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId>" +
+                "<version>1.7.36</version><scope>runtime</scope></dependency>" +
+                "</dependencies></project>";
+
+        List<String[]> entries = SharedBuildDependencies.parsePomDependenciesWithScopes(pom);
+
+        assertEquals(entries.size(), 2);
+        assertEquals(entries.get(0)[0], "com.fasterxml.jackson.core:jackson-core:2.14.0");
+        assertEquals(entries.get(0)[1], "compileClasspath");
+        assertEquals(entries.get(1)[0], "org.slf4j:slf4j-api:1.7.36");
+        assertEquals(entries.get(1)[1], "runtimeClasspath");
+    }
+
+    @Test
+    public void testConsumerTestClasspathsAreNotSharedBuildScopes() {
+        assertTrue(SharedBuildDependencies.isConsumerClasspathNoise("testRuntimeClasspath"));
+        assertTrue(SharedBuildDependencies.isConsumerClasspathNoise("testCompileClasspath"));
+        assertTrue(SharedBuildDependencies.isConsumerClasspathNoise("testRuntimeElements"));
+        assertFalse(SharedBuildDependencies.isConsumerClasspathNoise("compileClasspath"));
+        assertFalse(SharedBuildDependencies.isConsumerClasspathNoise("runtimeClasspath"));
+    }
+
+    @Test
+    public void testParsePomDependenciesIncludesTransitivesAndSkipsTestOptional() {
+        String pom =
+                "<project><dependencies>" +
+                "<dependency><groupId>org.hamcrest</groupId><artifactId>hamcrest-core</artifactId><version>1.3</version></dependency>" +
+                "<dependency><groupId>org.example</groupId><artifactId>optional-lib</artifactId><version>1.0</version><optional>true</optional></dependency>" +
+                "<dependency><groupId>junit</groupId><artifactId>junit</artifactId><version>4.13.2</version><scope>test</scope></dependency>" +
+                "</dependencies>" +
+                "<build><plugins><plugin><dependencies>" +
+                "<dependency><groupId>com.github.stephenc.wagon</groupId><artifactId>wagon-gitsite</artifactId><version>0.4.1</version></dependency>" +
+                "</dependencies></plugin></plugins></build>" +
+                "</project>";
+
+        List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pom);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("org.hamcrest:hamcrest-core:1.3"));
+    }
+
+    @Test
+    public void testParsePomDependenciesIncludesBomAndSkipsImport() {
+        String pom =
+                "<project><dependencies>" +
+                "<dependency><groupId>com.fasterxml.jackson</groupId><artifactId>jackson-bom</artifactId>" +
+                "<version>2.14.0</version><type>pom</type></dependency>" +
+                "<dependency><groupId>org.example</groupId><artifactId>imported-bom</artifactId>" +
+                "<version>1.0</version><type>pom</type><scope>import</scope></dependency>" +
+                "<dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-core</artifactId>" +
+                "<version>2.14.0</version></dependency>" +
+                "</dependencies></project>";
+
+        List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pom);
+
+        assertEquals(gavs.size(), 2);
+        assertTrue(gavs.contains("com.fasterxml.jackson:jackson-bom:2.14.0"));
+        assertTrue(gavs.contains("com.fasterxml.jackson.core:jackson-core:2.14.0"));
+    }
+
+    @Test
+    public void testArtifactFileKeepsPomWhenNoJar() throws Exception {
+        java.io.File pom = java.io.File.createTempFile("jackson-bom-2.14.0", ".pom");
+        try {
+            java.nio.file.Files.write(pom.toPath(), "<project/>".getBytes());
+            java.io.File chosen = SharedBuildDependencies.artifactFileForDependency(
+                    pom, "/tmp/does-not-exist-gradle-home", "com.fasterxml.jackson:jackson-bom:2.14.0");
+            assertEquals(chosen.getName(), pom.getName());
+        } finally {
+            pom.delete();
+        }
+    }
+
+    @Test
+    public void testEnsurePublishedJarPacksClassesWhenNoJar() throws Exception {
+        java.io.File dir = new java.io.File(System.getProperty("java.io.tmpdir"), "jfrog-pack-classes");
+        java.io.File classes = new java.io.File(dir, "build/classes/java/main/com/example");
+        assertTrue(classes.mkdirs() || classes.isDirectory());
+        java.io.File classFile = new java.io.File(classes, "Logic3.class");
+        java.nio.file.Files.write(classFile.toPath(), new byte[]{1, 2, 3, 4});
+        try {
+            java.io.File jar = SharedBuildLogicUtils.ensurePublishedJar(dir, "build-logic-3", "1.0.0");
+            assertTrue(jar.isFile());
+            assertEquals(jar.getName(), "build-logic-3-1.0.0.jar");
+        } finally {
+            java.io.File libs = new java.io.File(dir, "build/libs");
+            java.io.File packed = new java.io.File(libs, "build-logic-3-1.0.0.jar");
+            packed.delete();
+            libs.delete();
+            classFile.delete();
+            classes.delete();
+            new java.io.File(dir, "build/classes/java/main/com").delete();
+            new java.io.File(dir, "build/classes/java/main").delete();
+            new java.io.File(dir, "build/classes/java").delete();
+            new java.io.File(dir, "build/classes").delete();
+            new java.io.File(dir, "build").delete();
+            dir.delete();
+        }
+    }
+
+    @Test
+    public void testFindCachedJarReadsGradleModuleCache() throws Exception {
+        java.io.File home = new java.io.File(System.getProperty("java.io.tmpdir"), "jfrog-gradle-home");
+        java.io.File jarDir = new java.io.File(home,
+                "caches/modules-2/files-2.1/junit/junit/4.13.2/abc123");
+        assertTrue(jarDir.mkdirs() || jarDir.isDirectory());
+        java.io.File jar = new java.io.File(jarDir, "junit-4.13.2.jar");
+        java.nio.file.Files.write(jar.toPath(), new byte[]{9, 8, 7});
+        try {
+            assertEquals(
+                    SharedBuildDependencies.findCachedJar(home.getAbsolutePath(), "junit:junit:4.13.2").getName(),
+                    "junit-4.13.2.jar");
+        } finally {
+            jar.delete();
+            jarDir.delete();
+            java.io.File version = jarDir.getParentFile();
+            version.delete();
+            version.getParentFile().delete();
+            version.getParentFile().getParentFile().delete();
+            new java.io.File(home, "caches/modules-2/files-2.1").delete();
+            new java.io.File(home, "caches/modules-2").delete();
+            new java.io.File(home, "caches").delete();
+            home.delete();
+        }
+    }
+
+    @Test
+    public void testEnsurePublishedMetadataWritesPomAndModuleWhenMissing() throws Exception {
+        java.io.File dir = new java.io.File(System.getProperty("java.io.tmpdir"), "jfrog-pub-meta");
+        assertTrue(dir.mkdirs() || dir.isDirectory());
+        try {
+            SharedBuildLogicUtils.ensurePublishedMetadata(
+                    dir, "com.example.nested-app", "buildSrc", "unspecified",
+                    java.util.Collections.singletonList("org.slf4j:slf4j-api:1.7.36"));
+            java.io.File pom = new java.io.File(dir, "build/publications/generated/pom-default.xml");
+            java.io.File module = new java.io.File(dir, "build/publications/generated/module.json");
+            assertTrue(pom.isFile());
+            assertTrue(module.isFile());
+            String pomText = new String(java.nio.file.Files.readAllBytes(pom.toPath()));
+            assertTrue(pomText.contains("<groupId>com.example.nested-app</groupId>"));
+            assertTrue(pomText.contains("<artifactId>buildSrc</artifactId>"));
+            assertTrue(pomText.contains("<artifactId>slf4j-api</artifactId>"));
+            String moduleText = new String(java.nio.file.Files.readAllBytes(module.toPath()));
+            assertTrue(moduleText.contains("\"module\": \"buildSrc\""));
+            assertTrue(moduleText.contains("buildSrc-unspecified.jar"));
+        } finally {
+            java.io.File gen = new java.io.File(dir, "build/publications/generated");
+            new java.io.File(gen, "pom-default.xml").delete();
+            new java.io.File(gen, "module.json").delete();
+            gen.delete();
+            new java.io.File(dir, "build/publications").delete();
+            new java.io.File(dir, "build").delete();
+            dir.delete();
+        }
+    }
+
+    @Test
+    public void testFirstBuiltJarFindsJarInLibs() throws Exception {
+        java.io.File dir = new java.io.File(System.getProperty("java.io.tmpdir"), "jfrog-first-jar");
+        java.io.File libs = new java.io.File(dir, "build/libs");
+        assertTrue(libs.mkdirs() || libs.isDirectory());
+        java.io.File jar = new java.io.File(libs, "build-logic-1-1.0.0.jar");
+        assertTrue(jar.createNewFile() || jar.isFile());
+        try {
+            assertEquals(SharedBuildLogicUtils.firstBuiltJar(dir).getName(), "build-logic-1-1.0.0.jar");
+        } finally {
+            jar.delete();
+            libs.delete();
+            new java.io.File(dir, "build").delete();
+            dir.delete();
+        }
+    }
+
+    // --- Same-POM ${property} resolution (RTECO-136 review notes: a transitive dependency whose
+    // version is a same-POM Maven property, like JUnit 4's own hamcrest-core -> ${hamcrestVersion},
+    // was previously dropped instead of resolved) ---
+
+    @Test
+    public void testPomPropertyIsResolvedInDependencyVersion() {
+        // Same shape as the real junit:4.13.2 POM: hamcrest-core's version is a property declared
+        // in this same POM's <properties> block.
+        String pom =
+                "<project>" +
+                "<properties><hamcrestVersion>1.3</hamcrestVersion></properties>" +
+                "<dependencies>" +
+                "<dependency><groupId>org.hamcrest</groupId><artifactId>hamcrest-core</artifactId>" +
+                "<version>${hamcrestVersion}</version></dependency>" +
+                "</dependencies></project>";
+
+        List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pom);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("org.hamcrest:hamcrest-core:1.3"));
+    }
+
+    @Test
+    public void testPomPropertyFromParentPomStaysUnresolvedAndIsSkipped() {
+        // jackson-databind's own POM references ${jackson.version.core} without declaring it -
+        // that property lives in a parent POM this static parser does not fetch. Must be skipped,
+        // not recorded with a literal "${...}" version string.
+        String pom =
+                "<project><dependencies>" +
+                "<dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-core</artifactId>" +
+                "<version>${jackson.version.core}</version></dependency>" +
+                "</dependencies></project>";
+
+        List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pom);
+
+        assertTrue(gavs.isEmpty());
+    }
+
+    @Test
+    public void testResolvePomPropertyLeavesNonReferenceValuesUnchanged() {
+        java.util.Map<String, String> properties = new java.util.HashMap<String, String>();
+        properties.put("hamcrestVersion", "1.3");
+
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${hamcrestVersion}", properties), "1.3");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("2.14.0", properties), "2.14.0");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${undeclared}", properties), "${undeclared}");
+        assertEquals(SharedBuildDependencies.resolvePomProperty(null, properties), null);
+        assertEquals(SharedBuildDependencies.resolvePomProperty("1.${minor}", properties), "1.${minor}");
+
+        properties.put("minor", "3");
+        properties.put("foo", "a");
+        properties.put("bar", "b");
+        properties.put("chained", "${hamcrestVersion}");
+        properties.put("cycle", "${cycle}");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("1.${minor}", properties), "1.3");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${foo}-${bar}", properties), "a-b");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${chained}", properties), "1.3");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${cycle}", properties), "${cycle}");
+    }
+
+    @Test
+    public void testPomProjectVersionPropertyIsResolvedFromProjectCoordinates() {
+        String pom =
+                "<project>" +
+                "<groupId>com.example</groupId><artifactId>lib</artifactId><version>2.0.0</version>" +
+                "<dependencies>" +
+                "<dependency><groupId>com.example</groupId><artifactId>other</artifactId>" +
+                "<version>${project.version}</version></dependency>" +
+                "</dependencies></project>";
+
+        List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pom);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("com.example:other:2.0.0"));
+    }
+
+    // --- Nested includeBuild (a first-level shared build's own composite, e.g. build-logic-1's
+    // build-logic-2) discovery and GAV matching ---
+
+    @Test
+    public void testNestedIncludeBuildDirsParsesSettingsGradle() throws Exception {
+        java.io.File dir = new java.io.File(System.getProperty("java.io.tmpdir"), "jfrog-nested-settings");
+        java.io.File nested = new java.io.File(dir, "build-logic-2");
+        assertTrue(nested.mkdirs() || nested.isDirectory());
+        java.io.File settings = new java.io.File(dir, "settings.gradle");
+        try (java.io.FileWriter writer = new java.io.FileWriter(settings)) {
+            writer.write("rootProject.name = 'build-logic-1'\nincludeBuild 'build-logic-2'\n");
+        }
+        try {
+            List<java.io.File> dirs = SharedBuildDependencies.nestedIncludeBuildDirs(dir);
+            assertEquals(dirs.size(), 1);
+            assertEquals(dirs.get(0).getCanonicalFile(), nested.getCanonicalFile());
+        } finally {
+            settings.delete();
+            nested.delete();
+            dir.delete();
+        }
+    }
+
+    @Test
+    public void testNestedIncludeBuildDirsSkipsUndeclaredOrMissingDirs() {
+        java.io.File dir = new java.io.File(System.getProperty("java.io.tmpdir"), "jfrog-nested-settings-empty");
+        assertTrue(dir.mkdirs() || dir.isDirectory());
+        try {
+            // No settings.gradle at all.
+            assertTrue(SharedBuildDependencies.nestedIncludeBuildDirs(dir).isEmpty());
+        } finally {
+            dir.delete();
+        }
+    }
+
+    @Test
+    public void testNestedIncludeBuildDirForRequiresMatchingGroupWhenGavHasOne() throws Exception {
+        java.io.File dir = java.nio.file.Files.createTempDirectory("jfrog-nested-gav").toFile();
+        java.io.File nested = new java.io.File(dir, "gson");
+        assertTrue(nested.mkdirs());
+        try (java.io.FileWriter settings = new java.io.FileWriter(new java.io.File(nested, "settings.gradle"));
+             java.io.FileWriter build = new java.io.FileWriter(new java.io.File(nested, "build.gradle"))) {
+            settings.write("rootProject.name = 'gson'\n");
+            build.write("group = 'com.example'\nversion = '1.0.0'\n");
+        }
+        try {
+            List<java.io.File> dirs = java.util.Collections.singletonList(nested);
+            assertEquals(
+                    SharedBuildDependencies.nestedIncludeBuildDirFor("com.example:gson:1.0.0", dirs),
+                    nested,
+                    "same group + artifact should identify the nested include");
+            assertEquals(
+                    SharedBuildDependencies.nestedIncludeBuildDirFor("com.google.code.gson:gson:2.9.0", dirs),
+                    null,
+                    "a real Maven dep that only shares the artifact name must not be flattened");
+        } finally {
+            new java.io.File(nested, "settings.gradle").delete();
+            new java.io.File(nested, "build.gradle").delete();
+            nested.delete();
+            dir.delete();
+        }
+    }
+
+    // --- Parent-POM property resolution (RTECO-136 review notes: jackson-databind's own POM
+    // references ${jackson.version.core} for jackson-core/jackson-annotations without declaring
+    // it - only jackson-parent does, so those two were silently skipped until this was added) ---
+
+    private static void writeCachedPom(java.io.File gradleHome, String group, String artifact, String version, String pomXml) throws Exception {
+        java.io.File versionDir = new java.io.File(gradleHome,
+                "caches/modules-2/files-2.1/" + group + "/" + artifact + "/" + version + "/somehash");
+        assertTrue(versionDir.mkdirs() || versionDir.isDirectory());
+        java.io.File pom = new java.io.File(versionDir, artifact + "-" + version + ".pom");
+        java.nio.file.Files.write(pom.toPath(), pomXml.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void testParentPomPropertyIsResolvedForDependencyVersion() throws Exception {
+        java.io.File gradleHome = java.nio.file.Files.createTempDirectory("jfrog-parent-pom").toFile();
+        try {
+            writeCachedPom(gradleHome, "com.example", "parent-lib", "1.0.0",
+                    "<project><properties><childVersion>9.9.9</childVersion></properties></project>");
+            String childPom =
+                    "<project>" +
+                    "<parent><groupId>com.example</groupId><artifactId>parent-lib</artifactId><version>1.0.0</version></parent>" +
+                    "<dependencies>" +
+                    "<dependency><groupId>com.example</groupId><artifactId>child-dep</artifactId>" +
+                    "<version>${childVersion}</version></dependency>" +
+                    "</dependencies></project>";
+
+            // Without a Gradle home, the parent is never fetched - unresolved and skipped
+            // (existing behavior, unchanged).
+            assertTrue(SharedBuildDependencies.parsePomCompileDependencies(childPom).isEmpty());
+
+            // With one, the parent's property resolves the child dependency's version.
+            List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(childPom, gradleHome.getAbsolutePath());
+            assertEquals(gavs.size(), 1);
+            assertTrue(gavs.contains("com.example:child-dep:9.9.9"));
+        } finally {
+            org.apache.commons.io.FileUtils.deleteDirectory(gradleHome);
+        }
+    }
+
+    @Test
+    public void testChildPomPropertyOverridesSameNamedParentProperty() throws Exception {
+        java.io.File gradleHome = java.nio.file.Files.createTempDirectory("jfrog-parent-pom-override").toFile();
+        try {
+            writeCachedPom(gradleHome, "com.example", "parent-lib", "1.0.0",
+                    "<project><properties><depVersion>1.0.0</depVersion></properties></project>");
+            String childPom =
+                    "<project>" +
+                    "<parent><groupId>com.example</groupId><artifactId>parent-lib</artifactId><version>1.0.0</version></parent>" +
+                    "<properties><depVersion>2.0.0</depVersion></properties>" +
+                    "<dependencies>" +
+                    "<dependency><groupId>com.example</groupId><artifactId>child-dep</artifactId>" +
+                    "<version>${depVersion}</version></dependency>" +
+                    "</dependencies></project>";
+
+            List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(childPom, gradleHome.getAbsolutePath());
+
+            assertEquals(gavs.size(), 1);
+            assertTrue(gavs.contains("com.example:child-dep:2.0.0"), "child's own property must win over the parent's");
+        } finally {
+            org.apache.commons.io.FileUtils.deleteDirectory(gradleHome);
+        }
+    }
+
+    @Test
+    public void testParentPomChainStopsOnSelfReferencingCycle() throws Exception {
+        java.io.File gradleHome = java.nio.file.Files.createTempDirectory("jfrog-parent-pom-cycle").toFile();
+        try {
+            // pom-a's parent is pom-b, and pom-b's parent is pom-a: must terminate, not loop forever.
+            writeCachedPom(gradleHome, "com.example", "pom-b", "1.0.0",
+                    "<project><parent><groupId>com.example</groupId><artifactId>pom-a</artifactId><version>1.0.0</version></parent>" +
+                    "<properties><sharedVersion>5.0.0</sharedVersion></properties></project>");
+            String pomA =
+                    "<project>" +
+                    "<parent><groupId>com.example</groupId><artifactId>pom-b</artifactId><version>1.0.0</version></parent>" +
+                    "<dependencies>" +
+                    "<dependency><groupId>com.example</groupId><artifactId>child-dep</artifactId>" +
+                    "<version>${sharedVersion}</version></dependency>" +
+                    "</dependencies></project>";
+            writeCachedPom(gradleHome, "com.example", "pom-a", "1.0.0", pomA);
+
+            List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pomA, gradleHome.getAbsolutePath());
+
+            assertEquals(gavs.size(), 1);
+            assertTrue(gavs.contains("com.example:child-dep:5.0.0"));
+        } finally {
+            org.apache.commons.io.FileUtils.deleteDirectory(gradleHome);
+        }
+    }
+
+    @Test
+    public void testParsePomParentGavExtractsCoordinatesFromParentBlock() {
+        String pom =
+                "<project>" +
+                "<groupId>com.example</groupId><artifactId>child</artifactId><version>1.0.0</version>" +
+                "<parent><groupId>com.example</groupId><artifactId>parent-lib</artifactId><version>3.2.1</version></parent>" +
+                "</project>";
+
+        assertEquals(SharedBuildDependencies.parsePomParentGav(pom), "com.example:parent-lib:3.2.1");
+        assertEquals(SharedBuildDependencies.parsePomParentGav("<project></project>"), null);
+    }
+}
