@@ -99,9 +99,18 @@ public final class SharedBuildLogicUtils {
     }
 
     public static String readRootProjectName(File projectDir, String defaultName) {
-        String text = readFirstExistingFile(projectDir, "settings.gradle", "settings.gradle.kts");
+        String text = readSettingsScript(projectDir);
         String name = firstMatch(ROOT_PROJECT_NAME, text);
         return StringUtils.defaultIfBlank(name, defaultName);
+    }
+
+    /**
+     * Raw settings.gradle(.kts) text, for callers that need more than
+     * {@link #readRootProjectName} extracts (e.g. SharedBuildDependencies parsing a shared
+     * build's own nested {@code includeBuild} directives).
+     */
+    public static String readSettingsScript(File projectDir) {
+        return readFirstExistingFile(projectDir, "settings.gradle", "settings.gradle.kts");
     }
 
     public static void ensurePublishedMetadata(File projectDir, String group, String name, String version,

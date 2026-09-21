@@ -338,4 +338,88 @@ public class SharedBuildDependenciesTest {
             dir.delete();
         }
     }
+
+    // --- Same-POM ${property} resolution (RTECO-136 review notes: a transitive dependency whose
+    // version is a same-POM Maven property, like JUnit 4's own hamcrest-core -> ${hamcrestVersion},
+    // was previously dropped instead of resolved) ---
+
+    @Test
+    public void testPomPropertyIsResolvedInDependencyVersion() {
+        // Same shape as the real junit:4.13.2 POM: hamcrest-core's version is a property declared
+        // in this same POM's <properties> block.
+        String pom =
+                "<project>" +
+                "<properties><hamcrestVersion>1.3</hamcrestVersion></properties>" +
+                "<dependencies>" +
+                "<dependency><groupId>org.hamcrest</groupId><artifactId>hamcrest-core</artifactId>" +
+                "<version>${hamcrestVersion}</version></dependency>" +
+                "</dependencies></project>";
+
+        List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pom);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("org.hamcrest:hamcrest-core:1.3"));
+    }
+
+    @Test
+    public void testPomPropertyFromParentPomStaysUnresolvedAndIsSkipped() {
+        // jackson-databind's own POM references ${jackson.version.core} without declaring it -
+        // that property lives in a parent POM this static parser does not fetch. Must be skipped,
+        // not recorded with a literal "${...}" version string.
+        String pom =
+                "<project><dependencies>" +
+                "<dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-core</artifactId>" +
+                "<version>${jackson.version.core}</version></dependency>" +
+                "</dependencies></project>";
+
+        List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pom);
+
+        assertTrue(gavs.isEmpty());
+    }
+
+    @Test
+    public void testResolvePomPropertyLeavesNonReferenceValuesUnchanged() {
+        java.util.Map<String, String> properties = new java.util.HashMap<String, String>();
+        properties.put("hamcrestVersion", "1.3");
+
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${hamcrestVersion}", properties), "1.3");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("2.14.0", properties), "2.14.0");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${undeclared}", properties), "${undeclared}");
+        assertEquals(SharedBuildDependencies.resolvePomProperty(null, properties), null);
+    }
+
+    // --- Nested includeBuild (a first-level shared build's own composite, e.g. build-logic-1's
+    // build-logic-2) discovery and GAV matching ---
+
+    @Test
+    public void testNestedIncludeBuildDirsParsesSettingsGradle() throws Exception {
+        java.io.File dir = new java.io.File(System.getProperty("java.io.tmpdir"), "jfrog-nested-settings");
+        java.io.File nested = new java.io.File(dir, "build-logic-2");
+        assertTrue(nested.mkdirs() || nested.isDirectory());
+        java.io.File settings = new java.io.File(dir, "settings.gradle");
+        try (java.io.FileWriter writer = new java.io.FileWriter(settings)) {
+            writer.write("rootProject.name = 'build-logic-1'\nincludeBuild 'build-logic-2'\n");
+        }
+        try {
+            List<java.io.File> dirs = SharedBuildDependencies.nestedIncludeBuildDirs(dir);
+            assertEquals(dirs.size(), 1);
+            assertEquals(dirs.get(0).getCanonicalFile(), nested.getCanonicalFile());
+        } finally {
+            settings.delete();
+            nested.delete();
+            dir.delete();
+        }
+    }
+
+    @Test
+    public void testNestedIncludeBuildDirsSkipsUndeclaredOrMissingDirs() {
+        java.io.File dir = new java.io.File(System.getProperty("java.io.tmpdir"), "jfrog-nested-settings-empty");
+        assertTrue(dir.mkdirs() || dir.isDirectory());
+        try {
+            // No settings.gradle at all.
+            assertTrue(SharedBuildDependencies.nestedIncludeBuildDirs(dir).isEmpty());
+        } finally {
+            dir.delete();
+        }
+    }
 }

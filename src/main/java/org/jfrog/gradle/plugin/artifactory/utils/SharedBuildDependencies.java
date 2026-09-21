@@ -51,17 +51,23 @@ public final class SharedBuildDependencies {
     private static final Pattern POM_VERSION = Pattern.compile("<version>\\s*([^<\\s]+)\\s*</version>", Pattern.CASE_INSENSITIVE);
     private static final Pattern POM_SCOPE = Pattern.compile("<scope>\\s*([^<\\s]+)\\s*</scope>", Pattern.CASE_INSENSITIVE);
     private static final Pattern POM_OPTIONAL = Pattern.compile("<optional>\\s*true\\s*</optional>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern POM_PROPERTIES_BLOCK = Pattern.compile(
+            "(?s)<properties>(.*?)</properties>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern POM_PROPERTY_ENTRY = Pattern.compile(
+            "<([A-Za-z0-9_.-]+)>\\s*([^<\\s][^<]*?)\\s*</\\1>");
+    private static final Pattern POM_PROPERTY_REF = Pattern.compile("\\$\\{([^}]+)\\}");
 
     private SharedBuildDependencies() {
     }
 
     public static List<Dependency> collect(Project consumer, File sharedDir, String group, String name, String version) {
         Map<String, Dependency> byId = new LinkedHashMap<String, Dependency>();
+        List<File> nestedIncludeDirs = nestedIncludeBuildDirs(sharedDir);
         collectDeclaredAndPomTransitives(consumer, sharedDir, byId);
         // version disambiguates which resolved component to walk when more than one configuration
         // resolved a same-named shared build to different versions (rare, but possible when a
         // consumer overrides a version for one classpath and not another).
-        collectFromResolvedGraph(consumer, group, name, version, byId);
+        collectFromResolvedGraph(consumer, group, name, version, byId, nestedIncludeDirs);
         return new ArrayList<Dependency>(byId.values());
     }
 
@@ -143,6 +149,7 @@ public final class SharedBuildDependencies {
         if (pomXml == null || pomXml.isEmpty()) {
             return Collections.emptyList();
         }
+        Map<String, String> properties = parsePomProperties(pomXml);
         String projectDeps = projectDependenciesBlock(pomXml);
         List<String[]> entries = new ArrayList<String[]>();
         Matcher matcher = POM_DEPENDENCY.matcher(projectDeps);
@@ -155,15 +162,54 @@ public final class SharedBuildDependencies {
             if (scope == null) {
                 continue;
             }
-            String depGroup = SharedBuildLogicUtils.firstMatch(POM_GROUP, block);
-            String depName = SharedBuildLogicUtils.firstMatch(POM_ARTIFACT, block);
-            String depVersion = SharedBuildLogicUtils.firstMatch(POM_VERSION, block);
+            String depGroup = resolvePomProperty(SharedBuildLogicUtils.firstMatch(POM_GROUP, block), properties);
+            String depName = resolvePomProperty(SharedBuildLogicUtils.firstMatch(POM_ARTIFACT, block), properties);
+            String depVersion = resolvePomProperty(SharedBuildLogicUtils.firstMatch(POM_VERSION, block), properties);
             if (StringUtils.isAnyBlank(depGroup, depName, depVersion) || depVersion.contains("${")) {
+                // Still unresolved after substitution: the property is defined elsewhere (a
+                // parent POM, a BOM) that this static parser does not fetch. Skip rather than
+                // record a bogus literal "${...}" version.
                 continue;
             }
             entries.add(new String[]{depGroup + ":" + depName + ":" + depVersion, scope});
         }
         return entries;
+    }
+
+    /**
+     * {@code <properties>} entries declared directly in this POM, for resolving a same-POM
+     * {@code ${propertyName}} reference in a dependency's own groupId/artifactId/version (a
+     * common Maven pattern, e.g. JUnit 4's own {@code ${hamcrestVersion}}). Properties inherited
+     * from a parent POM are out of scope for this static parser - not fetched.
+     */
+    static Map<String, String> parsePomProperties(String pomXml) {
+        Map<String, String> properties = new java.util.HashMap<String, String>();
+        Matcher blockMatcher = POM_PROPERTIES_BLOCK.matcher(pomXml);
+        if (!blockMatcher.find()) {
+            return properties;
+        }
+        Matcher entryMatcher = POM_PROPERTY_ENTRY.matcher(blockMatcher.group(1));
+        while (entryMatcher.find()) {
+            properties.put(entryMatcher.group(1), entryMatcher.group(2).trim());
+        }
+        return properties;
+    }
+
+    /**
+     * Replace a single {@code ${propertyName}} reference using this POM's own properties.
+     * Leaves the value unchanged (including the placeholder) if it isn't a property reference,
+     * or if the referenced property isn't declared in this same POM.
+     */
+    static String resolvePomProperty(String value, Map<String, String> properties) {
+        if (StringUtils.isBlank(value) || !value.contains("${")) {
+            return value;
+        }
+        Matcher refMatcher = POM_PROPERTY_REF.matcher(value);
+        if (!refMatcher.matches()) {
+            return value;
+        }
+        String resolved = properties.get(refMatcher.group(1));
+        return resolved != null ? resolved : value;
     }
 
     static String projectDependenciesBlock(String pomXml) {
@@ -177,7 +223,7 @@ public final class SharedBuildDependencies {
     }
 
     private static void collectFromResolvedGraph(Project consumer, String group, String name, String version,
-                                                 Map<String, Dependency> byId) {
+                                                 Map<String, Dependency> byId, List<File> nestedIncludeDirs) {
         if (consumer == null) {
             return;
         }
@@ -194,13 +240,14 @@ public final class SharedBuildDependencies {
                     continue;
                 }
                 Map<String, File> filesById = artifactFiles(consumer, configuration);
-                collectReachable(consumer, moduleRoot, filesById, new HashSet<String>(), byId);
+                collectReachable(consumer, moduleRoot, filesById, new HashSet<String>(), byId, nestedIncludeDirs);
             }
         }
     }
 
     private static void collectReachable(Project consumer, ResolvedComponentResult node,
-                                         Map<String, File> filesById, Set<String> visited, Map<String, Dependency> byId) {
+                                         Map<String, File> filesById, Set<String> visited, Map<String, Dependency> byId,
+                                         List<File> nestedIncludeDirs) {
         for (DependencyResult edge : node.getDependencies()) {
             if (!(edge instanceof ResolvedDependencyResult)) {
                 continue;
@@ -223,17 +270,25 @@ public final class SharedBuildDependencies {
             if (id == null || !visited.add(id)) {
                 continue;
             }
-            File file = filesById.get(id);
-            if (file == null || !file.isFile() || file.getName().endsWith(".pom")) {
-                File jar = jarForProjectComponent(selected.getId(), consumer);
-                if (jar != null && jar.isFile()) {
-                    file = jar;
+            // A first-level shared build's OWN nested composite (e.g. build-logic-1's
+            // build-logic-2) is never itself published, so it would only ever be recorded as an
+            // unresolved (no checksum) edge here. Do not record it as a dependency - just keep
+            // walking through it so its own real dependencies still get attributed to the outer
+            // shared build, matching addGavAndPomTransitives' static-parse handling of the same
+            // case and the FlexPack collection's shape.
+            if (nestedIncludeBuildDirFor(id, nestedIncludeDirs) == null) {
+                File file = filesById.get(id);
+                if (file == null || !file.isFile() || file.getName().endsWith(".pom")) {
+                    File jar = jarForProjectComponent(selected.getId(), consumer);
+                    if (jar != null && jar.isFile()) {
+                        file = jar;
+                    }
                 }
+                file = artifactFileForDependency(
+                        file, SharedBuildLogicUtils.resolveGradleUserHome(), id);
+                addDependency(byId, id, file, null);
             }
-            file = artifactFileForDependency(
-                    file, SharedBuildLogicUtils.resolveGradleUserHome(), id);
-            addDependency(byId, id, file, null);
-            collectReachable(consumer, selected, filesById, visited, byId);
+            collectReachable(consumer, selected, filesById, visited, byId, nestedIncludeDirs);
         }
     }
 
@@ -241,15 +296,80 @@ public final class SharedBuildDependencies {
                                                          Map<String, Dependency> byId) {
         String gradleUserHome = SharedBuildLogicUtils.resolveGradleUserHome();
         Set<String> visitedPoms = new HashSet<String>();
+        List<File> nestedIncludeDirs = nestedIncludeBuildDirs(sharedDir);
         for (String[] entry : parseDeclaredDependencyEntries(SharedBuildLogicUtils.readBuildScript(sharedDir))) {
             String scope = gradleScopeFor(entry[0]);
-            addGavAndPomTransitives(consumer, entry[1], scope, gradleUserHome, visitedPoms, byId);
+            addGavAndPomTransitives(consumer, entry[1], scope, gradleUserHome, visitedPoms, byId, nestedIncludeDirs);
         }
     }
 
+    // Matches includeBuild 'path' / includeBuild("path") in a settings.gradle(.kts), the same
+    // notation UsedSharedBuilds/gradle_shared_builds.go (FlexPack) already handle for the
+    // consumer's own settings.gradle. Used here for a first-level shared build's OWN nested
+    // includeBuild (e.g. build-logic-1's build-logic-2), which the consumer's Gradle instance
+    // does not expose via IncludedBuild.getIncludedBuilds() (that only lists the consumer's own
+    // direct includes), so it must be found the same static-parse way.
+    private static final Pattern INCLUDE_BUILD = Pattern.compile("includeBuild\\s*\\(?\\s*['\"]([^'\"]+)['\"]");
+
+    // Package-visible for SharedBuildDependenciesTest.
+    static List<File> nestedIncludeBuildDirs(File dir) {
+        List<File> dirs = new ArrayList<File>();
+        String settingsText = SharedBuildLogicUtils.readSettingsScript(dir);
+        if (StringUtils.isBlank(settingsText)) {
+            return dirs;
+        }
+        for (String line : settingsText.split("\n")) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("includeBuild")) {
+                continue;
+            }
+            Matcher matcher = INCLUDE_BUILD.matcher(trimmed);
+            if (!matcher.find()) {
+                continue;
+            }
+            File nested = new File(dir, matcher.group(1));
+            if (nested.isDirectory()) {
+                dirs.add(nested);
+            }
+        }
+        return dirs;
+    }
+
+    /**
+     * The nested includeBuild directory whose own rootProject.name matches this GAV's artifact
+     * segment, or null. A shared build's own nested composite has no published coordinates the
+     * consumer can resolve/checksum, so it is identified by name instead.
+     */
+    private static File nestedIncludeBuildDirFor(String gav, List<File> nestedIncludeDirs) {
+        if (nestedIncludeDirs.isEmpty()) {
+            return null;
+        }
+        String artifact = SharedBuildLogicUtils.gavParts(gav)[1];
+        for (File dir : nestedIncludeDirs) {
+            if (SharedBuildLogicUtils.readRootProjectName(dir, dir.getName()).equals(artifact)) {
+                return dir;
+            }
+        }
+        return null;
+    }
+
     private static void addGavAndPomTransitives(Project consumer, String gav, String scope, String gradleUserHome,
-                                                Set<String> visitedPoms, Map<String, Dependency> byId) {
+                                                Set<String> visitedPoms, Map<String, Dependency> byId,
+                                                List<File> nestedIncludeDirs) {
         if (StringUtils.isBlank(gav) || !visitedPoms.add(gav)) {
+            return;
+        }
+        File nestedDir = nestedIncludeBuildDirFor(gav, nestedIncludeDirs);
+        if (nestedDir != null) {
+            // A first-level shared build's own nested composite (e.g. build-logic-1's
+            // build-logic-2) is never itself published/deployed anywhere the consumer can
+            // resolve a checksum for, so recording it as a dependency edge would always be an
+            // unresolved "sha1=null" entry. Flatten its own declared dependencies directly onto
+            // the outer shared build instead, matching the FlexPack collection's shape here.
+            for (String[] nestedEntry : parseDeclaredDependencyEntries(SharedBuildLogicUtils.readBuildScript(nestedDir))) {
+                addGavAndPomTransitives(consumer, nestedEntry[1], gradleScopeFor(nestedEntry[0]), gradleUserHome,
+                        visitedPoms, byId, nestedIncludeBuildDirs(nestedDir));
+            }
             return;
         }
         File file = artifactFileForDependency(findResolvedFile(consumer, gav), gradleUserHome, gav);
@@ -261,7 +381,8 @@ public final class SharedBuildDependencies {
         try {
             String pomXml = org.apache.commons.io.FileUtils.readFileToString(pom, java.nio.charset.StandardCharsets.UTF_8);
             for (String[] transitive : parsePomDependenciesWithScopes(pomXml)) {
-                addGavAndPomTransitives(consumer, transitive[0], transitive[1], gradleUserHome, visitedPoms, byId);
+                addGavAndPomTransitives(consumer, transitive[0], transitive[1], gradleUserHome, visitedPoms, byId,
+                        nestedIncludeDirs);
             }
         } catch (Exception e) {
             log.debug("Could not read POM transitives for {}: {}", gav, e.getMessage());
