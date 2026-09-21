@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.jfrog.build.extractor.ci.BuildInfoProperties.BUILD_INFO_ENVIRONMENT_PREFIX;
 import static org.jfrog.gradle.plugin.artifactory.Constant.*;
@@ -93,11 +94,35 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
      * @param bib - the builder to set its fields
      */
     private void populateBuilderModulesFields(BuildInfoBuilder bib) {
-        boolean includeSharedBuild = rootProject != null
-                && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(rootProject);
+        if (rootProject != null && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(rootProject)) {
+            populateSharedBuildModules(bib);
+            return;
+        }
+        // Flag-off: same module selection as main.
+        Set<File> moduleFilesWithModules = moduleInfoFileProducers.stream()
+                .filter(ModuleInfoFileProducer::hasModules)
+                .flatMap(moduleInfoFileProducer -> moduleInfoFileProducer.getModuleInfoFiles().getFiles().stream())
+                .collect(Collectors.toSet());
 
-        // Track, per module-info file, whether it came from a shared-build producer specifically -
-        // the "keep empty modules" override below must only apply to those, not to every producer.
+        moduleFilesWithModules.forEach(moduleFile -> {
+            try {
+                Module module = ModuleExtractorUtils.readModuleFromFile(moduleFile);
+                List<Artifact> artifacts = module.getArtifacts();
+                List<Dependency> dependencies = module.getDependencies();
+                if ((artifacts != null && !artifacts.isEmpty()) || (dependencies != null && !dependencies.isEmpty())) {
+                    bib.addModule(module);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Cannot load module info from file: " + moduleFile.getAbsolutePath(), e);
+            }
+        });
+    }
+
+    /**
+     * Flag-on only: keep a registered shared-build module even when it still has no artifacts
+     * or dependencies, so build-info lists the include. Regular producers still require content.
+     */
+    private void populateSharedBuildModules(BuildInfoBuilder bib) {
         Map<File, Boolean> moduleFileIsSharedBuild = new LinkedHashMap<>();
         moduleInfoFileProducers.stream()
                 .filter(ModuleInfoFileProducer::hasModules)
@@ -114,8 +139,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
                 List<Dependency> dependencies = module.getDependencies();
                 boolean hasContent = (artifacts != null && !artifacts.isEmpty())
                         || (dependencies != null && !dependencies.isEmpty());
-                // includeSharedBuild keeps registered shared builds even when they have no files yet.
-                if ((includeSharedBuild && isSharedBuild) || hasContent) {
+                if (isSharedBuild || hasContent) {
                     bib.addModule(module);
                 }
             } catch (IOException e) {

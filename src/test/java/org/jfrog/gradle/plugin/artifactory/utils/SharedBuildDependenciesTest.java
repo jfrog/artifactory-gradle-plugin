@@ -386,6 +386,33 @@ public class SharedBuildDependenciesTest {
         assertEquals(SharedBuildDependencies.resolvePomProperty("2.14.0", properties), "2.14.0");
         assertEquals(SharedBuildDependencies.resolvePomProperty("${undeclared}", properties), "${undeclared}");
         assertEquals(SharedBuildDependencies.resolvePomProperty(null, properties), null);
+        assertEquals(SharedBuildDependencies.resolvePomProperty("1.${minor}", properties), "1.${minor}");
+
+        properties.put("minor", "3");
+        properties.put("foo", "a");
+        properties.put("bar", "b");
+        properties.put("chained", "${hamcrestVersion}");
+        properties.put("cycle", "${cycle}");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("1.${minor}", properties), "1.3");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${foo}-${bar}", properties), "a-b");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${chained}", properties), "1.3");
+        assertEquals(SharedBuildDependencies.resolvePomProperty("${cycle}", properties), "${cycle}");
+    }
+
+    @Test
+    public void testPomProjectVersionPropertyIsResolvedFromProjectCoordinates() {
+        String pom =
+                "<project>" +
+                "<groupId>com.example</groupId><artifactId>lib</artifactId><version>2.0.0</version>" +
+                "<dependencies>" +
+                "<dependency><groupId>com.example</groupId><artifactId>other</artifactId>" +
+                "<version>${project.version}</version></dependency>" +
+                "</dependencies></project>";
+
+        List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pom);
+
+        assertEquals(gavs.size(), 1);
+        assertTrue(gavs.contains("com.example:other:2.0.0"));
     }
 
     // --- Nested includeBuild (a first-level shared build's own composite, e.g. build-logic-1's
@@ -419,6 +446,34 @@ public class SharedBuildDependenciesTest {
             // No settings.gradle at all.
             assertTrue(SharedBuildDependencies.nestedIncludeBuildDirs(dir).isEmpty());
         } finally {
+            dir.delete();
+        }
+    }
+
+    @Test
+    public void testNestedIncludeBuildDirForRequiresMatchingGroupWhenGavHasOne() throws Exception {
+        java.io.File dir = java.nio.file.Files.createTempDirectory("jfrog-nested-gav").toFile();
+        java.io.File nested = new java.io.File(dir, "gson");
+        assertTrue(nested.mkdirs());
+        try (java.io.FileWriter settings = new java.io.FileWriter(new java.io.File(nested, "settings.gradle"));
+             java.io.FileWriter build = new java.io.FileWriter(new java.io.File(nested, "build.gradle"))) {
+            settings.write("rootProject.name = 'gson'\n");
+            build.write("group = 'com.example'\nversion = '1.0.0'\n");
+        }
+        try {
+            List<java.io.File> dirs = java.util.Collections.singletonList(nested);
+            assertEquals(
+                    SharedBuildDependencies.nestedIncludeBuildDirFor("com.example:gson:1.0.0", dirs),
+                    nested,
+                    "same group + artifact should identify the nested include");
+            assertEquals(
+                    SharedBuildDependencies.nestedIncludeBuildDirFor("com.google.code.gson:gson:2.9.0", dirs),
+                    null,
+                    "a real Maven dep that only shares the artifact name must not be flattened");
+        } finally {
+            new java.io.File(nested, "settings.gradle").delete();
+            new java.io.File(nested, "build.gradle").delete();
+            nested.delete();
             dir.delete();
         }
     }

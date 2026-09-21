@@ -133,7 +133,9 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
             }
             Set<? extends DependencyResult> dependencyResults = configuration.getIncoming().getResolutionResult().getAllDependencies();
             for (ResolvedArtifactResult artifact : configuration.getIncoming().artifactView(view -> view.setLenient(true)).getArtifacts()) {
-                Dependency extractedDependency = extractDependencyFromResolvedArtifact(project, configuration, artifact, dependencyResults, requestedByMap, dependencies);
+                Dependency extractedDependency = SharedBuildLogicUtils.isIncludeSharedBuildEnabled(project)
+                        ? extractSharedBuildDependencyFromResolvedArtifact(project, configuration, artifact, dependencyResults, requestedByMap, dependencies)
+                        : extractDependencyFromResolvedArtifact(configuration, artifact, dependencyResults, requestedByMap, dependencies);
                 if (extractedDependency == null) {
                     continue;
                 }
@@ -143,32 +145,15 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
         return dependencies;
     }
 
-    private Dependency extractDependencyFromResolvedArtifact(Project project, Configuration configuration, ResolvedArtifactResult artifact, Set<? extends DependencyResult> dependencyResults,
+    private Dependency extractDependencyFromResolvedArtifact(Configuration configuration, ResolvedArtifactResult artifact, Set<? extends DependencyResult> dependencyResults,
                                                              Map<String, String[][]> requestedByMap, List<Dependency> dependencies) throws NoSuchAlgorithmException, IOException {
         File file = artifact.getFile();
         if (!file.exists()) {
             return null;
         }
-        ComponentIdentifier componentIdentifier = artifact.getId().getComponentIdentifier();
-        if (!file.isFile() && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(project)) {
-            File jar = SharedBuildDependencies.jarForProjectComponent(componentIdentifier, project);
-            if (jar != null && jar.isFile()) {
-                file = jar;
-            }
-        }
         String depId = extractDependencyId(artifact, dependencyResults);
-        if (depId != null && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(project)) {
-            // Same version-consistency fix as SharedBuildDependencies: a dependency edge onto a
-            // used shared build must be recorded with the version SharedBuildCollector.register()
-            // actually publishes it under, not the shared build's raw own version.
-            String published = SharedBuildDependencies.publishedGavForProjectComponent(componentIdentifier, project, depId);
-            if (published != null) {
-                depId = published;
-            }
-        }
-        String resolvedDepId = depId;
         Dependency existingDependency = dependencies.stream()
-                .filter(input -> input.getId().equals(resolvedDepId)).findAny().orElse(null);
+                .filter(input -> input.getId().equals(depId)).findAny().orElse(null);
         if (existingDependency != null) {
             // Already extracted, update the dependency with the artifact info
             Set<String> existingScopes = existingDependency.getScopes();
@@ -188,6 +173,56 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
         }
         if (file.isFile()) {
             // In gradle builds (3.4+) subproject dependencies are represented by a dir not jar.
+            Map<String, String> checksums = FileChecksumCalculator.calculateChecksums(file, MD5_ALGORITHM, SHA1_ALGORITHM, SHA256_ALGORITHM);
+            dependencyBuilder.md5(checksums.get(MD5_ALGORITHM)).sha1(checksums.get(SHA1_ALGORITHM)).sha256(checksums.get(SHA256_ALGORITHM));
+        }
+        return dependencyBuilder.build();
+    }
+
+    /**
+     * Flag-on only: resolve a shared-build project dir to its published jar and stamp the
+     * consumer-published GAV on that edge. Flag-off uses {@link #extractDependencyFromResolvedArtifact}.
+     */
+    private Dependency extractSharedBuildDependencyFromResolvedArtifact(Project project, Configuration configuration, ResolvedArtifactResult artifact, Set<? extends DependencyResult> dependencyResults,
+                                                                        Map<String, String[][]> requestedByMap, List<Dependency> dependencies) throws NoSuchAlgorithmException, IOException {
+        File file = artifact.getFile();
+        if (!file.exists()) {
+            return null;
+        }
+        ComponentIdentifier componentIdentifier = artifact.getId().getComponentIdentifier();
+        if (!file.isFile()) {
+            File jar = SharedBuildDependencies.jarForProjectComponent(componentIdentifier, project);
+            if (jar != null && jar.isFile()) {
+                file = jar;
+            }
+        }
+        String depId = extractDependencyId(artifact, dependencyResults);
+        String requestedByKey = depId;
+        if (depId != null) {
+            String published = SharedBuildDependencies.publishedGavForProjectComponent(componentIdentifier, project, depId);
+            if (published != null) {
+                depId = published;
+            }
+        }
+        String resolvedDepId = depId;
+        Dependency existingDependency = dependencies.stream()
+                .filter(input -> input.getId().equals(resolvedDepId)).findAny().orElse(null);
+        if (existingDependency != null) {
+            Set<String> existingScopes = existingDependency.getScopes();
+            existingScopes.add(configuration.getName());
+            existingDependency.setScopes(existingScopes);
+            return null;
+        }
+        Set<String> scopes = new HashSet<>();
+        scopes.add(configuration.getName());
+        DependencyBuilder dependencyBuilder = new DependencyBuilder()
+                .type(StringUtils.substringAfterLast(file.getName(), "."))
+                .id(depId)
+                .scopes(scopes);
+        if (requestedByMap != null) {
+            dependencyBuilder.requestedBy(requestedByMap.get(requestedByKey));
+        }
+        if (file.isFile()) {
             Map<String, String> checksums = FileChecksumCalculator.calculateChecksums(file, MD5_ALGORITHM, SHA1_ALGORITHM, SHA256_ALGORITHM);
             dependencyBuilder.md5(checksums.get(MD5_ALGORITHM)).sha1(checksums.get(SHA1_ALGORITHM)).sha256(checksums.get(SHA256_ALGORITHM));
         }

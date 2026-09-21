@@ -54,7 +54,6 @@ public class ArtifactoryPlugin implements Plugin<Project> {
                     subproject.afterEvaluate((projectsEvaluatedBuildListener::afterEvaluate));
                 }
             });
-
             // Add projects_evaluated listener to evaluate all the ArtifactoryTask tasks for the entire project that are not yet evaluated.
             project.getGradle().projectsEvaluated(projectsEvaluatedBuildListener::projectsEvaluated);
         } else {

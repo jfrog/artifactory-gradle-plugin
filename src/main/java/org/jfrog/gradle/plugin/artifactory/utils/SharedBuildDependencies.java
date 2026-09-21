@@ -150,6 +150,7 @@ public final class SharedBuildDependencies {
             return Collections.emptyList();
         }
         Map<String, String> properties = parsePomProperties(pomXml);
+        seedProjectCoordinateProperties(properties, pomXml);
         String projectDeps = projectDependenciesBlock(pomXml);
         List<String[]> entries = new ArrayList<String[]>();
         Matcher matcher = POM_DEPENDENCY.matcher(projectDeps);
@@ -196,20 +197,77 @@ public final class SharedBuildDependencies {
     }
 
     /**
-     * Replace a single {@code ${propertyName}} reference using this POM's own properties.
-     * Leaves the value unchanged (including the placeholder) if it isn't a property reference,
-     * or if the referenced property isn't declared in this same POM.
+     * Replace {@code ${propertyName}} references using this POM's own properties (and the
+     * seeded {@code project.groupId} / {@code project.artifactId} / {@code project.version}
+     * aliases). Supports a value that is only a placeholder, multiple refs in one value
+     * ({@code ${foo}-${bar}}), and a short same-POM chain ({@code a=${b}}, {@code b=1.3}).
+     * Leaves unresolved placeholders unchanged so the caller can skip them.
      */
     static String resolvePomProperty(String value, Map<String, String> properties) {
-        if (StringUtils.isBlank(value) || !value.contains("${")) {
+        if (StringUtils.isBlank(value) || !value.contains("${") || properties == null || properties.isEmpty()) {
             return value;
         }
+        String resolved = value;
+        for (int hop = 0; hop < 8 && resolved.contains("${"); hop++) {
+            String next = substitutePomPropertyRefs(resolved, properties);
+            if (next.equals(resolved)) {
+                break;
+            }
+            resolved = next;
+        }
+        return resolved;
+    }
+
+    private static String substitutePomPropertyRefs(String value, Map<String, String> properties) {
         Matcher refMatcher = POM_PROPERTY_REF.matcher(value);
-        if (!refMatcher.matches()) {
+        StringBuffer replaced = new StringBuffer();
+        boolean found = false;
+        while (refMatcher.find()) {
+            String replacement = properties.get(refMatcher.group(1));
+            if (replacement == null) {
+                replacement = refMatcher.group(0);
+            } else {
+                found = true;
+            }
+            refMatcher.appendReplacement(replaced, Matcher.quoteReplacement(replacement));
+        }
+        if (!found) {
             return value;
         }
-        String resolved = properties.get(refMatcher.group(1));
-        return resolved != null ? resolved : value;
+        refMatcher.appendTail(replaced);
+        return replaced.toString();
+    }
+
+    /**
+     * Seed Maven's built-in project coordinate properties from this POM's own
+     * {@code <groupId>}/{@code <artifactId>}/{@code <version>}, ignoring parent and
+     * dependency blocks so a first {@code <groupId>} inside {@code <parent>} is not used.
+     */
+    static void seedProjectCoordinateProperties(Map<String, String> properties, String pomXml) {
+        if (properties == null || StringUtils.isBlank(pomXml)) {
+            return;
+        }
+        String projectLevel = pomXml
+                .replaceAll("(?s)<parent>.*?</parent>", "")
+                .replaceAll("(?s)<dependencyManagement>.*?</dependencyManagement>", "")
+                .replaceAll("(?s)<dependencies>.*?</dependencies>", "")
+                .replaceAll("(?s)<build>.*?</build>", "")
+                .replaceAll("(?s)<profiles>.*?</profiles>", "");
+        putProjectCoordinateAlias(properties, "groupId", SharedBuildLogicUtils.firstMatch(POM_GROUP, projectLevel));
+        putProjectCoordinateAlias(properties, "artifactId", SharedBuildLogicUtils.firstMatch(POM_ARTIFACT, projectLevel));
+        putProjectCoordinateAlias(properties, "version", SharedBuildLogicUtils.firstMatch(POM_VERSION, projectLevel));
+    }
+
+    private static void putProjectCoordinateAlias(Map<String, String> properties, String name, String value) {
+        if (StringUtils.isBlank(value)) {
+            return;
+        }
+        if (!properties.containsKey("project." + name)) {
+            properties.put("project." + name, value);
+        }
+        if (!properties.containsKey(name)) {
+            properties.put(name, value);
+        }
     }
 
     static String projectDependenciesBlock(String pomXml) {
@@ -318,15 +376,8 @@ public final class SharedBuildDependencies {
         if (StringUtils.isBlank(settingsText)) {
             return dirs;
         }
-        for (String line : settingsText.split("\n")) {
-            String trimmed = line.trim();
-            if (!trimmed.startsWith("includeBuild")) {
-                continue;
-            }
-            Matcher matcher = INCLUDE_BUILD.matcher(trimmed);
-            if (!matcher.find()) {
-                continue;
-            }
+        Matcher matcher = INCLUDE_BUILD.matcher(settingsText);
+        while (matcher.find()) {
             File nested = new File(dir, matcher.group(1));
             if (nested.isDirectory()) {
                 dirs.add(nested);
@@ -336,21 +387,36 @@ public final class SharedBuildDependencies {
     }
 
     /**
-     * The nested includeBuild directory whose own rootProject.name matches this GAV's artifact
-     * segment, or null. A shared build's own nested composite has no published coordinates the
-     * consumer can resolve/checksum, so it is identified by name instead.
+     * The nested includeBuild directory that this GAV identifies, or null.
+     * Artifact-name-only matching would flatten a real Maven dependency whose artifactId
+     * happens to equal a nested include's {@code rootProject.name} (e.g. {@code includeBuild
+     * 'gson'} plus {@code implementation 'com.google.code.gson:gson:2.9.0'}). Require the
+     * groups to agree when the GAV has a real group.
      */
-    private static File nestedIncludeBuildDirFor(String gav, List<File> nestedIncludeDirs) {
-        if (nestedIncludeDirs.isEmpty()) {
+    static File nestedIncludeBuildDirFor(String gav, List<File> nestedIncludeDirs) {
+        if (nestedIncludeDirs.isEmpty() || StringUtils.isBlank(gav)) {
             return null;
         }
-        String artifact = SharedBuildLogicUtils.gavParts(gav)[1];
+        String[] parts = SharedBuildLogicUtils.gavParts(gav);
+        String group = parts[0];
+        String artifact = parts[1];
         for (File dir : nestedIncludeDirs) {
-            if (SharedBuildLogicUtils.readRootProjectName(dir, dir.getName()).equals(artifact)) {
+            if (!SharedBuildLogicUtils.readRootProjectName(dir, dir.getName()).equals(artifact)) {
+                continue;
+            }
+            if (isUnspecifiedGroup(group)) {
+                return dir;
+            }
+            String includeGroup = SharedBuildLogicUtils.readGroupAndVersionFromBuildScript(dir)[0];
+            if (!isUnspecifiedGroup(includeGroup) && includeGroup.equals(group)) {
                 return dir;
             }
         }
         return null;
+    }
+
+    private static boolean isUnspecifiedGroup(String group) {
+        return StringUtils.isBlank(group) || "unspecified".equals(group);
     }
 
     private static void addGavAndPomTransitives(Project consumer, String gav, String scope, String gradleUserHome,

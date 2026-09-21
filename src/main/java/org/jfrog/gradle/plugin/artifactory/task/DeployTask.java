@@ -14,6 +14,8 @@ import org.jfrog.build.extractor.BuildInfoExtractorUtils;
 import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.BuildInfoConfigProperties;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
+import org.jfrog.build.extractor.clientConfiguration.IncludeExcludePatterns;
+import org.jfrog.build.extractor.clientConfiguration.PatternMatcher;
 import org.jfrog.build.extractor.clientConfiguration.client.artifactory.ArtifactoryManager;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
@@ -174,6 +176,10 @@ public class DeployTask extends DefaultTask {
      * so Artifactory and Xray can correlate them with build-info.
      */
     private void publishNestedBuildArtifacts(ArtifactoryClientConfiguration accRoot, Map<String, Set<DeployDetails>> allDeployedDetails) throws IOException {
+        if (!accRoot.publisher.isPublishArtifacts()) {
+            log.debug("Skipping shared-build artifact publishing: publishArtifacts is disabled");
+            return;
+        }
         String repoKey = accRoot.publisher.getRepoKey();
         if (StringUtils.isBlank(repoKey) || StringUtils.isBlank(accRoot.publisher.getContextUrl())) {
             log.debug("Skipping shared-build artifact publishing: repository or context URL is not configured");
@@ -186,6 +192,9 @@ public class DeployTask extends DefaultTask {
         }
         artifactProps.putAll(SharedBuildLogicUtils.buildArtifactProperties(
                 accRoot.info.getBuildName(), accRoot.info.getBuildNumber(), accRoot.info.getBuildTimestamp()));
+
+        IncludeExcludePatterns patterns = new IncludeExcludePatterns(
+                accRoot.publisher.getIncludePatterns(), accRoot.publisher.getExcludePatterns());
 
         List<String> failures = new ArrayList<>();
         // One ArtifactoryManager for the whole batch, instead of one per artifact.
@@ -200,6 +209,11 @@ public class DeployTask extends DefaultTask {
                     continue;
                 }
                 for (SubprocessModuleInfoFileProducer.ArtifactToPublish artifact : artifacts) {
+                    if (PatternMatcher.pathConflicts(artifact.artifactPath, patterns)) {
+                        log.lifecycle("Skipping the deployment of '{}' due to the defined include-exclude patterns.",
+                                artifact.artifactPath);
+                        continue;
+                    }
                     try {
                         // Shared with SubprocessModuleInfoFileProducer.toBuildInfoArtifact(), so this
                         // file is only ever hashed once even though both the upload (here) and the
