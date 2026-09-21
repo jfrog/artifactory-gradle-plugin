@@ -94,7 +94,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
      * @param bib - the builder to set its fields
      */
     private void populateBuilderModulesFields(BuildInfoBuilder bib) {
-        if (rootProject != null && SharedBuildLogicUtils.isIncludeSharedBuildEnabled(rootProject)) {
+        if (rootProject != null && SharedBuildLogicUtils.isIncludeSharedBuildLogicEnabled(rootProject)) {
             populateSharedBuildModules(bib);
             return;
         }

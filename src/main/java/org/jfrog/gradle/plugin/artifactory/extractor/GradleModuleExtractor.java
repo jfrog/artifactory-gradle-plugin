@@ -133,7 +133,7 @@ public class GradleModuleExtractor implements ModuleExtractor<Project> {
             }
             Set<? extends DependencyResult> dependencyResults = configuration.getIncoming().getResolutionResult().getAllDependencies();
             for (ResolvedArtifactResult artifact : configuration.getIncoming().artifactView(view -> view.setLenient(true)).getArtifacts()) {
-                Dependency extractedDependency = SharedBuildLogicUtils.isIncludeSharedBuildEnabled(project)
+                Dependency extractedDependency = SharedBuildLogicUtils.isIncludeSharedBuildLogicEnabled(project)
                         ? extractSharedBuildDependencyFromResolvedArtifact(project, configuration, artifact, dependencyResults, requestedByMap, dependencies)
                         : extractDependencyFromResolvedArtifact(configuration, artifact, dependencyResults, requestedByMap, dependencies);
                 if (extractedDependency == null) {

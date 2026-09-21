@@ -171,7 +171,7 @@ public class SubprocessModuleInfoFileProducer implements ModuleInfoFileProducer 
         }
         return SharedBuildLogicUtils.shouldPublishMavenDescriptor(
                 publisherMaven, taskPublishPom,
-                SharedBuildLogicUtils.isIncludeSharedBuildEnabled(anchorProject));
+                SharedBuildLogicUtils.isIncludeSharedBuildLogicEnabled(anchorProject));
     }
 
     private Module getOrExtractModule() {

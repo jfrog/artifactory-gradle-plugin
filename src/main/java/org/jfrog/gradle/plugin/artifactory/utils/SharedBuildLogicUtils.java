@@ -25,7 +25,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Opt-in includeSharedBuild helpers used by the plugin and initscripttemplate.gradle.
+ * Opt-in includeSharedBuildLogic helpers used by the plugin and initscripttemplate.gradle.
  * Module IDs stay a 3-part GAV; first-level shared builds nest under the consumer.
  */
 public final class SharedBuildLogicUtils {
@@ -38,10 +38,10 @@ public final class SharedBuildLogicUtils {
     }
 
     /**
-     * True when -PincludeSharedBuild=true or ORG_GRADLE_PROJECT_includeSharedBuild=true.
+     * True when -PincludeSharedBuildLogic=true or ORG_GRADLE_PROJECT_includeSharedBuildLogic=true.
      */
-    public static boolean isIncludeSharedBuildEnabled(Project project) {
-        Object value = project.findProperty("includeSharedBuild");
+    public static boolean isIncludeSharedBuildLogicEnabled(Project project) {
+        Object value = project.findProperty("includeSharedBuildLogic");
         return value != null && "true".equalsIgnoreCase(value.toString());
     }
 
@@ -52,8 +52,8 @@ public final class SharedBuildLogicUtils {
      * publish.maven=false and the Gradle DSL did not set publishPom=false.
      */
     public static boolean shouldPublishMavenDescriptor(Boolean publisherMaven, Boolean taskPublishPom,
-                                                      boolean includeSharedBuild) {
-        if (includeSharedBuild) {
+                                                      boolean includeSharedBuildLogic) {
+        if (includeSharedBuildLogic) {
             if (taskPublishPom != null) {
                 return taskPublishPom;
             }

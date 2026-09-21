@@ -14,7 +14,7 @@ import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 import org.jfrog.gradle.plugin.artifactory.utils.TaskUtils;
 
 import static org.jfrog.gradle.plugin.artifactory.utils.PluginUtils.assertGradleVersionSupported;
-import static org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils.isIncludeSharedBuildEnabled;
+import static org.jfrog.gradle.plugin.artifactory.utils.SharedBuildLogicUtils.isIncludeSharedBuildLogicEnabled;
 
 public class ArtifactoryPlugin implements Plugin<Project> {
     private static final Logger log = Logging.getLogger(ArtifactoryPlugin.class);
@@ -30,7 +30,7 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         // Flag off: same as main — create/reuse the extension and continue even on a second apply.
         // Flag on: skip a second apply so init script + plugins { id } do not crash.
         ArtifactoryPluginConvention extension;
-        if (isIncludeSharedBuildEnabled(project)) {
+        if (isIncludeSharedBuildLogicEnabled(project)) {
             extension = extensionForSharedBuildApply(project);
             if (extension == null) {
                 return;
