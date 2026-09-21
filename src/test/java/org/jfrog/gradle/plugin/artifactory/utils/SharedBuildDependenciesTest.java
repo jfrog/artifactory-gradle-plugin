@@ -477,4 +477,105 @@ public class SharedBuildDependenciesTest {
             dir.delete();
         }
     }
+
+    // --- Parent-POM property resolution (RTECO-136 review notes: jackson-databind's own POM
+    // references ${jackson.version.core} for jackson-core/jackson-annotations without declaring
+    // it - only jackson-parent does, so those two were silently skipped until this was added) ---
+
+    private static void writeCachedPom(java.io.File gradleHome, String group, String artifact, String version, String pomXml) throws Exception {
+        java.io.File versionDir = new java.io.File(gradleHome,
+                "caches/modules-2/files-2.1/" + group + "/" + artifact + "/" + version + "/somehash");
+        assertTrue(versionDir.mkdirs() || versionDir.isDirectory());
+        java.io.File pom = new java.io.File(versionDir, artifact + "-" + version + ".pom");
+        java.nio.file.Files.write(pom.toPath(), pomXml.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void testParentPomPropertyIsResolvedForDependencyVersion() throws Exception {
+        java.io.File gradleHome = java.nio.file.Files.createTempDirectory("jfrog-parent-pom").toFile();
+        try {
+            writeCachedPom(gradleHome, "com.example", "parent-lib", "1.0.0",
+                    "<project><properties><childVersion>9.9.9</childVersion></properties></project>");
+            String childPom =
+                    "<project>" +
+                    "<parent><groupId>com.example</groupId><artifactId>parent-lib</artifactId><version>1.0.0</version></parent>" +
+                    "<dependencies>" +
+                    "<dependency><groupId>com.example</groupId><artifactId>child-dep</artifactId>" +
+                    "<version>${childVersion}</version></dependency>" +
+                    "</dependencies></project>";
+
+            // Without a Gradle home, the parent is never fetched - unresolved and skipped
+            // (existing behavior, unchanged).
+            assertTrue(SharedBuildDependencies.parsePomCompileDependencies(childPom).isEmpty());
+
+            // With one, the parent's property resolves the child dependency's version.
+            List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(childPom, gradleHome.getAbsolutePath());
+            assertEquals(gavs.size(), 1);
+            assertTrue(gavs.contains("com.example:child-dep:9.9.9"));
+        } finally {
+            org.apache.commons.io.FileUtils.deleteDirectory(gradleHome);
+        }
+    }
+
+    @Test
+    public void testChildPomPropertyOverridesSameNamedParentProperty() throws Exception {
+        java.io.File gradleHome = java.nio.file.Files.createTempDirectory("jfrog-parent-pom-override").toFile();
+        try {
+            writeCachedPom(gradleHome, "com.example", "parent-lib", "1.0.0",
+                    "<project><properties><depVersion>1.0.0</depVersion></properties></project>");
+            String childPom =
+                    "<project>" +
+                    "<parent><groupId>com.example</groupId><artifactId>parent-lib</artifactId><version>1.0.0</version></parent>" +
+                    "<properties><depVersion>2.0.0</depVersion></properties>" +
+                    "<dependencies>" +
+                    "<dependency><groupId>com.example</groupId><artifactId>child-dep</artifactId>" +
+                    "<version>${depVersion}</version></dependency>" +
+                    "</dependencies></project>";
+
+            List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(childPom, gradleHome.getAbsolutePath());
+
+            assertEquals(gavs.size(), 1);
+            assertTrue(gavs.contains("com.example:child-dep:2.0.0"), "child's own property must win over the parent's");
+        } finally {
+            org.apache.commons.io.FileUtils.deleteDirectory(gradleHome);
+        }
+    }
+
+    @Test
+    public void testParentPomChainStopsOnSelfReferencingCycle() throws Exception {
+        java.io.File gradleHome = java.nio.file.Files.createTempDirectory("jfrog-parent-pom-cycle").toFile();
+        try {
+            // pom-a's parent is pom-b, and pom-b's parent is pom-a: must terminate, not loop forever.
+            writeCachedPom(gradleHome, "com.example", "pom-b", "1.0.0",
+                    "<project><parent><groupId>com.example</groupId><artifactId>pom-a</artifactId><version>1.0.0</version></parent>" +
+                    "<properties><sharedVersion>5.0.0</sharedVersion></properties></project>");
+            String pomA =
+                    "<project>" +
+                    "<parent><groupId>com.example</groupId><artifactId>pom-b</artifactId><version>1.0.0</version></parent>" +
+                    "<dependencies>" +
+                    "<dependency><groupId>com.example</groupId><artifactId>child-dep</artifactId>" +
+                    "<version>${sharedVersion}</version></dependency>" +
+                    "</dependencies></project>";
+            writeCachedPom(gradleHome, "com.example", "pom-a", "1.0.0", pomA);
+
+            List<String> gavs = SharedBuildDependencies.parsePomCompileDependencies(pomA, gradleHome.getAbsolutePath());
+
+            assertEquals(gavs.size(), 1);
+            assertTrue(gavs.contains("com.example:child-dep:5.0.0"));
+        } finally {
+            org.apache.commons.io.FileUtils.deleteDirectory(gradleHome);
+        }
+    }
+
+    @Test
+    public void testParsePomParentGavExtractsCoordinatesFromParentBlock() {
+        String pom =
+                "<project>" +
+                "<groupId>com.example</groupId><artifactId>child</artifactId><version>1.0.0</version>" +
+                "<parent><groupId>com.example</groupId><artifactId>parent-lib</artifactId><version>3.2.1</version></parent>" +
+                "</project>";
+
+        assertEquals(SharedBuildDependencies.parsePomParentGav(pom), "com.example:parent-lib:3.2.1");
+        assertEquals(SharedBuildDependencies.parsePomParentGav("<project></project>"), null);
+    }
 }

@@ -53,6 +53,11 @@ public final class SharedBuildDependencies {
     private static final Pattern POM_OPTIONAL = Pattern.compile("<optional>\\s*true\\s*</optional>", Pattern.CASE_INSENSITIVE);
     private static final Pattern POM_PROPERTIES_BLOCK = Pattern.compile(
             "(?s)<properties>(.*?)</properties>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern POM_PARENT_BLOCK = Pattern.compile(
+            "(?s)<parent>(.*?)</parent>", Pattern.CASE_INSENSITIVE);
+    // Real Maven parent chains are shallow (a library -> its BOM/parent -> maybe one org-wide
+    // parent); this just guards against a cycle or an unexpectedly deep chain.
+    private static final int MAX_PARENT_POM_DEPTH = 6;
     private static final Pattern POM_PROPERTY_ENTRY = Pattern.compile(
             "<([A-Za-z0-9_.-]+)>\\s*([^<\\s][^<]*?)\\s*</\\1>");
     private static final Pattern POM_PROPERTY_REF = Pattern.compile("\\$\\{([^}]+)\\}");
@@ -138,18 +143,34 @@ public final class SharedBuildDependencies {
     }
 
     static List<String> parsePomCompileDependencies(String pomXml) {
+        return parsePomCompileDependencies(pomXml, null);
+    }
+
+    static List<String> parsePomCompileDependencies(String pomXml, String gradleUserHome) {
         List<String> gavs = new ArrayList<String>();
-        for (String[] entry : parsePomDependenciesWithScopes(pomXml)) {
+        for (String[] entry : parsePomDependenciesWithScopes(pomXml, gradleUserHome)) {
             gavs.add(entry[0]);
         }
         return gavs;
     }
 
     static List<String[]> parsePomDependenciesWithScopes(String pomXml) {
+        return parsePomDependenciesWithScopes(pomXml, null);
+    }
+
+    /**
+     * gradleUserHome, when given, lets an unresolved {@code ${property}} fall back to the same
+     * property declared in this POM's parent chain (a Gradle-cached POM, since a plain groupId/
+     * artifactId/version parent reference has no repository URL of its own to fetch from) - e.g.
+     * jackson-databind's own POM references {@code ${jackson.version.core}} for jackson-core/
+     * jackson-annotations, but only jackson-parent declares it. Pass null to resolve same-POM
+     * properties only (no parent fetch), e.g. from a test that has no real Gradle cache.
+     */
+    static List<String[]> parsePomDependenciesWithScopes(String pomXml, String gradleUserHome) {
         if (pomXml == null || pomXml.isEmpty()) {
             return Collections.emptyList();
         }
-        Map<String, String> properties = parsePomProperties(pomXml);
+        Map<String, String> properties = resolveEffectivePomProperties(pomXml, gradleUserHome, new HashSet<String>());
         seedProjectCoordinateProperties(properties, pomXml);
         String projectDeps = projectDependenciesBlock(pomXml);
         List<String[]> entries = new ArrayList<String[]>();
@@ -178,10 +199,64 @@ public final class SharedBuildDependencies {
     }
 
     /**
+     * This POM's own {@code <properties>}, plus (when gradleUserHome is given) properties
+     * inherited from its parent chain - a Gradle-cached POM only, walked up to
+     * {@link #MAX_PARENT_POM_DEPTH} levels and guarded against a self-referencing cycle. A
+     * child's own property always wins over a same-named parent property, matching Maven's
+     * own precedence.
+     */
+    static Map<String, String> resolveEffectivePomProperties(String pomXml, String gradleUserHome, Set<String> visitedParentGavs) {
+        Map<String, String> properties = parsePomProperties(pomXml);
+        if (StringUtils.isBlank(gradleUserHome) || visitedParentGavs.size() >= MAX_PARENT_POM_DEPTH) {
+            return properties;
+        }
+        String parentGav = parsePomParentGav(pomXml);
+        if (parentGav == null || !visitedParentGavs.add(parentGav)) {
+            return properties;
+        }
+        File parentPom = findCachedPom(gradleUserHome, parentGav);
+        if (parentPom == null || !parentPom.isFile()) {
+            return properties;
+        }
+        try {
+            String parentXml = org.apache.commons.io.FileUtils.readFileToString(parentPom, java.nio.charset.StandardCharsets.UTF_8);
+            Map<String, String> parentProperties = resolveEffectivePomProperties(parentXml, gradleUserHome, visitedParentGavs);
+            for (Map.Entry<String, String> entry : parentProperties.entrySet()) {
+                properties.putIfAbsent(entry.getKey(), entry.getValue());
+            }
+        } catch (Exception e) {
+            log.debug("Could not read parent POM {}: {}", parentGav, e.getMessage());
+        }
+        return properties;
+    }
+
+    /**
+     * {@code group:artifact:version} from this POM's {@code <parent>} block, or null if there
+     * isn't one or it's incomplete (a parent POM's own version is occasionally itself a
+     * property reference from a grandparent - not resolved, since that would need fetching the
+     * grandparent first just to locate the parent; rare enough in practice to skip).
+     */
+    static String parsePomParentGav(String pomXml) {
+        Matcher blockMatcher = POM_PARENT_BLOCK.matcher(pomXml);
+        if (!blockMatcher.find()) {
+            return null;
+        }
+        String block = blockMatcher.group(1);
+        String group = SharedBuildLogicUtils.firstMatch(POM_GROUP, block);
+        String artifact = SharedBuildLogicUtils.firstMatch(POM_ARTIFACT, block);
+        String version = SharedBuildLogicUtils.firstMatch(POM_VERSION, block);
+        if (StringUtils.isAnyBlank(group, artifact, version) || version.contains("${")) {
+            return null;
+        }
+        return group + ":" + artifact + ":" + version;
+    }
+
+    /**
      * {@code <properties>} entries declared directly in this POM, for resolving a same-POM
      * {@code ${propertyName}} reference in a dependency's own groupId/artifactId/version (a
-     * common Maven pattern, e.g. JUnit 4's own {@code ${hamcrestVersion}}). Properties inherited
-     * from a parent POM are out of scope for this static parser - not fetched.
+     * common Maven pattern, e.g. JUnit 4's own {@code ${hamcrestVersion}}). Use
+     * {@link #resolveEffectivePomProperties} instead when a parent POM's properties should also
+     * be considered.
      */
     static Map<String, String> parsePomProperties(String pomXml) {
         Map<String, String> properties = new java.util.HashMap<String, String>();
@@ -446,7 +521,7 @@ public final class SharedBuildDependencies {
         }
         try {
             String pomXml = org.apache.commons.io.FileUtils.readFileToString(pom, java.nio.charset.StandardCharsets.UTF_8);
-            for (String[] transitive : parsePomDependenciesWithScopes(pomXml)) {
+            for (String[] transitive : parsePomDependenciesWithScopes(pomXml, gradleUserHome)) {
                 addGavAndPomTransitives(consumer, transitive[0], transitive[1], gradleUserHome, visitedPoms, byId,
                         nestedIncludeDirs);
             }
