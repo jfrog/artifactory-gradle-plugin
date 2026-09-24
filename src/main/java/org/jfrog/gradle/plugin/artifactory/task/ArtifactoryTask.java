@@ -25,6 +25,7 @@ import org.gradle.plugins.signing.Sign;
 import org.jfrog.build.api.builder.ModuleType;
 import org.jfrog.build.api.multiMap.Multimap;
 import org.jfrog.build.api.multiMap.SetMultimap;
+import org.jfrog.build.extractor.clientConfiguration.ArtifactSpec;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
@@ -106,6 +107,11 @@ public class ArtifactoryTask extends DefaultTask {
     private final List<MavenPublicationData> mavenPublicationSnapshots = new ArrayList<>();
     private final List<IvyPublicationData> ivyPublicationSnapshots = new ArrayList<>();
     private final List<ArchiveConfigurationData> archiveConfigurationSnapshots = new ArrayList<>();
+    // CC-serializable snapshot of the effective artifactSpecs after defaults{properties{...}} runs.
+    // The live artifactSpecs field is typed as ArtifactSpecs (a LinkedList subclass) which the
+    // configuration cache cannot re-hydrate, so we shadow the data in a plain ArrayList and rebuild the
+    // ArtifactSpecs from it at execution time.
+    private final List<ArtifactSpec> artifactSpecsSnapshot = new ArrayList<>();
 
     // BuildService for inter-task communication
     private final Property<ArtifactoryBuildService> buildService;
@@ -398,7 +404,12 @@ public class ArtifactoryTask extends DefaultTask {
             }
         }
 
-        // Snapshot publication data and clear non-serializable objects
+        // Snapshot publication data and clear non-serializable objects. Copy the effective artifactSpecs
+        // (which may include task-level customizations added by defaults{properties{...}} above) into a
+        // plain ArrayList before nulling — the ArtifactSpecs field type is not CC-serializable, but a
+        // List<ArtifactSpec> is, and it lets us rehydrate the specs at execution time.
+        artifactSpecsSnapshot.clear();
+        artifactSpecsSnapshot.addAll(artifactSpecs);
         snapshotPublications();
         artifactSpecs = null;
     }
@@ -461,24 +472,39 @@ public class ArtifactoryTask extends DefaultTask {
     }
 
     private void preCollectMavenPomInfo(Project project) {
-        try {
-            for (GenerateMavenPom gmp : project.getTasks().withType(GenerateMavenPom.class)) {
-                // We need the pom identity to match later; store publication name from pom
-                // The pom object identity matching happens at execution time via the stored file
-                mavenPomInfos.add(new MavenPomInfo(gmp.getName(), gmp.getDestination()));
-            }
-        } catch (Exception e) {
-            log.debug("Could not pre-collect maven pom info", e);
-        }
+        preCollectPublicationDescriptors(project, MavenPublication.class, "generatePomFileFor", GenerateMavenPom.class,
+                (pub, task) -> mavenPomInfos.add(new MavenPomInfo(pub.getName(), task.getDestination())));
     }
 
     private void preCollectIvyDescriptorInfo(Project project) {
+        preCollectPublicationDescriptors(project, IvyPublication.class, "generateDescriptorFileFor", GenerateIvyDescriptor.class,
+                (pub, task) -> ivyDescriptorInfos.add(new IvyDescriptorInfo(pub.getName(), task.getDestination())));
+    }
+
+    /**
+     * Store the exact publication name (case-preserved) alongside the descriptor task's destination so
+     * lookup at execution time can match by identity. Deriving a task name from
+     * capitalize(pub.name) collapses names that differ only in first-letter case ("Maven" and "maven")
+     * and silently swaps their descriptor files.
+     */
+    private <P extends Publication, T extends Task> void preCollectPublicationDescriptors(
+            Project project, Class<P> publicationType, String taskPrefix, Class<T> taskType,
+            java.util.function.BiConsumer<P, T> sink) {
         try {
-            for (GenerateIvyDescriptor gid : project.getTasks().withType(GenerateIvyDescriptor.class)) {
-                ivyDescriptorInfos.add(new IvyDescriptorInfo(gid.getName(), gid.getDestination()));
+            PublishingExtension publishing = project.getExtensions().findByType(PublishingExtension.class);
+            if (publishing == null) {
+                return;
             }
+            publishing.getPublications().withType(publicationType).forEach(pub -> {
+                String taskName = taskPrefix + StringUtils.capitalize(pub.getName()) + "Publication";
+                try {
+                    sink.accept(pub, taskType.cast(project.getTasks().getByName(taskName)));
+                } catch (UnknownTaskException e) {
+                    log.debug("No {} task for publication '{}'", taskType.getSimpleName(), pub.getName());
+                }
+            });
         } catch (Exception e) {
-            log.debug("Could not pre-collect ivy descriptor info", e);
+            log.debug("Could not pre-collect {} info", taskType.getSimpleName(), e);
         }
     }
 
@@ -487,23 +513,25 @@ public class ArtifactoryTask extends DefaultTask {
      */
     @TaskAction
     public void collectDeployDetails() {
-        // Resolve lazy version provider at execution time (not a configuration cache input)
+        // Resolve lazy version provider at execution time (not a configuration cache input). The resolved
+        // value is carried per-task on TaskData so parallel multi-module builds do not stomp on one another.
         if (projectVersionProvider.isPresent()) {
             this.projectVersion = projectVersionProvider.get();
-            if (buildService.isPresent()) {
-                buildService.get().setProjectVersion(this.projectVersion);
-            }
         }
         log.info("Collecting deployment details in task '{}'", getPath());
-        // Restore ArtifactSpecs from config snapshot (nulled before serialization)
+        // Rebuild the live ArtifactSpecs from the CC-serializable snapshot captured at the end of
+        // evaluateTask(). Using the snapshot (not configSnapshot) preserves task-level customizations
+        // that defaults{properties{...}} wrote directly into the task's artifactSpecs field.
         if (artifactSpecs == null) {
             artifactSpecs = new ArtifactSpecs();
-            if (configSnapshot != null) {
-                artifactSpecs.addAll(ClientConfigHelper.restoreConfig(configSnapshot).publisher.getArtifactSpecs());
-            }
+            artifactSpecs.addAll(artifactSpecsSnapshot);
         }
         if (!hasPublications()) {
             log.info("No publications to publish for project '{}'", projectPath);
+            // Still register (empty) task data: ExtractModuleTask relies on presence to distinguish "the
+            // ArtifactoryTask ran and had nothing to publish" (legitimate: skip=true or no publications)
+            // from "the ArtifactoryTask never ran at all" (user error — excluded or invoked out of order).
+            registerTaskData();
             return;
         }
         try {
@@ -514,15 +542,23 @@ public class ArtifactoryTask extends DefaultTask {
             throw new RuntimeException("Cannot collect deploy details for " + getPath(), e);
         }
 
-        // Register data with BuildService for inter-task communication
-        if (buildService != null && buildService.isPresent()) {
-            ArtifactoryBuildService service = buildService.get();
-            service.registerTaskData(getPath(), new ArtifactoryBuildService.TaskData(
-                    getPath(), projectName, projectPath,
-                    deployDetails, configSnapshot,
-                    moduleType, hasPublications()
-            ));
+        registerTaskData();
+    }
+
+    /**
+     * Record this task's data on the shared BuildService so downstream ExtractModuleTask and DeployTask
+     * can consume it. Called on every task-action exit path (including no-publications) so the presence
+     * of a record is a reliable signal that this task actually ran.
+     */
+    private void registerTaskData() {
+        if (!buildService.isPresent()) {
+            return;
         }
+        buildService.get().registerTaskData(getPath(), new ArtifactoryBuildService.TaskData(
+                getPath(), projectName, projectPath, projectVersion,
+                deployDetails, configSnapshot,
+                moduleType, hasPublications()
+        ));
     }
 
     private void collectDetailsFromIvyPublications() {
@@ -535,12 +571,17 @@ public class ArtifactoryTask extends DefaultTask {
 
     private void collectDetailsFromMavenPublications() {
         MavenPublicationExtractor publicationExtractor = new MavenPublicationExtractor(this);
+        // Apply the lazy project-version substitution to the snapshot list before extracting anything, so
+        // extractModuleInfo() (which resolves publication data by name from this same list) and the deploy
+        // loop below agree on the version. Otherwise the .module file deploys at the original snapshot
+        // version while .pom / jar deploy at the substituted version, producing broken metadata.
+        if (projectVersion != null) {
+            mavenPublicationSnapshots.replaceAll(data -> projectVersion.equals(data.getVersion()) ? data
+                    : new MavenPublicationData(data.getName(), data.getGroupId(), data.getArtifactId(), projectVersion, data.getArtifacts()));
+        }
         publicationExtractor.extractModuleInfo();
         for (MavenPublicationData data : mavenPublicationSnapshots) {
-            MavenPublicationData effective = projectVersion != null && !projectVersion.equals(data.getVersion())
-                    ? new MavenPublicationData(data.getName(), data.getGroupId(), data.getArtifactId(), projectVersion, data.getArtifacts())
-                    : data;
-            publicationExtractor.extractDeployDetails(effective);
+            publicationExtractor.extractDeployDetails(data);
         }
     }
 

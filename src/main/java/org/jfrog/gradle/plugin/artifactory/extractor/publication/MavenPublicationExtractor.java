@@ -84,24 +84,17 @@ public class MavenPublicationExtractor extends PublicationExtractor<ArtifactoryT
     }
 
     /**
-     * Find the pom file for a given publication using pre-collected MavenPomInfo.
-     * The task name for GenerateMavenPom follows the pattern "generatePomFileFor{PublicationName}Publication".
+     * Find the pom file for a given publication using pre-collected MavenPomInfo. Matches by the
+     * exact publication name captured at pre-collect time; a task-name derivation via
+     * capitalize(publication.getName()) collapses names that differ only in first-letter case.
      */
     private File findPomFileForPublication(ArtifactoryTask.MavenPublicationData publication) {
-        String expectedTaskName = "generatePomFileFor" + capitalize(publication.getName()) + "Publication";
         for (ArtifactoryTask.MavenPomInfo pomInfo : artifactoryTask.getMavenPomInfos()) {
-            if (pomInfo.getPublicationName().equals(expectedTaskName)) {
+            if (pomInfo.getPublicationName().equals(publication.getName())) {
                 return pomInfo.getDestination();
             }
         }
         return null;
-    }
-
-    private static String capitalize(String s) {
-        if (s == null || s.isEmpty()) {
-            return s;
-        }
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     /**

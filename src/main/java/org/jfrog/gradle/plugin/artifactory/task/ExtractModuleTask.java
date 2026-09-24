@@ -33,6 +33,7 @@ public class ExtractModuleTask extends DefaultTask {
     private String storedProjectName;
     private String storedProjectGroup;
     private String storedProjectVersion;
+    private String artifactoryTaskPath;
     private Map<String, String> configSnapshot;
 
     // BuildService for inter-task communication
@@ -65,6 +66,20 @@ public class ExtractModuleTask extends DefaultTask {
         this.storedProjectName = name;
         this.storedProjectGroup = group;
         this.storedProjectVersion = version;
+    }
+
+    /**
+     * Pin the ArtifactoryTask path this module belongs to. Set at wiring time by {@code TaskUtils} so the
+     * task action can look up its recorded data directly instead of scanning every recorded entry.
+     */
+    public void setArtifactoryTaskPath(String path) {
+        this.artifactoryTaskPath = path;
+    }
+
+    @Input
+    @Optional
+    public String getArtifactoryTaskPath() {
+        return artifactoryTaskPath;
     }
 
     public void setConfigSnapshot(Map<String, String> snapshot) {
@@ -109,21 +124,22 @@ public class ExtractModuleTask extends DefaultTask {
     @TaskAction
     public void extractModule() {
         log.info("Extracting details for {}", getPath());
-        // Get deploy details from BuildService (populated at execution time by ArtifactoryTask)
-        ArtifactoryBuildService.TaskData taskData = null;
-        if (buildService != null && buildService.isPresent()) {
-            ArtifactoryBuildService service = buildService.get();
-            for (ArtifactoryBuildService.TaskData data : service.getAllTaskData()) {
-                if (data.getProjectPath().equals(storedProjectPath)) {
-                    taskData = data;
-                    break;
-                }
-            }
+        // Look up the ArtifactoryTask's data by its exact path — O(1) instead of scanning every task's
+        // data in a multi-module build.
+        ArtifactoryBuildService.TaskData taskData = buildService.isPresent()
+                ? buildService.get().getTaskData(artifactoryTaskPath) : null;
+
+        // Missing taskData means the ArtifactoryTask this module info depends on never ran (excluded from
+        // the graph, filtered out, or the user invoked extractModuleInfo directly). Silently writing an
+        // empty module would ship broken build-info; refuse instead so the mistake surfaces immediately.
+        if (taskData == null) {
+            throw new IllegalStateException("Cannot extract module info for '" + getPath()
+                    + "': no data recorded for ArtifactoryTask '" + artifactoryTaskPath
+                    + "'. Ensure that task ran (do not exclude it with -x, and do not invoke "
+                    + getPath() + " on its own).");
         }
 
-        String effectiveVersion = (buildService != null && buildService.isPresent() && buildService.get().getProjectVersion() != null)
-                ? buildService.get().getProjectVersion()
-                : storedProjectVersion;
+        String effectiveVersion = taskData.getProjectVersion() != null ? taskData.getProjectVersion() : storedProjectVersion;
 
         // Dependency records captured from each configuration's resolution result via lazy providers.
         // The values are serialized into the configuration cache and reloaded on a cache hit.

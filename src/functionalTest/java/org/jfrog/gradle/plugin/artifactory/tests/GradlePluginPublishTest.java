@@ -59,7 +59,9 @@ public class GradlePluginPublishTest extends GradleFunctionalTestBase {
         Module module = buildInfo.getModule("org.example.gradle.publishing:gradle_tests_space:1.0.0");
         assertNotNull(module);
         assertEquals(module.getArtifacts().size(), 4);
-        assertEquals(module.getDependencies().size(), 1);
+        // Gradle API + the java-gradle-plugin test scaffolding (pluginUnderTestMetadata, Gradle TestKit)
+        // resolved from the test classpath.
+        assertEquals(module.getDependencies().size(), 3);
         assertEquals(module.getType().toUpperCase(), ModuleType.GENERIC.toString());
     }
 }

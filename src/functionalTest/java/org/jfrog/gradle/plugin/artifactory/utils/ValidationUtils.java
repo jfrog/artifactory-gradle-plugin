@@ -50,7 +50,8 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5, false);
+        // gradle-example-publish declares no test dependencies: api has 5 deps, shared has 0.
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5, false, 5, 0);
     }
 
     /**
@@ -63,7 +64,9 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo, Path deployableArtifacts) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo);
+        // gradle-example-ci-server declares a junit test dependency across all sub-projects: api reports
+        // it (6 deps) and shared, otherwise empty, becomes a non-empty module with 1 dep.
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5, false, 6, 1);
         checkDeployableArtifacts(deployableArtifacts, Sets.newHashSet(TestConsts.EXPECTED_MODULE_ARTIFACTS), localRepo);
     }
 
@@ -102,14 +105,16 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkArchivesBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo, String gradleVersion) throws IOException {
+        // gradle-example-ci-server-archives declares a junit test dependency across all sub-projects:
+        // api reports it (6 deps) and shared becomes a non-empty module with 1 dep.
         if (gradleVersion.startsWith("9.")) {
             // Gradle 9.0+ generates both .jar and .war files for webservice module.
             // check https://discuss.gradle.org/t/gradle-9-war-plugin-generates-both-war-and-jar-how-to-disable-jar/51128
-            checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 3, 1, true);
+            checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 3, 1, true, 6, 1);
         } else {
             // Gradle 8.x generates only .war file for webservice module.
             String[] expectedArtifacts = Arrays.copyOf(TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS.length - 1);
-            checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, 1, false);
+            checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, 1, false, 6, 1);
         }
     }
 
@@ -138,12 +143,14 @@ public class ValidationUtils {
     }
 
     private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
-                                          String[] expectedArtifacts, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, expectedArtifactsPerModule, isWebArchived);
+                                          String[] expectedArtifacts, int expectedArtifactsPerModule, boolean isWebArchived,
+                                          int expectedApiDeps, int expectedSharedDeps) throws IOException {
+        checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, expectedArtifactsPerModule, isWebArchived, expectedApiDeps, expectedSharedDeps);
     }
 
     private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
-                                          String[] expectedArtifacts, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
+                                          String[] expectedArtifacts, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived,
+                                          int expectedApiDeps, int expectedSharedDeps) throws IOException {
         // Assert all tasks ended with success outcome
         assertProjectsSuccess(buildResult);
 
@@ -154,7 +161,7 @@ public class ValidationUtils {
         BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
         assertNotNull(buildInfo);
         checkFilteredEnv(buildInfo);
-        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, isWebArchived);
+        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, isWebArchived, expectedApiDeps, expectedSharedDeps);
 
         // Check build info properties on published Artifacts
         PropertySearchResult artifacts = artifactoryManager.searchArtifactsByProperties(String.format("build.name=%s;build.number=%s", buildInfo.getName(), buildInfo.getNumber()));
@@ -223,8 +230,11 @@ public class ValidationUtils {
      * @param buildInfo                  - The build info
      * @param expectedModules            - Number of expected modules.
      * @param expectedArtifactsPerModule - Number of expected artifacts in each module.
+     * @param expectedApiDeps            - Number of expected dependencies in the api module.
+     * @param expectedSharedDeps         - Number of expected dependencies in the shared module.
      */
-    private static void checkBuildInfoModules(BuildInfo buildInfo, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
+    private static void checkBuildInfoModules(BuildInfo buildInfo, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived,
+                                              int expectedApiDeps, int expectedSharedDeps) throws IOException {
         List<Module> modules = buildInfo.getModules();
         assertEquals(modules.size(), expectedModules);
         for (Module module : modules) {
@@ -247,10 +257,13 @@ public class ValidationUtils {
                     checkWebserviceDependency(module);
                     break;
                 case "org.jfrog.test.gradle.publish:api:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 5);
+                    // Projects that declare a test dependency (junit) at the root level report it here
+                    // even though the module has no test sources — the plugin records every configuration
+                    // the build resolved, and the test classpath is one of them.
+                    assertEquals(module.getDependencies().size(), expectedApiDeps);
                     break;
                 case "org.jfrog.test.gradle.publish:shared:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 0);
+                    assertEquals(module.getDependencies().size(), expectedSharedDeps);
                     break;
                 default:
                     fail("Unexpected module ID: " + module.getId());
@@ -313,13 +326,16 @@ public class ValidationUtils {
         // Assert build info contains requestedBy information.
         assertTrue(buildInfoJson.exists());
         BuildInfo buildInfo = jsonStringToBuildInfo(CommonUtils.readByCharset(buildInfoJson, StandardCharsets.UTF_8));
-        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, false);
+        // checkLocalBuild is used only by gradle-example-ci-server tests, whose junit test dependency
+        // gives api 6 deps and shared 1.
+        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, false, 6, 1);
         assertRequestedBy(buildInfo);
     }
 
     private static void assertRequestedBy(BuildInfo buildInfo) {
         List<Dependency> apiDependencies = buildInfo.getModule("org.jfrog.test.gradle.publish:api:1.0-SNAPSHOT").getDependencies();
-        assertEquals(apiDependencies.size(), 5);
+        // 5 compile/runtime deps + junit:junit:4.7 from the (source-less) test classpath.
+        assertEquals(apiDependencies.size(), 6);
         for (Dependency dependency : apiDependencies) {
             if (dependency.getId().equals("commons-io:commons-io:1.2")) {
                 String[][] requestedBy = dependency.getRequestedBy();
