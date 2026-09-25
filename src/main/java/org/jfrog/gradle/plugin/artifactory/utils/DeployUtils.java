@@ -14,8 +14,8 @@ import org.jfrog.build.extractor.clientConfiguration.client.artifactory.Artifact
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployableArtifactsUtils;
 import org.jfrog.build.extractor.retention.Utils;
+import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
 import org.jfrog.gradle.plugin.artifactory.extractor.GradleDeployDetails;
-import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,43 +29,39 @@ public class DeployUtils {
     private static final Logger log = Logging.getLogger(DeployUtils.class);
 
     /**
-     * Deploy all the artifacts from a given ArtifactoryTask base on a given arguments.
-     * Populate a given set with the details that were deployed
+     * Deploy all the artifacts from a given task's data based on given arguments.
+     * Populate a given set with the details that were deployed.
      *
-     * @param accRoot          - client configurations to apply in deployment
+     * @param taskConfig       - client configurations for this task's project
      * @param propsRoot        - root properties to merge with the task properties
      * @param allDeployDetails - a container that will be populated with the details of the deployed artifacts
-     * @param artifactoryTask  - the task to deploy its details.
-     * @param logPrefix        - the in case the deployment is in multi-threads a prefix to each log
+     * @param taskData         - the task data from BuildService
+     * @param logPrefix        - in case the deployment is in multi-threads a prefix to each log
      */
-    public static void deployTaskArtifacts(ArtifactoryClientConfiguration accRoot, Map<String, String> propsRoot, Map<String,
-            Set<DeployDetails>> allDeployDetails, ArtifactoryTask artifactoryTask, String logPrefix) {
+    public static void deployTaskArtifacts(ArtifactoryClientConfiguration taskConfig, Map<String, String> propsRoot, Map<String,
+            Set<DeployDetails>> allDeployDetails, ArtifactoryBuildService.TaskData taskData, String logPrefix) {
         try {
-            if (!artifactoryTask.getDidWork()) {
-                log.debug("Task '{}' did no work", artifactoryTask.getPath());
+            if (taskData.getDeployDetails().isEmpty()) {
+                log.debug("Task '{}' has nothing to deploy", taskData.getTaskPath());
                 return;
             }
-            if (artifactoryTask.getDeployDetails().isEmpty()) {
-                log.debug("Task '{}' has nothing to deploy", artifactoryTask.getPath());
-                return;
-            }
-            ArtifactoryClientConfiguration.PublisherHandler taskPublisher = ExtensionsUtils.getPublisherHandler(artifactoryTask.getProject());
+            ArtifactoryClientConfiguration.PublisherHandler taskPublisher = taskConfig.publisher;
             if (taskPublisher == null) {
-                log.debug("Task '{}' does not have publisher configured", artifactoryTask.getPath());
+                log.debug("Task '{}' does not have publisher configured", taskData.getTaskPath());
                 return;
             }
             if (StringUtils.isBlank(taskPublisher.getContextUrl())) {
-                log.debug("Task '{}' does not have publisher configured with contextUrl attribute", artifactoryTask.getPath());
+                log.debug("Task '{}' does not have publisher configured with contextUrl attribute", taskData.getTaskPath());
                 return;
             }
             mergeRootAndModuleProps(taskPublisher, propsRoot);
             // Add the task deployed details to the container of all deployed details
-            allDeployDetails.put(artifactoryTask.getProject().getName(), getTaskDeployDetails(artifactoryTask));
+            allDeployDetails.put(taskData.getProjectName(), getTaskDeployDetails(taskData));
             if (!taskPublisher.isPublishArtifacts()) {
-                log.debug("Task '{}' configured not to deploy artifacts", artifactoryTask.getPath());
+                log.debug("Task '{}' configured not to deploy artifacts", taskData.getTaskPath());
                 return;
             }
-            configureArtifactoryManagerAndDeploy(accRoot, taskPublisher, artifactoryTask.getDeployDetails(), logPrefix);
+            configureArtifactoryManagerAndDeploy(taskConfig, taskPublisher, taskData.getDeployDetails(), logPrefix);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -163,11 +159,11 @@ public class DeployUtils {
     }
 
     /**
-     * Convert the GradleDeployDetails set to DeployDetails for a given task
+     * Convert the GradleDeployDetails set to DeployDetails for a given task data
      */
-    private static Set<DeployDetails> getTaskDeployDetails(ArtifactoryTask artifactoryTask) {
+    private static Set<DeployDetails> getTaskDeployDetails(ArtifactoryBuildService.TaskData taskData) {
         Set<DeployDetails> deployDetailsSet = new LinkedHashSet<>();
-        for (GradleDeployDetails details : artifactoryTask.getDeployDetails()) {
+        for (GradleDeployDetails details : taskData.getDeployDetails()) {
             deployDetailsSet.add(details.getDeployDetails());
         }
         return deployDetailsSet;
