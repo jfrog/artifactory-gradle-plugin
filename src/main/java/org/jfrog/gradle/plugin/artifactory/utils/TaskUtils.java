@@ -17,7 +17,6 @@ import org.jfrog.gradle.plugin.artifactory.extractor.PreCollectedDependency;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
