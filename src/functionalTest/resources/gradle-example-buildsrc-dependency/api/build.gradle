@@ -1,0 +1,16 @@
+plugins {
+    id 'com.jfrog.artifactory'
+    id 'java-common-conventions'
+    id 'maven-publish'
+}
+
+group = 'com.example'
+version = '1.0.0'
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+}
