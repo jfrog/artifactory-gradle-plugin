@@ -115,43 +115,42 @@ public class TaskUtils {
     }
 
     /**
-     * Wire a lazy dependency-capture provider onto the project's ExtractModuleTask for every resolvable
-     * configuration. Each provider is evaluated at execution time on the store run: it first checks
-     * {@link Configuration#getState()} and emits an empty list unless the build already resolved the
-     * configuration, then reads the resolution result (a cache hit at that point). The provider's list
-     * value is what the configuration cache stores, so dependencies survive a cache hit without a
-     * config-time resolution listener.
+     * Wire a lazy dependency-capture provider onto the project's ExtractModuleTask for every configuration.
      * <p>
-     * Enumeration is deferred to {@code gradle.projectsEvaluated} so the Android plugin's per-variant
-     * configurations already exist when we iterate.
+     * {@code configureEach} fires for every configuration that already exists and for every one added later
+     * during configuration — Android's per-variant classpaths, or a configuration another plugin creates from
+     * its own {@code projectsEvaluated} listener. Configurations are therefore picked up as late as they can
+     * still become a task input; only ones created at execution time (after ExtractModuleTask's inputs are
+     * fixed) are missed, and those are unsupported under the configuration cache anyway.
      * <p>
-     * The {@code state == RESOLVED} predicate reproduces the pre-configuration-cache selection rule
-     * (report whatever the build actually resolved). Whether a particular configuration is RESOLVED at
-     * extraction time depends on the surrounding task graph and dependency cache state — deterministic
-     * within a single run, but potentially variable across builds. Consumers relying on stable output
-     * (e.g. dependency scanners) should invoke this plugin against a consistent Gradle user home.
+     * Nothing is read from the configuration when it is created (its role may not be set yet). Each provider
+     * is evaluated when ExtractModuleTask's input is realized — at execution in a normal build, when the entry
+     * is stored under the configuration cache — and reports the configuration only if it is resolvable and the
+     * build resolved it ({@code state == RESOLVED}), mirroring the pre-configuration-cache selection rule. The
+     * provider's list value is what the configuration cache stores, so dependencies survive a cache hit.
      */
     private static void wireDependencyProviders(Project project, TaskProvider<ExtractModuleTask> extractTaskProvider) {
-        project.getGradle().projectsEvaluated(gradle -> {
-            List<Provider<List<PreCollectedDependency>>> providers = new ArrayList<>();
-            project.getConfigurations().forEach(configuration -> {
-                if (!configuration.isCanBeResolved()) {
-                    return;
+        project.getConfigurations().configureEach(configuration -> {
+            String configName = configuration.getName();
+            Provider<List<PreCollectedDependency>> provider = project.provider(() -> {
+                if (!configuration.isCanBeResolved() || configuration.getState() != Configuration.State.RESOLVED) {
+                    return Collections.<PreCollectedDependency>emptyList();
                 }
-                String configName = configuration.getName();
                 ResolvableDependencies incoming = configuration.getIncoming();
-                providers.add(project.provider(() -> {
-                    if (configuration.getState() != Configuration.State.RESOLVED) {
-                        return Collections.<PreCollectedDependency>emptyList();
-                    }
-                    return DependencyExtractor.extract(configName,
-                            incoming.getResolutionResult().getRootComponent().get(),
-                            incoming.artifactView(view -> view.setLenient(true))
-                                    .getArtifacts().getResolvedArtifacts().get());
-                }));
+                return DependencyExtractor.extract(configName,
+                        incoming.getResolutionResult().getRootComponent().get(),
+                        incoming.artifactView(view -> view.setLenient(true))
+                                .getArtifacts().getResolvedArtifacts().get());
             });
-            extractTaskProvider.configure(extractModuleTask ->
-                    providers.forEach(p -> extractModuleTask.getPreCollectedDependencies().addAll(p)));
+            extractTaskProvider.configure(extractModuleTask -> {
+                try {
+                    extractModuleTask.getPreCollectedDependencies().addAll(provider);
+                } catch (IllegalStateException e) {
+                    // The configuration was created after ExtractModuleTask's input was fixed (execution time).
+                    log.debug("Configuration '{}' of {} was created too late to be recorded in the build-info: {}",
+                            configName, project.getPath(), e.getMessage());
+                }
+            });
         });
     }
 

@@ -379,6 +379,27 @@ public class ValidationUtils {
     }
 
     /**
+     * Check the results of the late-configuration test: a configuration created (and resolved) from a
+     * projectsEvaluated listener that runs after the Artifactory plugin's own must still be reported.
+     *
+     * @param buildResult   - The build results
+     * @param buildInfoJson - Path to the unpublished build info json.
+     * @throws IOException In case of any IO error.
+     */
+    public static void checkBuildResultsLateConfiguration(BuildResult buildResult, File buildInfoJson) throws IOException {
+        buildResult.getTasks().forEach(buildTask -> assertNotEquals(buildTask.getOutcome(), FAILED));
+        assertTrue(buildInfoJson.exists());
+        BuildInfo buildInfo = jsonStringToBuildInfo(CommonUtils.readByCharset(buildInfoJson, StandardCharsets.UTF_8));
+        assertNotNull(buildInfo.getModules());
+        assertEquals(buildInfo.getModules().size(), 1);
+        Dependency lateDependency = buildInfo.getModules().get(0).getDependencies().stream()
+                .filter(dependency -> "commons-io:commons-io:1.2".equals(dependency.getId()))
+                .findAny().orElse(null);
+        assertNotNull(lateDependency, "Dependency of the late-created 'lateResolvedDeps' configuration is missing from the build-info");
+        assertTrue(lateDependency.getScopes().contains("lateResolvedDeps"));
+    }
+
+    /**
      * Check the results of CI server with flatDir test.
      * Aim of the test is to verify flatDir repositories are still respected when applying the Artifactory plugin which shouldn't override them.
      *

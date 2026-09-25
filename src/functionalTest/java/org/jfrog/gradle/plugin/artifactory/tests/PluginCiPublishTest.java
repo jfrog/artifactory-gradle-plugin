@@ -74,6 +74,14 @@ public class PluginCiPublishTest extends GradleFunctionalTestBase {
     }
 
     @Test(dataProvider = "gradleVersions")
+    public void lateConfigurationTest(String gradleVersion) throws IOException {
+        runPublishCITest(gradleVersion, TestConsts.GRADLE_EXAMPLE_LATE_CONFIGURATION, false,
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", false, false, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkBuildResultsLateConfiguration(buildResult, TestConsts.BUILD_INFO_JSON.toFile())
+        );
+    }
+
+    @Test(dataProvider = "gradleVersions")
     public void ciServerFlatDirTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConsts.GRADLE_EXAMPLE_CI_SERVER_FLAT, false,
                 (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", false, false, ""),

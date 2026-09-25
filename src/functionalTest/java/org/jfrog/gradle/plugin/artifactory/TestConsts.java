@@ -28,6 +28,7 @@ public class TestConsts {
     public static final Path GRADLE_KTS_EXAMPLE_PUBLISH = PROJECTS_ROOT.resolve("gradle-kts-example-publish");
     public static final Path GRADLE_EXAMPLE_CI_SERVER = PROJECTS_ROOT.resolve("gradle-example-ci-server");
     public static final Path GRADLE_EXAMPLE_CI_SERVER_FLAT = PROJECTS_ROOT.resolve("gradle-example-ci-server-flat");
+    public static final Path GRADLE_EXAMPLE_LATE_CONFIGURATION = PROJECTS_ROOT.resolve("gradle-example-late-configuration");
     public static final Path GRADLE_EXAMPLE_CI_SERVER_ARCHIVES = PROJECTS_ROOT.resolve("gradle-example-ci-server-archives");
     public static final Path GRADLE_EXAMPLE_VERSION_CATALOG_PRODUCER = PROJECTS_ROOT.resolve("gradle-example-version-catalog").resolve("producer");
     public static final Path GRADLE_EXAMPLE_VERSION_CATALOG_CONSUMER = PROJECTS_ROOT.resolve("gradle-example-version-catalog").resolve("consumer");
