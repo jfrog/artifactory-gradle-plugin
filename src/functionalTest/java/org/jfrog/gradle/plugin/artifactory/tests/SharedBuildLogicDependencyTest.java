@@ -20,7 +20,7 @@ import static org.testng.Assert.assertTrue;
  * build-info for the subproject that applies it, rather than only being usable
  * at compile time.
  */
-public class SharedBuildLogicSlf4jTest extends GradleFunctionalTestBase {
+public class SharedBuildLogicDependencyTest extends GradleFunctionalTestBase {
 
     @DataProvider
     public Object[][] sharedBuildLogicProjects() {
@@ -31,14 +31,14 @@ public class SharedBuildLogicSlf4jTest extends GradleFunctionalTestBase {
     }
 
     @Test(dataProvider = "sharedBuildLogicProjects")
-    public void sharedConventionSlf4jPropagationTest(Path projectDir) throws IOException {
+    public void sharedConventionDependencyPropagationTest(Path projectDir) throws IOException {
         runPublishTest("9.0.0-milestone-9", projectDir, buildResult -> {
             BuildInfo buildInfo = ValidationUtils.getBuildInfo(artifactoryManager, buildResult);
             assertNotNull(buildInfo);
             Module apiModule = buildInfo.getModule("com.example:api:1.0.0");
             assertNotNull(apiModule, "api module missing from build-info");
             assertTrue(apiModule.getDependencies().stream().anyMatch(d -> d.getId().startsWith("org.slf4j:slf4j-api")),
-                    "slf4j-api (declared only in the shared convention plugin) missing from api module's dependencies");
+                    "Shared dependency (org.slf4j:slf4j-api, declared only in the shared convention plugin) missing from api module's dependencies");
         });
     }
 }

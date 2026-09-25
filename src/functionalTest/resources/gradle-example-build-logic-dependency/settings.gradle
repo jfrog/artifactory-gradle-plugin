@@ -2,5 +2,5 @@ pluginManagement {
     includeBuild 'build-logic'
 }
 
-rootProject.name = 'gradle-example-build-logic-slf4j'
+rootProject.name = 'gradle-example-build-logic-dependency'
 include 'api'

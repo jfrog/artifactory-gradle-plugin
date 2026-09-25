@@ -1,2 +1,2 @@
-rootProject.name = 'gradle-example-buildsrc-slf4j'
+rootProject.name = 'gradle-example-buildsrc-dependency'
 include 'api'
