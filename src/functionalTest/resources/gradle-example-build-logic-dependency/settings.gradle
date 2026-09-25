@@ -4,3 +4,4 @@ pluginManagement {
 
 rootProject.name = 'gradle-example-build-logic-dependency'
 include 'api'
+include 'lib'

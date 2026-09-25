@@ -11,6 +11,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -18,7 +19,8 @@ import static org.testng.Assert.assertTrue;
  * End-to-end check that a dependency declared only in a shared convention plugin
  * (buildSrc or an included build-logic build) still shows up in the published
  * build-info for the subproject that applies it, rather than only being usable
- * at compile time.
+ * at compile time. Also verifies that a subproject NOT applying the convention
+ * plugin (lib) does not receive that dependency.
  */
 public class SharedBuildLogicDependencyTest extends GradleFunctionalTestBase {
 
@@ -35,10 +37,16 @@ public class SharedBuildLogicDependencyTest extends GradleFunctionalTestBase {
         runPublishTest("9.0.0-milestone-9", projectDir, buildResult -> {
             BuildInfo buildInfo = ValidationUtils.getBuildInfo(artifactoryManager, buildResult);
             assertNotNull(buildInfo);
+
             Module apiModule = buildInfo.getModule("com.example:api:1.0.0");
             assertNotNull(apiModule, "api module missing from build-info");
             assertTrue(apiModule.getDependencies().stream().anyMatch(d -> d.getId().startsWith("org.slf4j:slf4j-api")),
                     "Shared dependency (org.slf4j:slf4j-api, declared only in the shared convention plugin) missing from api module's dependencies");
+
+            Module libModule = buildInfo.getModule("com.example:lib:1.0.0");
+            assertNotNull(libModule, "lib module missing from build-info");
+            assertFalse(libModule.getDependencies().stream().anyMatch(d -> d.getId().startsWith("org.slf4j:slf4j-api")),
+                    "lib does not apply the shared convention plugin, so org.slf4j:slf4j-api must not appear in its dependencies");
         });
     }
 }
