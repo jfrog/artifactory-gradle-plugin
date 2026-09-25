@@ -42,6 +42,20 @@ public class ValidationUtils {
     }
 
     /**
+     * @return true if the given result comes from a configuration-cache run (the harness validates the
+     * reuse run, whose output always contains this marker).
+     * <p>
+     * Dependency counts differ between modes for sub-projects that declare test dependencies but have no
+     * test sources: the plugin reports only configurations the build resolved. A normal build never
+     * resolves the test classpaths of a source-less test source set (its compile/test tasks are
+     * NO-SOURCE), while the configuration cache resolves every scheduled task's input classpath when it
+     * stores the task graph — so a test-only dependency such as junit is reported only in CC mode.
+     */
+    public static boolean isConfigurationCacheRun(BuildResult buildResult) {
+        return buildResult.getOutput().contains("Reusing configuration cache");
+    }
+
+    /**
      * Check build results of a Gradle project with publications.
      *
      * @param artifactoryManager - The ArtifactoryManager client
@@ -50,7 +64,8 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5, false);
+        // gradle-example-publish declares no test dependencies: api has 5 deps, shared has 0.
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5, false, 5, 0);
     }
 
     /**
@@ -63,7 +78,10 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo, Path deployableArtifacts) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo);
+        // gradle-example-ci-server declares junit as a test dependency of every sub-project; it is reported
+        // for api/shared (no test sources) only in configuration-cache mode — see isConfigurationCacheRun.
+        boolean cc = isConfigurationCacheRun(buildResult);
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5, false, cc ? 6 : 5, cc ? 1 : 0);
         checkDeployableArtifacts(deployableArtifacts, Sets.newHashSet(TestConsts.EXPECTED_MODULE_ARTIFACTS), localRepo);
     }
 
@@ -102,14 +120,18 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkArchivesBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo, String gradleVersion) throws IOException {
+        // Same junit test dependency as gradle-example-ci-server — see isConfigurationCacheRun.
+        boolean cc = isConfigurationCacheRun(buildResult);
+        int apiDeps = cc ? 6 : 5;
+        int sharedDeps = cc ? 1 : 0;
         if (gradleVersion.startsWith("9.")) {
             // Gradle 9.0+ generates both .jar and .war files for webservice module.
             // check https://discuss.gradle.org/t/gradle-9-war-plugin-generates-both-war-and-jar-how-to-disable-jar/51128
-            checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 3, 1, true);
+            checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 3, 1, true, apiDeps, sharedDeps);
         } else {
             // Gradle 8.x generates only .war file for webservice module.
             String[] expectedArtifacts = Arrays.copyOf(TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS.length - 1);
-            checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, 1, false);
+            checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, 1, false, apiDeps, sharedDeps);
         }
     }
 
@@ -138,12 +160,14 @@ public class ValidationUtils {
     }
 
     private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
-                                          String[] expectedArtifacts, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
-        checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, expectedArtifactsPerModule, isWebArchived);
+                                          String[] expectedArtifacts, int expectedArtifactsPerModule, boolean isWebArchived,
+                                          int expectedApiDeps, int expectedSharedDeps) throws IOException {
+        checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, expectedArtifactsPerModule, isWebArchived, expectedApiDeps, expectedSharedDeps);
     }
 
     private static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo,
-                                          String[] expectedArtifacts, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
+                                          String[] expectedArtifacts, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived,
+                                          int expectedApiDeps, int expectedSharedDeps) throws IOException {
         // Assert all tasks ended with success outcome
         assertProjectsSuccess(buildResult);
 
@@ -154,7 +178,7 @@ public class ValidationUtils {
         BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
         assertNotNull(buildInfo);
         checkFilteredEnv(buildInfo);
-        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, isWebArchived);
+        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, isWebArchived, expectedApiDeps, expectedSharedDeps);
 
         // Check build info properties on published Artifacts
         PropertySearchResult artifacts = artifactoryManager.searchArtifactsByProperties(String.format("build.name=%s;build.number=%s", buildInfo.getName(), buildInfo.getNumber()));
@@ -223,8 +247,11 @@ public class ValidationUtils {
      * @param buildInfo                  - The build info
      * @param expectedModules            - Number of expected modules.
      * @param expectedArtifactsPerModule - Number of expected artifacts in each module.
+     * @param expectedApiDeps            - Number of expected dependencies in the api module.
+     * @param expectedSharedDeps         - Number of expected dependencies in the shared module.
      */
-    private static void checkBuildInfoModules(BuildInfo buildInfo, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived) throws IOException {
+    private static void checkBuildInfoModules(BuildInfo buildInfo, int expectedModules, int expectedArtifactsPerModule, boolean isWebArchived,
+                                              int expectedApiDeps, int expectedSharedDeps) throws IOException {
         List<Module> modules = buildInfo.getModules();
         assertEquals(modules.size(), expectedModules);
         for (Module module : modules) {
@@ -247,10 +274,13 @@ public class ValidationUtils {
                     checkWebserviceDependency(module);
                     break;
                 case "org.jfrog.test.gradle.publish:api:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 5);
+                    // Projects that declare a test dependency (junit) at the root level report it here
+                    // even though the module has no test sources — the plugin records every configuration
+                    // the build resolved, and the test classpath is one of them.
+                    assertEquals(module.getDependencies().size(), expectedApiDeps);
                     break;
                 case "org.jfrog.test.gradle.publish:shared:1.0-SNAPSHOT":
-                    assertEquals(module.getDependencies().size(), 0);
+                    assertEquals(module.getDependencies().size(), expectedSharedDeps);
                     break;
                 default:
                     fail("Unexpected module ID: " + module.getId());
@@ -313,13 +343,16 @@ public class ValidationUtils {
         // Assert build info contains requestedBy information.
         assertTrue(buildInfoJson.exists());
         BuildInfo buildInfo = jsonStringToBuildInfo(CommonUtils.readByCharset(buildInfoJson, StandardCharsets.UTF_8));
-        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, false);
-        assertRequestedBy(buildInfo);
+        // checkLocalBuild is used only by gradle-example-ci-server tests — see isConfigurationCacheRun.
+        boolean cc = isConfigurationCacheRun(buildResult);
+        int apiDeps = cc ? 6 : 5;
+        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, false, apiDeps, cc ? 1 : 0);
+        assertRequestedBy(buildInfo, apiDeps);
     }
 
-    private static void assertRequestedBy(BuildInfo buildInfo) {
+    private static void assertRequestedBy(BuildInfo buildInfo, int expectedApiDeps) {
         List<Dependency> apiDependencies = buildInfo.getModule("org.jfrog.test.gradle.publish:api:1.0-SNAPSHOT").getDependencies();
-        assertEquals(apiDependencies.size(), 5);
+        assertEquals(apiDependencies.size(), expectedApiDeps);
         for (Dependency dependency : apiDependencies) {
             if (dependency.getId().equals("commons-io:commons-io:1.2")) {
                 String[][] requestedBy = dependency.getRequestedBy();
@@ -343,6 +376,27 @@ public class ValidationUtils {
         assertEquals(module.getArtifacts().size(), expectedArtifacts);
         assertTrue(module.getArtifacts().stream().map(Artifact::getName)
                 .anyMatch(artifactName -> artifactName.equals("gradle_tests_space-1.0-SNAPSHOT.pom")));
+    }
+
+    /**
+     * Check the results of the late-configuration test: a configuration created (and resolved) from a
+     * projectsEvaluated listener that runs after the Artifactory plugin's own must still be reported.
+     *
+     * @param buildResult   - The build results
+     * @param buildInfoJson - Path to the unpublished build info json.
+     * @throws IOException In case of any IO error.
+     */
+    public static void checkBuildResultsLateConfiguration(BuildResult buildResult, File buildInfoJson) throws IOException {
+        buildResult.getTasks().forEach(buildTask -> assertNotEquals(buildTask.getOutcome(), FAILED));
+        assertTrue(buildInfoJson.exists());
+        BuildInfo buildInfo = jsonStringToBuildInfo(CommonUtils.readByCharset(buildInfoJson, StandardCharsets.UTF_8));
+        assertNotNull(buildInfo.getModules());
+        assertEquals(buildInfo.getModules().size(), 1);
+        Dependency lateDependency = buildInfo.getModules().get(0).getDependencies().stream()
+                .filter(dependency -> "commons-io:commons-io:1.2".equals(dependency.getId()))
+                .findAny().orElse(null);
+        assertNotNull(lateDependency, "Dependency of the late-created 'lateResolvedDeps' configuration is missing from the build-info");
+        assertTrue(lateDependency.getScopes().contains("lateResolvedDeps"));
     }
 
     /**

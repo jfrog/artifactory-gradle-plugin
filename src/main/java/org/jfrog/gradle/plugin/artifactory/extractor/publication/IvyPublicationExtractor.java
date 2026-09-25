@@ -104,23 +104,16 @@ public class IvyPublicationExtractor extends PublicationExtractor<ArtifactoryTas
 
     /**
      * Find the ivy descriptor file for a given publication using pre-collected IvyDescriptorInfo.
-     * The task name for GenerateIvyDescriptor follows the pattern "generateDescriptorFileFor{PublicationName}Publication".
+     * Matches by the exact publication name captured at pre-collect time; a task-name derivation via
+     * capitalize(publication.getName()) collapses names that differ only in first-letter case.
      */
     private File findIvyDescriptorForPublication(ArtifactoryTask.IvyPublicationData publication) {
-        String expectedTaskName = "generateDescriptorFileFor" + capitalize(publication.getName()) + "Publication";
         for (ArtifactoryTask.IvyDescriptorInfo info : artifactoryTask.getIvyDescriptorInfos()) {
-            if (info.getPublicationName().equals(expectedTaskName)) {
+            if (info.getPublicationName().equals(publication.getName())) {
                 return info.getDestination();
             }
         }
         return null;
-    }
-
-    private static String capitalize(String s) {
-        if (s == null || s.isEmpty()) {
-            return s;
-        }
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     /**

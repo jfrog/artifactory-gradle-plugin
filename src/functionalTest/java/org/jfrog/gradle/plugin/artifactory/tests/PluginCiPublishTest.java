@@ -26,7 +26,10 @@ public class PluginCiPublishTest extends GradleFunctionalTestBase {
     public void ciServerResolverOnlyTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConsts.GRADLE_EXAMPLE_CI_SERVER, false,
                 (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", false, false, ""),
-                (buildResult, deployableArtifacts) -> ValidationUtils.checkLocalBuild(buildResult, TestConsts.BUILD_INFO_JSON.toFile(), 2, 0)
+                // In configuration-cache mode shared carries junit (see ValidationUtils.isConfigurationCacheRun)
+                // and is no longer an empty module omitted from the build-info: 3 modules instead of 2.
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkLocalBuild(buildResult, TestConsts.BUILD_INFO_JSON.toFile(),
+                        ValidationUtils.isConfigurationCacheRun(buildResult) ? 3 : 2, 0)
         );
     }
 
@@ -67,6 +70,14 @@ public class PluginCiPublishTest extends GradleFunctionalTestBase {
         runPublishCITest(gradleVersion, TestConsts.GRADLE_EXAMPLE_VERSION_CATALOG_CONSUMER, true,
                 (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "versionCatalogConsumer", true, true, ""),
                 (buildResult, deployableArtifacts) -> ValidationUtils.checkVersionCatalogResults(artifactoryManager, buildResult, virtualRepo)
+        );
+    }
+
+    @Test(dataProvider = "gradleVersions")
+    public void lateConfigurationTest(String gradleVersion) throws IOException {
+        runPublishCITest(gradleVersion, TestConsts.GRADLE_EXAMPLE_LATE_CONFIGURATION, false,
+                (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", false, false, ""),
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkBuildResultsLateConfiguration(buildResult, TestConsts.BUILD_INFO_JSON.toFile())
         );
     }
 

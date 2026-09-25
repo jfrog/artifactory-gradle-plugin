@@ -7,30 +7,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 /**
  * Tests for lazy project version resolution logic used for configuration cache compatibility.
  */
 public class LazyVersionResolutionTest {
-
-    @Test
-    public void testBuildServiceProjectVersion() {
-        ArtifactoryBuildService service = mock(ArtifactoryBuildService.class, CALLS_REAL_METHODS);
-
-        // Initially null — ExtractModuleTask should fall back to storedProjectVersion
-        assertNull(service.getProjectVersion());
-        String storedVersion = "1.0.0";
-        String effective = service.getProjectVersion() != null ? service.getProjectVersion() : storedVersion;
-        assertEquals(effective, "1.0.0");
-
-        // After ArtifactoryTask sets the version, it propagates to ExtractModuleTask
-        service.setProjectVersion("2.0.0");
-        effective = service.getProjectVersion() != null ? service.getProjectVersion() : storedVersion;
-        assertEquals(effective, "2.0.0");
-    }
 
     @Test
     public void testVersionOverrideAffectsMultiplePublications() {

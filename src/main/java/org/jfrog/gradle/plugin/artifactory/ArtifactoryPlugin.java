@@ -7,7 +7,6 @@ import org.gradle.api.logging.Logging;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
-import org.jfrog.gradle.plugin.artifactory.listener.ArtifactoryDependencyResolutionListener;
 import org.jfrog.gradle.plugin.artifactory.listener.ProjectsEvaluatedBuildListener;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.task.DeployTask;
@@ -23,7 +22,6 @@ import static org.jfrog.gradle.plugin.artifactory.utils.PluginUtils.assertGradle
 
 public class ArtifactoryPlugin implements Plugin<Project> {
     private static final Logger log = Logging.getLogger(ArtifactoryPlugin.class);
-    private final ArtifactoryDependencyResolutionListener resolutionListener = new ArtifactoryDependencyResolutionListener();
     private final ProjectsEvaluatedBuildListener projectsEvaluatedBuildListener = new ProjectsEvaluatedBuildListener();
 
     @Override
@@ -38,9 +36,6 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         TaskUtils.addExtractModuleInfoTask(collectDeployDetailsTask, project);
 
         if (ProjectUtils.isRootProject(project)) {
-            // Clear static listener state for this build (prevents stale data in Gradle daemon)
-            ArtifactoryDependencyResolutionListener.resetState();
-
             // Register the BuildService for inter-task communication
             Provider<ArtifactoryBuildService> serviceProvider = project.getGradle().getSharedServices()
                     .registerIfAbsent(ArtifactoryBuildService.SERVICE_NAME, ArtifactoryBuildService.class, spec -> {
@@ -51,8 +46,6 @@ public class ArtifactoryPlugin implements Plugin<Project> {
 
             // Configure BuildService on all tasks in all projects
             project.getAllprojects().forEach(subproject -> {
-                // Add a DependencyResolutionListener, to populate the dependency hierarchy map
-                subproject.getConfigurations().all(config -> config.getIncoming().afterResolve(resolutionListener::afterResolve));
                 // Add after_evaluated listener to run the ArtifactoryPublish task before root deploy task
                 if (!subproject.getState().getExecuted()) {
                     subproject.afterEvaluate((projectsEvaluatedBuildListener::afterEvaluate));
@@ -106,9 +99,5 @@ public class ArtifactoryPlugin implements Plugin<Project> {
         }
         assertGradleVersionSupported(project.getGradle());
         return true;
-    }
-
-    public ArtifactoryDependencyResolutionListener getResolutionListener() {
-        return resolutionListener;
     }
 }

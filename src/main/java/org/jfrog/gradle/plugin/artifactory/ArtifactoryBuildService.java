@@ -16,15 +16,6 @@ public abstract class ArtifactoryBuildService implements BuildService<BuildServi
     public static final String SERVICE_NAME = "artifactoryBuildService";
 
     private final Map<String, TaskData> taskDataMap = new ConcurrentHashMap<>();
-    private volatile String projectVersion;
-
-    public void setProjectVersion(String version) {
-        this.projectVersion = version;
-    }
-
-    public String getProjectVersion() {
-        return projectVersion;
-    }
 
     public void registerTaskData(String taskPath, TaskData data) {
         taskDataMap.put(taskPath, data);
@@ -46,17 +37,22 @@ public abstract class ArtifactoryBuildService implements BuildService<BuildServi
         private final String taskPath;
         private final String projectName;
         private final String projectPath;
+        // Effective project version at execution time (may be substituted from the lazy version provider).
+        // Carried here — not on a separate map keyed by project — so a task's own resolved value is what
+        // downstream tasks read for the same key, without cross-project bleed in parallel builds.
+        private final String projectVersion;
         private final Set<GradleDeployDetails> deployDetails;
         private final Map<String, String> configSnapshot;
         private final String moduleType;
         private final boolean hasPublications;
 
-        public TaskData(String taskPath, String projectName, String projectPath,
+        public TaskData(String taskPath, String projectName, String projectPath, String projectVersion,
                         Set<GradleDeployDetails> deployDetails, Map<String, String> configSnapshot,
                         String moduleType, boolean hasPublications) {
             this.taskPath = taskPath;
             this.projectName = projectName;
             this.projectPath = projectPath;
+            this.projectVersion = projectVersion;
             this.deployDetails = deployDetails;
             this.configSnapshot = configSnapshot;
             this.moduleType = moduleType;
@@ -73,6 +69,10 @@ public abstract class ArtifactoryBuildService implements BuildService<BuildServi
 
         public String getProjectPath() {
             return projectPath;
+        }
+
+        public String getProjectVersion() {
+            return projectVersion;
         }
 
         public Set<GradleDeployDetails> getDeployDetails() {

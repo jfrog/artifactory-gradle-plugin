@@ -12,11 +12,15 @@ import org.jfrog.build.extractor.ci.Module;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
-import org.jfrog.gradle.plugin.artifactory.task.ExtractModuleTask;
 import org.jfrog.gradle.plugin.artifactory.utils.ClientConfigHelper;
 import org.jfrog.gradle.plugin.artifactory.utils.ProjectUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -32,8 +36,7 @@ public class GradleModuleExtractor {
     public Module extractModule(String projectPath, String projectName, String projectGroup, String projectVersion,
                                 Map<String, String> configSnapshot,
                                 ArtifactoryBuildService.TaskData taskData,
-                                Map<String, Map<String, String[][]>> modulesHierarchyMap,
-                                List<ExtractModuleTask.PreCollectedDependency> preCollectedDependencies) {
+                                List<PreCollectedDependency> preCollectedDependencies) {
         ModuleType moduleType;
         Set<GradleDeployDetails> gradleDeployDetails;
 
@@ -46,25 +49,23 @@ public class GradleModuleExtractor {
         }
 
         String moduleId = ProjectUtils.getId(projectGroup, projectName, projectVersion);
-        return getModuleBuilder(projectPath, moduleId, moduleType, gradleDeployDetails, configSnapshot, modulesHierarchyMap, preCollectedDependencies).build();
+        return getModuleBuilder(projectPath, moduleId, moduleType, gradleDeployDetails, configSnapshot, preCollectedDependencies).build();
     }
 
     /**
-     * Create a ModuleBuilder ready to be built for the given project and deployment details
+     * Create a ModuleBuilder ready to be built for the given project and deployment details.
      *
      * @param projectPath         - project path
      * @param moduleId            - module ID (group:name:version)
      * @param moduleType          - module type
      * @param gradleDeployDetails - module deployment details
      * @param configSnapshot      - client configuration snapshot
-     * @param modulesHierarchyMap - dependency hierarchy map
      * @param preCollectedDependencies - pre-collected dependency data
      */
     private ModuleBuilder getModuleBuilder(String projectPath, String moduleId, ModuleType moduleType,
                                            Set<GradleDeployDetails> gradleDeployDetails,
                                            Map<String, String> configSnapshot,
-                                           Map<String, Map<String, String[][]>> modulesHierarchyMap,
-                                           List<ExtractModuleTask.PreCollectedDependency> preCollectedDependencies) {
+                                           List<PreCollectedDependency> preCollectedDependencies) {
         String repo = gradleDeployDetails.stream()
                 .map(GradleDeployDetails::getDeployDetails)
                 .map(DeployDetails::getTargetRepository)
@@ -75,10 +76,8 @@ public class GradleModuleExtractor {
                 .id(moduleId)
                 .repository(repo);
         try {
-            // Extract dependencies from pre-collected data
-            builder.dependencies(buildDependencies(moduleId, modulesHierarchyMap, preCollectedDependencies));
+            builder.dependencies(buildDependencies(preCollectedDependencies));
 
-            // Extract the module's artifacts
             ArtifactoryClientConfiguration.PublisherHandler publisher = null;
             if (configSnapshot != null) {
                 publisher = ClientConfigHelper.restoreConfig(configSnapshot).publisher;
@@ -96,36 +95,22 @@ public class GradleModuleExtractor {
     }
 
     /**
-     * Build Dependency list from pre-collected dependency data.
+     * Build dependency list from pre-collected records. The same dependency may appear across several
+     * configurations; entries are merged by id with scopes accumulated. The requestedBy path travels
+     * with each record (computed at capture time by DependencyExtractor).
      */
-    private List<Dependency> buildDependencies(String moduleId,
-                                               Map<String, Map<String, String[][]>> modulesHierarchyMap,
-                                               List<ExtractModuleTask.PreCollectedDependency> preCollectedDependencies) {
+    private List<Dependency> buildDependencies(List<PreCollectedDependency> preCollectedDependencies) {
         if (preCollectedDependencies == null || preCollectedDependencies.isEmpty()) {
             return new ArrayList<>();
         }
-        Map<String, String[][]> requestedByMap = null;
-        if (modulesHierarchyMap != null) {
-            requestedByMap = modulesHierarchyMap.get(moduleId);
-        }
-
-        List<Dependency> dependencies = new ArrayList<>();
-        for (ExtractModuleTask.PreCollectedDependency dep : preCollectedDependencies) {
-            // Check if already added (merge scopes)
-            Dependency existing = null;
-            for (Dependency d : dependencies) {
-                if (d.getId().equals(dep.getId())) {
-                    existing = d;
-                    break;
-                }
-            }
+        // Use a map to merge scopes across configurations in O(N) instead of O(N²).
+        Map<String, Dependency> byId = new HashMap<>();
+        for (PreCollectedDependency dep : preCollectedDependencies) {
+            Dependency existing = byId.get(dep.getId());
             if (existing != null) {
-                Set<String> mergedScopes = existing.getScopes();
-                mergedScopes.addAll(dep.getScopes());
-                existing.setScopes(mergedScopes);
+                existing.getScopes().addAll(dep.getScopes());
                 continue;
             }
-
             DependencyBuilder depBuilder = new DependencyBuilder()
                     .id(dep.getId())
                     .type(dep.getType())
@@ -133,12 +118,12 @@ public class GradleModuleExtractor {
                     .md5(dep.getMd5())
                     .sha1(dep.getSha1())
                     .sha256(dep.getSha256());
-            if (requestedByMap != null) {
-                depBuilder.requestedBy(requestedByMap.get(dep.getId()));
+            if (dep.getRequestedBy() != null) {
+                depBuilder.requestedBy(dep.getRequestedBy());
             }
-            dependencies.add(depBuilder.build());
+            byId.put(dep.getId(), depBuilder.build());
         }
-        return dependencies;
+        return new ArrayList<>(byId.values());
     }
 
     /**
