@@ -7,6 +7,7 @@ import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.Module;
 import org.jfrog.gradle.plugin.artifactory.GradleFunctionalTestBase;
 import org.jfrog.gradle.plugin.artifactory.TestConsts;
+import org.jfrog.gradle.plugin.artifactory.utils.ValidationUtils;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -41,7 +42,7 @@ public class GradlePluginPublishTest extends GradleFunctionalTestBase {
         // Check buildInfo info
         BuildInfo buildInfo = getBuildInfo(artifactoryManager, buildResult);
         assertNotNull(buildInfo);
-        checkBuildInfoModules(buildInfo);
+        checkBuildInfoModules(buildInfo, ValidationUtils.isConfigurationCacheRun(buildResult));
 
         // Check build info properties on published Artifacts
         PropertySearchResult artifacts = artifactoryManager.searchArtifactsByProperties(String.format("build.name=%s;build.number=%s", buildInfo.getName(), buildInfo.getNumber()));
@@ -51,17 +52,19 @@ public class GradlePluginPublishTest extends GradleFunctionalTestBase {
     /**
      * Check expected build info modules.
      *
-     * @param buildInfo - The build info
+     * @param buildInfo            - The build info
+     * @param configurationCacheRun - Whether the build ran with the configuration cache
      */
-    public void checkBuildInfoModules(BuildInfo buildInfo) {
+    public void checkBuildInfoModules(BuildInfo buildInfo, boolean configurationCacheRun) {
         List<Module> modules = buildInfo.getModules();
         assertEquals(modules.size(), 1);
         Module module = buildInfo.getModule("org.example.gradle.publishing:gradle_tests_space:1.0.0");
         assertNotNull(module);
         assertEquals(module.getArtifacts().size(), 4);
-        // Gradle API + the java-gradle-plugin test scaffolding (pluginUnderTestMetadata, Gradle TestKit)
-        // resolved from the test classpath.
-        assertEquals(module.getDependencies().size(), 3);
+        // Gradle API; in configuration-cache mode also the java-gradle-plugin test scaffolding
+        // (pluginUnderTestMetadata, Gradle TestKit) from the test classpath — see
+        // ValidationUtils.isConfigurationCacheRun.
+        assertEquals(module.getDependencies().size(), configurationCacheRun ? 3 : 1);
         assertEquals(module.getType().toUpperCase(), ModuleType.GENERIC.toString());
     }
 }

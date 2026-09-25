@@ -26,9 +26,10 @@ public class PluginCiPublishTest extends GradleFunctionalTestBase {
     public void ciServerResolverOnlyTest(String gradleVersion) throws IOException {
         runPublishCITest(gradleVersion, TestConsts.GRADLE_EXAMPLE_CI_SERVER, false,
                 (deployableArtifacts) -> Utils.generateBuildInfoProperties(this, "", false, false, ""),
-                // 3 modules: shared now carries junit:junit:4.7 from its (source-less) test classpath,
-                // so it is no longer an empty module omitted from the build-info.
-                (buildResult, deployableArtifacts) -> ValidationUtils.checkLocalBuild(buildResult, TestConsts.BUILD_INFO_JSON.toFile(), 3, 0)
+                // In configuration-cache mode shared carries junit (see ValidationUtils.isConfigurationCacheRun)
+                // and is no longer an empty module omitted from the build-info: 3 modules instead of 2.
+                (buildResult, deployableArtifacts) -> ValidationUtils.checkLocalBuild(buildResult, TestConsts.BUILD_INFO_JSON.toFile(),
+                        ValidationUtils.isConfigurationCacheRun(buildResult) ? 3 : 2, 0)
         );
     }
 

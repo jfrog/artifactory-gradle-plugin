@@ -42,6 +42,20 @@ public class ValidationUtils {
     }
 
     /**
+     * @return true if the given result comes from a configuration-cache run (the harness validates the
+     * reuse run, whose output always contains this marker).
+     * <p>
+     * Dependency counts differ between modes for sub-projects that declare test dependencies but have no
+     * test sources: the plugin reports only configurations the build resolved. A normal build never
+     * resolves the test classpaths of a source-less test source set (its compile/test tasks are
+     * NO-SOURCE), while the configuration cache resolves every scheduled task's input classpath when it
+     * stores the task graph — so a test-only dependency such as junit is reported only in CC mode.
+     */
+    public static boolean isConfigurationCacheRun(BuildResult buildResult) {
+        return buildResult.getOutput().contains("Reusing configuration cache");
+    }
+
+    /**
      * Check build results of a Gradle project with publications.
      *
      * @param artifactoryManager - The ArtifactoryManager client
@@ -64,9 +78,10 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo, Path deployableArtifacts) throws IOException {
-        // gradle-example-ci-server declares a junit test dependency across all sub-projects: api reports
-        // it (6 deps) and shared, otherwise empty, becomes a non-empty module with 1 dep.
-        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5, false, 6, 1);
+        // gradle-example-ci-server declares junit as a test dependency of every sub-project; it is reported
+        // for api/shared (no test sources) only in configuration-cache mode — see isConfigurationCacheRun.
+        boolean cc = isConfigurationCacheRun(buildResult);
+        checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_MODULE_ARTIFACTS, 5, false, cc ? 6 : 5, cc ? 1 : 0);
         checkDeployableArtifacts(deployableArtifacts, Sets.newHashSet(TestConsts.EXPECTED_MODULE_ARTIFACTS), localRepo);
     }
 
@@ -105,16 +120,18 @@ public class ValidationUtils {
      * @throws IOException - In case of any IO error
      */
     public static void checkArchivesBuildResults(ArtifactoryManager artifactoryManager, BuildResult buildResult, String localRepo, String gradleVersion) throws IOException {
-        // gradle-example-ci-server-archives declares a junit test dependency across all sub-projects:
-        // api reports it (6 deps) and shared becomes a non-empty module with 1 dep.
+        // Same junit test dependency as gradle-example-ci-server — see isConfigurationCacheRun.
+        boolean cc = isConfigurationCacheRun(buildResult);
+        int apiDeps = cc ? 6 : 5;
+        int sharedDeps = cc ? 1 : 0;
         if (gradleVersion.startsWith("9.")) {
             // Gradle 9.0+ generates both .jar and .war files for webservice module.
             // check https://discuss.gradle.org/t/gradle-9-war-plugin-generates-both-war-and-jar-how-to-disable-jar/51128
-            checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 3, 1, true, 6, 1);
+            checkBuildResults(artifactoryManager, buildResult, localRepo, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, 3, 1, true, apiDeps, sharedDeps);
         } else {
             // Gradle 8.x generates only .war file for webservice module.
             String[] expectedArtifacts = Arrays.copyOf(TestConsts.EXPECTED_ARCHIVE_ARTIFACTS, TestConsts.EXPECTED_ARCHIVE_ARTIFACTS.length - 1);
-            checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, 1, false, 6, 1);
+            checkBuildResults(artifactoryManager, buildResult, localRepo, expectedArtifacts, 3, 1, false, apiDeps, sharedDeps);
         }
     }
 
@@ -326,16 +343,16 @@ public class ValidationUtils {
         // Assert build info contains requestedBy information.
         assertTrue(buildInfoJson.exists());
         BuildInfo buildInfo = jsonStringToBuildInfo(CommonUtils.readByCharset(buildInfoJson, StandardCharsets.UTF_8));
-        // checkLocalBuild is used only by gradle-example-ci-server tests, whose junit test dependency
-        // gives api 6 deps and shared 1.
-        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, false, 6, 1);
-        assertRequestedBy(buildInfo);
+        // checkLocalBuild is used only by gradle-example-ci-server tests — see isConfigurationCacheRun.
+        boolean cc = isConfigurationCacheRun(buildResult);
+        int apiDeps = cc ? 6 : 5;
+        checkBuildInfoModules(buildInfo, expectedModules, expectedArtifactsPerModule, false, apiDeps, cc ? 1 : 0);
+        assertRequestedBy(buildInfo, apiDeps);
     }
 
-    private static void assertRequestedBy(BuildInfo buildInfo) {
+    private static void assertRequestedBy(BuildInfo buildInfo, int expectedApiDeps) {
         List<Dependency> apiDependencies = buildInfo.getModule("org.jfrog.test.gradle.publish:api:1.0-SNAPSHOT").getDependencies();
-        // 5 compile/runtime deps + junit:junit:4.7 from the (source-less) test classpath.
-        assertEquals(apiDependencies.size(), 6);
+        assertEquals(apiDependencies.size(), expectedApiDeps);
         for (Dependency dependency : apiDependencies) {
             if (dependency.getId().equals("commons-io:commons-io:1.2")) {
                 String[][] requestedBy = dependency.getRequestedBy();
