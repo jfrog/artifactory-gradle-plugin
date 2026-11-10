@@ -22,6 +22,8 @@ val commonsIoVersion = "2.14.0"
 val commonsTxtVersion = "1.10.0"
 val testNgVersion = "7.5.1"
 val httpclientVersion = "4.5.14"
+val commonsCodecVersion = "1.23.0"
+val ivyVersion = "2.6.0"
 val jacksonVersion = "2.21.8"
 
 tasks.compileJava {
@@ -41,11 +43,12 @@ dependencies {
     api("org.jfrog.filespecs", "file-specs-java", fileSpecsVersion)
 
     implementation("org.apache.commons", "commons-lang3", commonsLangVersion)
-    implementation("org.apache.ivy", "ivy", "2.5.2")
+    implementation("org.apache.ivy", "ivy", ivyVersion)
 
     // Dependencies that are used by the build-info dependencies and need to be included in the UberJar
     implementation("com.fasterxml.jackson.core", "jackson-databind", jacksonVersion)
     implementation("commons-io", "commons-io", commonsIoVersion)
+    implementation("commons-codec", "commons-codec", commonsCodecVersion)
     implementation("org.apache.httpcomponents", "httpclient", httpclientVersion)
 
     testImplementation("org.testng", "testng", testNgVersion)
