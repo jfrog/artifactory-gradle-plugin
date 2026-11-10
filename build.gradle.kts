@@ -108,6 +108,7 @@ tasks.named<Jar>("jar") {
 
 tasks {
     withType<JavaCompile> {
+        options.encoding = "UTF-8"
         options.compilerArgs.add("-Xlint:unchecked")
     }
 }
@@ -163,6 +164,7 @@ signing {
 
 // Javadoc configuration
 tasks.withType<Javadoc> {
+    options.encoding = "UTF-8"
     (options as StandardJavadocDocletOptions).addStringOption("Xdoclint:none", "-quiet")
 }
 
