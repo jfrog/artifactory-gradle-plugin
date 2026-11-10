@@ -22,6 +22,7 @@ val commonsIoVersion = "2.14.0"
 val commonsTxtVersion = "1.10.0"
 val testNgVersion = "7.5.1"
 val httpclientVersion = "4.5.14"
+val jacksonVersion = "2.21.8"
 val spotBugsVersion = "4.8.6"
 
 tasks.compileJava {
@@ -44,7 +45,7 @@ dependencies {
     implementation("org.apache.ivy", "ivy", "2.5.2")
 
     // Dependencies that are used by the build-info dependencies and need to be included in the UberJar
-    implementation("com.fasterxml.jackson.core", "jackson-databind", "2.14.3")
+    implementation("com.fasterxml.jackson.core", "jackson-databind", jacksonVersion)
     implementation("commons-io", "commons-io", commonsIoVersion)
     implementation("org.apache.httpcomponents", "httpclient", httpclientVersion)
 
