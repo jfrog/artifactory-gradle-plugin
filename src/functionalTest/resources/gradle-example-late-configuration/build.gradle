@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+}
+
+group = 'org.jfrog.test.gradle.publish'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    maven {
+        url "should-override-me"
+        credentials {
+            password "should-override-me"
+        }
+    }
+}
+
+// A regular dependency keeps the module non-empty, so the build-info always contains it.
+dependencies {
+    implementation 'org.apache.commons:commons-lang3:3.12.0'
+}
+
+// Simulates a third-party plugin that creates and resolves a configuration from its own
+// projectsEvaluated listener. In CI mode the Artifactory plugin is applied before build scripts run,
+// so its own projectsEvaluated listener is registered first and fires before this one.
+gradle.projectsEvaluated {
+    def lateConfig = configurations.create('lateResolvedDeps') {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+    dependencies.add('lateResolvedDeps', 'commons-io:commons-io:1.2')
+    def resolveLateDeps = tasks.register('resolveLateDeps') {
+        inputs.files(lateConfig)
+        doLast {
+            println 'Resolved lateResolvedDeps'
+        }
+    }
+    tasks.named('build') {
+        dependsOn resolveLateDeps
+    }
+}

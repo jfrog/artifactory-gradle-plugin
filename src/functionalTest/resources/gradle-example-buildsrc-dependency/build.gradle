@@ -1,0 +1,19 @@
+plugins {
+    id 'com.jfrog.artifactory'
+}
+
+artifactoryPublish.skip = true
+
+artifactory {
+    publish {
+        contextUrl = "$System.env.BITESTS_PLATFORM_URL" + "/artifactory"
+        repository {
+            repoKey = "$System.env.BITESTS_ARTIFACTORY_LOCAL_REPO"
+            username = "$System.env.BITESTS_PLATFORM_USERNAME"
+            password = "$System.env.BITESTS_PLATFORM_ADMIN_TOKEN"
+        }
+        defaults {
+            publications('mavenJava')
+        }
+    }
+}

@@ -1,6 +1,5 @@
 package org.jfrog.gradle.plugin.artifactory.extractor;
 
-import org.gradle.api.Project;
 import org.jfrog.build.extractor.clientConfiguration.deploy.DeployDetails;
 
 import java.util.Objects;
@@ -11,20 +10,20 @@ import java.util.Objects;
 public class GradleDeployDetails implements Comparable<GradleDeployDetails> {
     private final DeployDetails deployDetails;
     private final PublishArtifactInfo publishArtifact;
-    private final Project project;
+    private final String projectPath;
 
-    public GradleDeployDetails(PublishArtifactInfo publishArtifact, DeployDetails deployDetails, Project project) {
+    public GradleDeployDetails(PublishArtifactInfo publishArtifact, DeployDetails deployDetails, String projectPath) {
         this.deployDetails = deployDetails;
         this.publishArtifact = publishArtifact;
-        this.project = project;
+        this.projectPath = projectPath;
     }
 
     public DeployDetails getDeployDetails() {
         return deployDetails;
     }
 
-    public Project getProject() {
-        return project;
+    public String getProjectPath() {
+        return projectPath;
     }
 
     public PublishArtifactInfo getPublishArtifact() {
@@ -74,11 +73,11 @@ public class GradleDeployDetails implements Comparable<GradleDeployDetails> {
         GradleDeployDetails that = (GradleDeployDetails) o;
         return Objects.equals(deployDetails, that.deployDetails) &&
                 Objects.equals(publishArtifact, that.publishArtifact) &&
-                Objects.equals(project, that.project);
+                Objects.equals(projectPath, that.projectPath);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(deployDetails, publishArtifact, project);
+        return Objects.hash(deployDetails, publishArtifact, projectPath);
     }
 }

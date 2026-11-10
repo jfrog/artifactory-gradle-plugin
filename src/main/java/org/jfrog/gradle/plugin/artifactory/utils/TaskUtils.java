@@ -3,20 +3,22 @@ package org.jfrog.gradle.plugin.artifactory.utils;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.UnknownTaskException;
-import org.gradle.api.execution.TaskExecutionGraph;
-import org.gradle.api.file.FileCollection;
+import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.ResolvableDependencies;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
+import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
 import org.jfrog.gradle.plugin.artifactory.Constant;
-import org.jfrog.gradle.plugin.artifactory.extractor.ModuleInfoFileProducer;
+import org.jfrog.gradle.plugin.artifactory.extractor.DependencyExtractor;
 import org.jfrog.gradle.plugin.artifactory.task.ArtifactoryTask;
 import org.jfrog.gradle.plugin.artifactory.task.DeployTask;
 import org.jfrog.gradle.plugin.artifactory.task.ExtractModuleTask;
+import org.jfrog.gradle.plugin.artifactory.extractor.PreCollectedDependency;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 public class TaskUtils {
     private static final Logger log = LoggerFactory.getLogger(TaskUtils.class);
@@ -81,18 +83,74 @@ public class TaskUtils {
             taskProvider = registerTaskInProject(Constant.EXTRACT_MODULE_TASK_NAME, ExtractModuleTask.class, Constant.EXTRACT_MODULE_TASK_DESCRIPTION, project, false);
         }
         // Lazy Configure
+        String artifactoryTaskPath = collectDeployDetailsTask.get().getPath();
         taskProvider.configure(extractModuleTask -> {
             extractModuleTask.getOutputs().upToDateWhen(reuseOutputs -> false);
             extractModuleTask.getModuleFile().set(project.getLayout().getBuildDirectory().file(Constant.MODULE_INFO_FILE_NAME));
             extractModuleTask.mustRunAfter(project.getTasks().withType(ArtifactoryTask.class));
+
+            extractModuleTask.setProjectInfo(
+                    project.getPath(),
+                    project.getName(),
+                    project.getGroup().toString(),
+                    project.getVersion().toString()
+            );
+            // Pin the specific ArtifactoryTask this ExtractModuleTask reads from — avoids a linear scan
+            // of every module's recorded data (O(n^2) across a multi-module build).
+            extractModuleTask.setArtifactoryTaskPath(artifactoryTaskPath);
         });
+
         TaskProvider<ExtractModuleTask> finalTaskProvider = taskProvider;
-        // The ExtractModuleTask is not configured as a direct dependency for the DeployTask.
-        // Instead, the DeployTask uses a ModuleInfoFileProducer to lazily obtain the module-info file.
-        // This ensures that ExtractModuleTask runs only when needed and after ArtifactoryTask has collected the deployment details.
-        project.getRootProject().getTasks().withType(DeployTask.class).configureEach(deployTask ->
-                deployTask.registerModuleInfoProducer(new DefaultModuleInfoFileProducer(collectDeployDetailsTask.get(), finalTaskProvider.get()))
-        );
+        // Wire the ExtractModuleTask output files to the DeployTask inputs
+        project.getRootProject().getTasks().withType(DeployTask.class).configureEach(deployTask -> {
+            deployTask.addModuleInfoFiles(finalTaskProvider.get().getOutputs().getFiles());
+        });
+
+        // Configuration-cache-compatible dependency capture: for each resolvable configuration, wire a lazy
+        // provider that transforms its resolution result + resolved artifacts into serializable dependency
+        // records. The transform runs at execution time and its result is stored in the configuration cache,
+        // so dependencies survive a cache hit without a config-time resolution listener.
+        wireDependencyProviders(project, finalTaskProvider);
+    }
+
+    /**
+     * Wire a lazy dependency-capture provider onto the project's ExtractModuleTask for every configuration.
+     * <p>
+     * {@code configureEach} fires for every configuration that already exists and for every one added later
+     * during configuration — Android's per-variant classpaths, or a configuration another plugin creates from
+     * its own {@code projectsEvaluated} listener. Configurations are therefore picked up as late as they can
+     * still become a task input; only ones created at execution time (after ExtractModuleTask's inputs are
+     * fixed) are missed, and those are unsupported under the configuration cache anyway.
+     * <p>
+     * Nothing is read from the configuration when it is created (its role may not be set yet). Each provider
+     * is evaluated when ExtractModuleTask's input is realized — at execution in a normal build, when the entry
+     * is stored under the configuration cache — and reports the configuration only if it is resolvable and the
+     * build resolved it ({@code state == RESOLVED}), mirroring the pre-configuration-cache selection rule. The
+     * provider's list value is what the configuration cache stores, so dependencies survive a cache hit.
+     */
+    private static void wireDependencyProviders(Project project, TaskProvider<ExtractModuleTask> extractTaskProvider) {
+        project.getConfigurations().configureEach(configuration -> {
+            String configName = configuration.getName();
+            Provider<List<PreCollectedDependency>> provider = project.provider(() -> {
+                if (!configuration.isCanBeResolved() || configuration.getState() != Configuration.State.RESOLVED) {
+                    return Collections.<PreCollectedDependency>emptyList();
+                }
+                ResolvableDependencies incoming = configuration.getIncoming();
+                return DependencyExtractor.extract(configName,
+                        incoming.getResolutionResult().getRootComponent().get(),
+                        incoming.artifactView(view -> view.setLenient(true))
+                                .getArtifacts().getResolvedArtifacts().get());
+            });
+            extractTaskProvider.configure(extractModuleTask -> {
+                try {
+                    extractModuleTask.getPreCollectedDependencies().addAll(provider);
+                } catch (IllegalStateException e) {
+                    // The configuration was created after ExtractModuleTask's input was fixed (execution time).
+                    log.debug("Configuration '{}' of {} was created too late to be recorded in the build-info: {}",
+                            configName, project.getPath(), e.getMessage());
+                }
+            });
+        });
     }
 
     /**
@@ -107,64 +165,29 @@ public class TaskUtils {
         } catch (UnknownTaskException e) {
             log.debug("Task '{}' not found in project", Constant.DEPLOY_TASK_NAME);
         }
-        registerTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
+        TaskProvider<DeployTask> taskProvider = registerTaskInProject(Constant.DEPLOY_TASK_NAME, DeployTask.class, Constant.DEPLOY_TASK_DESCRIPTION, project, false);
+        taskProvider.configure(deployTask -> {
+            deployTask.setRootProjectName(project.getName());
+            deployTask.setGradleVersion(project.getGradle().getGradleVersion());
+            deployTask.getRootBuildDirectory().set(project.getLayout().getBuildDirectory());
+        });
     }
 
     /**
-     * Find a ArtifactoryTask of a given project that finished to execute or null if not exists.
-     *
-     * @param project - a project to search for a finished task
-     * @return - finished collection task or null if not exists in project
+     * Configure the BuildService on all relevant tasks.
      */
-    public static ArtifactoryTask findExecutedCollectionTask(Project project) {
-        Set<Task> tasks = project.getTasksByName(Constant.ARTIFACTORY_PUBLISH_TASK_NAME, false);
-        if (tasks.isEmpty()) {
-            return null;
-        }
-        ArtifactoryTask artifactoryTask = (ArtifactoryTask) tasks.iterator().next();
-        return artifactoryTask.getState().getDidWork() ? artifactoryTask : null;
-    }
-
-    /**
-     * Get a list of all the ArtifactoryTask tasks of a given project and its submodules
-     *
-     * @param project - project to get its related tasks
-     * @return list of all the ArtifactoryTask that ran
-     */
-    public static List<ArtifactoryTask> getAllArtifactoryPublishTasks(Project project) {
-        TaskExecutionGraph graph = project.getGradle().getTaskGraph();
-        List<ArtifactoryTask> tasks = new ArrayList<>();
-        for (Task task : graph.getAllTasks()) {
-            if (task instanceof ArtifactoryTask) {
-                tasks.add(((ArtifactoryTask) task));
-            }
-        }
-        return tasks;
-    }
-
-    /**
-     * Produce module info files if the module has publications to deploy from the collecting task
-     */
-    private static class DefaultModuleInfoFileProducer implements ModuleInfoFileProducer {
-        private final ArtifactoryTask collectDeployDetailsTask;
-        private final ExtractModuleTask extractModuleTask;
-
-        DefaultModuleInfoFileProducer(ArtifactoryTask collectDeployDetailsTask, ExtractModuleTask extractModuleTask) {
-            this.collectDeployDetailsTask = collectDeployDetailsTask;
-            this.extractModuleTask = extractModuleTask;
-        }
-
-        @Override
-        public boolean hasModules() {
-            if (collectDeployDetailsTask != null && collectDeployDetailsTask.getProject().getState().getExecuted()) {
-                return collectDeployDetailsTask.hasPublications();
-            }
-            return false;
-        }
-
-        @Override
-        public FileCollection getModuleInfoFiles() {
-            return extractModuleTask.getOutputs().getFiles();
-        }
+    public static void configureBuildService(Project project, Provider<ArtifactoryBuildService> serviceProvider) {
+        project.getTasks().withType(ArtifactoryTask.class).configureEach(task -> {
+            task.getBuildServiceProperty().set(serviceProvider);
+            task.usesService(serviceProvider);
+        });
+        project.getTasks().withType(ExtractModuleTask.class).configureEach(task -> {
+            task.getBuildServiceProperty().set(serviceProvider);
+            task.usesService(serviceProvider);
+        });
+        project.getTasks().withType(DeployTask.class).configureEach(task -> {
+            task.getBuildServiceProperty().set(serviceProvider);
+            task.usesService(serviceProvider);
+        });
     }
 }

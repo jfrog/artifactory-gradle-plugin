@@ -23,6 +23,7 @@
 - [📚 Overview](#-overview)
 - [📦 Installation](#-installation)
 - [🚀 Usage](#-usage)
+- [⚡ Configuration Cache](#-configuration-cache)
 - [💡 Examples](#-examples)
 - [🐞 Reporting Issues](#-reporting-issues)
 - [🫱🏻‍🫲🏼 Contributions](#-contributions)
@@ -502,6 +503,50 @@ To deploy the project artifacts and build info to Artifactory, execute the follo
 ```bash
 ./gradlew artifactoryPublish
 ```
+
+---
+
+## ⚡ Configuration Cache
+
+The plugin supports [Gradle's configuration cache](https://docs.gradle.org/current/userguide/configuration_cache.html) on **Gradle 8+**.
+
+Enable it in your project:
+
+```properties
+# gradle.properties
+org.gradle.configuration-cache=true
+```
+
+With configuration cache enabled, the configuration phase is serialized to disk after the first build. Subsequent builds skip configuration entirely and replay from the cache — significantly reducing build times in large multi-module projects.
+
+### Requirements
+
+- **Gradle 8 or newer** (already the plugin's minimum version).
+- No extra plugin configuration needed; configuration cache works with all existing `artifactory { }` DSL options.
+
+### Volatile build metadata
+
+Values that change on every build — **build number, timestamp, VCS revision** — must be passed via system properties (`-D`) or environment variables, **not** via Gradle project properties (`-P`).
+
+Project properties (`-P`) are captured at configuration time and frozen into the configuration cache. They cannot be updated on a cache hit, so the build-info would carry stale values on subsequent runs.
+
+| Metadata | Correct (survives cache hit) | Incorrect (frozen on first run) |
+|---|---|---|
+| Build number | `-Dbuild.number=123` or env var | `-Pbuild.number=123` |
+| Build timestamp | `-Dbuild.timestamp=...` or env var | `-Pbuild.timestamp=...` |
+| VCS revision | `-Dvcs.revision=abc` or env var | `-Pvcs.revision=abc` |
+
+Example CI invocation:
+
+```bash
+./gradlew artifactoryPublish \
+  -Dbuild.number=$BUILD_NUMBER \
+  -Dbuild.name=my-service
+```
+
+### How it works
+
+Dependency data (used to populate `dependencies` and `requestedBy` in build-info) is captured using Gradle's lazy resolution-result provider API. The resolved dependency graph is serialized into the configuration cache and reloaded on a cache hit — no configuration-phase listeners are involved, so dependencies are never empty on a cache reuse run.
 
 ---
 

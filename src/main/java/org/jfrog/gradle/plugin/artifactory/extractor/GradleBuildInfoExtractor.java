@@ -2,6 +2,7 @@ package org.jfrog.gradle.plugin.artifactory.extractor;
 
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Project;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
 import org.jfrog.build.api.builder.PromotionStatusBuilder;
@@ -19,7 +20,6 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.jfrog.build.extractor.ci.BuildInfoProperties.BUILD_INFO_ENVIRONMENT_PREFIX;
 import static org.jfrog.gradle.plugin.artifactory.Constant.*;
@@ -29,11 +29,11 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
     private static final Logger log = Logging.getLogger(GradleBuildInfoExtractor.class);
 
     private final ArtifactoryClientConfiguration clientConf;
-    private final List<ModuleInfoFileProducer> moduleInfoFileProducers;
+    private final FileCollection moduleInfoFiles;
 
-    public GradleBuildInfoExtractor(ArtifactoryClientConfiguration clientConf, List<ModuleInfoFileProducer> moduleInfoFileProducers) {
+    public GradleBuildInfoExtractor(ArtifactoryClientConfiguration clientConf, FileCollection moduleInfoFiles) {
         this.clientConf = clientConf;
-        this.moduleInfoFileProducers = moduleInfoFileProducers;
+        this.moduleInfoFiles = moduleInfoFiles;
     }
 
     @Override
@@ -91,13 +91,14 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
      * @param bib - the builder to set its fields
      */
     private void populateBuilderModulesFields(BuildInfoBuilder bib) {
-        Set<File> moduleFilesWithModules = moduleInfoFileProducers.stream()
-                .filter(ModuleInfoFileProducer::hasModules)
-                .flatMap(moduleInfoFileProducer -> moduleInfoFileProducer.getModuleInfoFiles().getFiles().stream())
-                .collect(Collectors.toSet());
-
-        moduleFilesWithModules.forEach(moduleFile -> {
+        if (moduleInfoFiles == null) {
+            return;
+        }
+        for (File moduleFile : moduleInfoFiles.getFiles()) {
             try {
+                if (!moduleFile.exists() || moduleFile.length() == 0) {
+                    continue;
+                }
                 Module module = ModuleExtractorUtils.readModuleFromFile(moduleFile);
                 List<Artifact> artifacts = module.getArtifacts();
                 List<Dependency> dependencies = module.getDependencies();
@@ -107,7 +108,7 @@ public class GradleBuildInfoExtractor implements BuildInfoExtractor<Project> {
             } catch (IOException e) {
                 throw new RuntimeException("Cannot load module info from file: " + moduleFile.getAbsolutePath(), e);
             }
-        });
+        }
     }
 
     private void populateBuilderArtifactoryPluginVersionField(BuildInfoBuilder bib) {

@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -30,6 +31,9 @@ import java.util.regex.Matcher;
 import static org.jfrog.gradle.plugin.artifactory.TestConsts.MIN_GRADLE_VERSION_CONFIG_CACHE;
 import static org.jfrog.gradle.plugin.artifactory.utils.Utils.createDeployableArtifactsFile;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
 public class GradleFunctionalTestBase {
     // ArtifactoryManager
@@ -91,14 +95,18 @@ public class GradleFunctionalTestBase {
     public void runPublishTest(String gradleVersion, Path sourceDir, ValidationUtils.BuildResultValidation validation) throws IOException {
         // Create test environment
         Utils.createTestDir(sourceDir);
-        // Run configuration cache
-        runConfigCacheIfSupported(gradleVersion, envVars, false);
-        // Run Gradle
+        // Normal publish first — ensures Artifactory repos are ready and artifacts are built.
         BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, envVars, false);
         validation.validate(buildResult);
-        // Cleanup
         Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
         Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
+        // Config-cache: run twice (store + reuse), validate reuse run build-info.
+        BuildResult ccReuseResult = runConfigCacheIfSupported(gradleVersion, envVars, false);
+        if (ccReuseResult != null) {
+            validation.validate(ccReuseResult);
+            Pair<String, String> ccBuild = Utils.getBuildDetails(ccReuseResult);
+            Utils.cleanTestBuilds(artifactoryManager, ccBuild.getLeft(), ccBuild.getRight(), null);
+        }
     }
 
     public interface TestEnvCreator {
@@ -114,38 +122,58 @@ public class GradleFunctionalTestBase {
         Map<String, String> extendedEnv = new HashMap<String, String>(envVars) {{
             put(BuildInfoConfigProperties.PROP_PROPS_FILE, TestConsts.BUILD_INFO_PROPERTIES_TARGET.toString());
         }};
-        // Run configuration cache
-        runConfigCacheIfSupported(gradleVersion, extendedEnv, true);
-        // Run Gradle
+        // Normal publish first — ensures Artifactory is ready.
         BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, extendedEnv, true);
         validation.validate(buildResult, deployableArtifacts);
-        // Cleanup
         if (cleanUp) {
             Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
             Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
+        }
+        // Config-cache: run twice (store + reuse), validate reuse run build-info.
+        BuildResult ccReuseResult = runConfigCacheIfSupported(gradleVersion, extendedEnv, true);
+        if (ccReuseResult != null) {
+            validation.validate(ccReuseResult, deployableArtifacts);
+            if (cleanUp) {
+                // Only builds that publish build-info print the build-info URL getBuildDetails() parses.
+                Pair<String, String> ccBuild = Utils.getBuildDetails(ccReuseResult);
+                Utils.cleanTestBuilds(artifactoryManager, ccBuild.getLeft(), ccBuild.getRight(), null);
+            }
         }
         Files.deleteIfExists(deployableArtifacts);
     }
 
     /**
-     * Execute the command "gradle --configuration-cache" in order to ensure the proper functioning of the configuration
-     * cache for the project.
-     * When dealing with Gradle versions that are earlier than 7.4.2, we have encountered issues related to reading system properties.
-     * As a result, we have made the decision to exclude versions that are prior to 7.4.2.
+     * Run 'gradle artifactoryPublish --configuration-cache' twice and assert the second run reuses
+     * the cache with no problems and no missing dependencies in the produced build-info.
+     * Skipped on Gradle versions below {@link TestConsts#MIN_GRADLE_VERSION_CONFIG_CACHE}.
      *
      * @param gradleVersion   - The Gradle version
      * @param envVars         - The extended environment variables
      * @param applyInitScript - Apply the template init script to add the plugin
      * @throws IOException In case of any IO error.
      */
-    private void runConfigCacheIfSupported(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
+    /**
+     * Run 'build artifactoryPublish --configuration-cache' twice and assert the second run reuses
+     * the cache with no problems and no missing dependencies in the produced build-info.
+     * Skipped on Gradle versions below {@link TestConsts#MIN_GRADLE_VERSION_CONFIG_CACHE}.
+     *
+     * @return the reuse-run BuildResult for caller validation, or null if skipped.
+     */
+    private BuildResult runConfigCacheIfSupported(String gradleVersion, Map<String, String> envVars, boolean applyInitScript) throws IOException {
         if (!new Version(gradleVersion).isAtLeast(MIN_GRADLE_VERSION_CONFIG_CACHE)) {
-            return;
+            return null;
         }
-        BuildResult buildResult = Utils.runConfigurationCache(gradleVersion, envVars, applyInitScript);
-        for (BuildTask buildTask : buildResult.getTasks()) {
-            assertEquals(buildTask.getOutcome(), TaskOutcome.SUCCESS);
+        // Utils.runConfigurationCache runs twice: store on run 1, reuse on run 2.
+        BuildResult reuseResult = Utils.runConfigurationCache(gradleVersion, envVars, applyInitScript);
+        assertTrue(reuseResult.getOutput().contains("Reusing configuration cache"),
+                "Second run must reuse the configuration cache. Output:\n" + reuseResult.getOutput());
+        List<BuildTask> tasks = reuseResult.getTasks();
+        assertFalse(tasks.isEmpty(), "Configuration-cache reuse run executed no tasks");
+        for (BuildTask buildTask : tasks) {
+            assertNotEquals(buildTask.getOutcome(), TaskOutcome.FAILED,
+                    "Task " + buildTask.getPath() + " failed under configuration cache");
         }
+        return reuseResult;
     }
 
     private void initArtifactoryManager() {

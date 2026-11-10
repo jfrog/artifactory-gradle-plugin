@@ -30,6 +30,7 @@ public class PluginUtils {
         }
     }
 
+
     /**
      * Get the {@link ModuleType} object from the user input or GRADLE.
      *

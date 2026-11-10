@@ -38,6 +38,26 @@ jobs:
         with:
           RTLIC: ${{ secrets.RTLIC }}
 
+      # Wait until Artifactory storage and repo services are fully ready.
+      # install-local-artifactory waits for /api/system/ping (HTTP layer only).
+      # The storage backend and repo services may still initialize after ping returns 200,
+      # causing 503 on actual API calls. Poll /api/repositories until it responds 200.
+      - name: Wait for Artifactory to be fully ready
+        if: runner.os == 'Linux'
+        run: |
+          echo "Waiting for Artifactory repo API to be ready..."
+          for i in $(seq 1 40); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u admin:password http://localhost:8081/artifactory/api/repositories)
+            echo "Attempt $i: /api/repositories returned $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Artifactory is fully ready."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Timed out waiting for Artifactory to be ready."
+          exit 1
+
       # Run tests
       - name: Tests on Linux
         if: runner.os == 'Linux'
