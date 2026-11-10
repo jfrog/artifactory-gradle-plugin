@@ -1,0 +1,46 @@
+name: Snapshot
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      JFROG_BUILD_STATUS: PASS
+      JFROG_CLI_BUILD_NAME: ecosystem-artifactory_gradle_plugin-dev
+      JFROG_CLI_BUILD_NUMBER: ${{ github.run_number }}
+      JFROG_CLI_BUILD_PROJECT: ecosys
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: .gradle
+          key: ${{ runner.os }}-gradle-main-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-main-
+
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
+
+      - name: Run snapshot script
+        env:
+          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+          ARTIFACTORY_APIKEY: ${{ secrets.ARTIFACTORY_APIKEY }}
+        run: .github/scripts/snapshot.sh
