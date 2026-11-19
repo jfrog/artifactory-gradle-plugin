@@ -20,6 +20,7 @@ import org.jfrog.gradle.plugin.artifactory.extractor.PreCollectedDependency;
 
 import javax.inject.Inject;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -129,14 +130,16 @@ public class ExtractModuleTask extends DefaultTask {
         ArtifactoryBuildService.TaskData taskData = buildService.isPresent()
                 ? buildService.get().getTaskData(artifactoryTaskPath) : null;
 
-        // Missing taskData means the ArtifactoryTask this module info depends on never ran (excluded from
-        // the graph, filtered out, or the user invoked extractModuleInfo directly). Silently writing an
-        // empty module would ship broken build-info; refuse instead so the mistake surfaces immediately.
+        // Missing taskData means the ArtifactoryTask of this project did not run in this build. This is the
+        // regular case when publishing only some projects of a multi-project build (e.g. 'gradle
+        // :sub:artifactoryPublish'): the root DeployTask consumes the module info files of all projects, so
+        // every ExtractModuleTask is scheduled. Such a project contributes no module to the build-info, and a
+        // module info file left over from a previous build must not be picked up by the DeployTask.
         if (taskData == null) {
-            throw new IllegalStateException("Cannot extract module info for '" + getPath()
-                    + "': no data recorded for ArtifactoryTask '" + artifactoryTaskPath
-                    + "'. Ensure that task ran (do not exclude it with -x, and do not invoke "
-                    + getPath() + " on its own).");
+            log.info("Skipping {}: ArtifactoryTask '{}' did not run in this build", getPath(), artifactoryTaskPath);
+            deleteStaleModuleFile();
+            setDidWork(false);
+            return;
         }
 
         String effectiveVersion = taskData.getProjectVersion() != null ? taskData.getProjectVersion() : storedProjectVersion;
@@ -152,6 +155,14 @@ public class ExtractModuleTask extends DefaultTask {
             ModuleExtractorUtils.saveModuleToFile(module, moduleFile.getAsFile().get());
         } catch (IOException e) {
             throw new RuntimeException("Could not save module file", e);
+        }
+    }
+
+    private void deleteStaleModuleFile() {
+        try {
+            Files.deleteIfExists(moduleFile.getAsFile().get().toPath());
+        } catch (IOException e) {
+            throw new RuntimeException("Could not delete stale module file", e);
         }
     }
 }

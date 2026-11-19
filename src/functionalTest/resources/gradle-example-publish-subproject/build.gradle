@@ -1,0 +1,37 @@
+plugins {
+    id 'maven-publish'
+    id 'com.jfrog.artifactory'
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'maven-publish'
+    apply plugin: 'com.jfrog.artifactory'
+    group = 'org.jfrog.test.gradle.publish'
+    version = '1.0-SNAPSHOT'
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+            }
+        }
+    }
+}
+
+// Publishing is disabled: the build-info is only exported to build/build-info.json, no Artifactory is contacted
+artifactory {
+    publish {
+        contextUrl = 'http://127.0.0.1:1/artifactory'
+        repository {
+            repoKey = 'libs-snapshot-local'
+            username = 'unused'
+            password = 'unused'
+        }
+        defaults {
+            publications('mavenJava')
+        }
+    }
+    clientConfig.publisher.publishArtifacts = false
+    clientConfig.publisher.publishBuildInfo = false
+}
