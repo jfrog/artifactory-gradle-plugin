@@ -104,11 +104,19 @@ public class GradleFunctionalTestBase {
         // Create test environment
         Utils.createTestDir(sourceDir);
         if (customizeBuildScript != null) {
+            boolean changed = false;
             for (String name : new String[]{"build.gradle", "build.gradle.kts"}) {
                 Path script = TestConsts.TEST_DIR.toPath().resolve(name);
                 if (Files.exists(script)) {
-                    Files.write(script, customizeBuildScript.apply(new String(Files.readAllBytes(script), StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
+                    String original = new String(Files.readAllBytes(script), StandardCharsets.UTF_8);
+                    String customized = customizeBuildScript.apply(original);
+                    changed |= !original.equals(customized);
+                    Files.write(script, customized.getBytes(StandardCharsets.UTF_8));
                 }
+            }
+            // A customization that changes nothing (for example, the fixture text was edited) would make the test pass without testing the flag.
+            if (!changed) {
+                throw new IllegalStateException("The build script customization did not change the build script of " + sourceDir + ". Check that the text to replace exists in the fixture.");
             }
         }
         // Normal publish first — ensures Artifactory repos are ready and artifacts are built.

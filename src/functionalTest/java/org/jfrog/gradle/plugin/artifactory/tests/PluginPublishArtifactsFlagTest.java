@@ -1,15 +1,21 @@
 package org.jfrog.gradle.plugin.artifactory.tests;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.gradle.testkit.runner.BuildResult;
 import org.jfrog.build.extractor.ci.BuildInfo;
 import org.jfrog.build.extractor.ci.Module;
+import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.GradleFunctionalTestBase;
 import org.jfrog.gradle.plugin.artifactory.TestConsts;
+import org.jfrog.gradle.plugin.artifactory.utils.Utils;
 import org.jfrog.gradle.plugin.artifactory.utils.ValidationUtils;
 import org.testng.annotations.Test;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -75,6 +81,23 @@ public class PluginPublishArtifactsFlagTest extends GradleFunctionalTestBase {
             assertNotNull(buildInfo);
             assertTrue(buildInfo.getModules().size() >= 3);
         });
+    }
+
+    @Test(dataProvider = "gradleVersions")
+    public void publishArtifactsFalseBySystemPropertyTest(String gradleVersion) throws IOException {
+        // The build script keeps "publishArtifacts = true". The real "-Dartifactory.publish.artifacts=false" flag must win.
+        Utils.createTestDir(TestConsts.GRADLE_EXAMPLE_PUBLISH);
+        List<String> arguments = new ArrayList<>(Arrays.asList("clean", "build", Constant.ARTIFACTORY_PUBLISH_TASK_NAME,
+                "-Dartifactory.publish.artifacts=false", "--stacktrace"));
+        BuildResult buildResult = Utils.runPluginTasks(gradleVersion, arguments, envVars, false);
+        for (String artifact : TestConsts.EXPECTED_ARTIFACTS) {
+            assertNotDeployed(localRepo + TestConsts.ARTIFACTS_GROUP_ID + artifact);
+        }
+        BuildInfo buildInfo = ValidationUtils.getBuildInfo(artifactoryManager, buildResult);
+        assertNotNull(buildInfo);
+        assertTrue(buildInfo.getModules().size() >= 3);
+        Pair<String, String> buildDetails = Utils.getBuildDetails(buildResult);
+        Utils.cleanTestBuilds(artifactoryManager, buildDetails.getLeft(), buildDetails.getRight(), null);
     }
 
     private void assertNotDeployed(String path) throws IOException {
