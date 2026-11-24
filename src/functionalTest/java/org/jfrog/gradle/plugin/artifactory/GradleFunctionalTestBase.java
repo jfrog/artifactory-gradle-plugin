@@ -93,8 +93,24 @@ public class GradleFunctionalTestBase {
     }
 
     public void runPublishTest(String gradleVersion, Path sourceDir, ValidationUtils.BuildResultValidation validation) throws IOException {
+        runPublishTest(gradleVersion, sourceDir, null, validation);
+    }
+
+    /**
+     * Same as above. "customizeBuildScript" changes the build script of the copied project (for example a flag),
+     * so an existing fixture can be reused. It gets the script text and returns the new text.
+     */
+    public void runPublishTest(String gradleVersion, Path sourceDir, java.util.function.UnaryOperator<String> customizeBuildScript, ValidationUtils.BuildResultValidation validation) throws IOException {
         // Create test environment
         Utils.createTestDir(sourceDir);
+        if (customizeBuildScript != null) {
+            for (String name : new String[]{"build.gradle", "build.gradle.kts"}) {
+                Path script = TestConsts.TEST_DIR.toPath().resolve(name);
+                if (Files.exists(script)) {
+                    Files.write(script, customizeBuildScript.apply(new String(Files.readAllBytes(script), StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
+                }
+            }
+        }
         // Normal publish first — ensures Artifactory repos are ready and artifacts are built.
         BuildResult buildResult = Utils.runGradleArtifactoryPublish(gradleVersion, envVars, false);
         validation.validate(buildResult);
