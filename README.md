@@ -481,6 +481,7 @@ artifactoryPublish {
     }
 
     skip = true
+    // Do not deploy the artifacts. The build info is still published, and it still lists the artifacts (they are not uploaded). Only false is applied; true does not override a false set by a property or by CI.
     publishArtifacts = false
     publishPom = false
     publishIvy = false

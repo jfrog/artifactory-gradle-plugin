@@ -28,6 +28,7 @@ import org.jfrog.build.api.multiMap.SetMultimap;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpec;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactSpecs;
 import org.jfrog.build.extractor.clientConfiguration.ArtifactoryClientConfiguration;
+import org.jfrog.build.extractor.clientConfiguration.ClientConfigurationFields;
 import org.jfrog.gradle.plugin.artifactory.ArtifactoryBuildService;
 import org.jfrog.gradle.plugin.artifactory.Constant;
 import org.jfrog.gradle.plugin.artifactory.dsl.ArtifactoryPluginConvention;
@@ -403,6 +404,7 @@ public class ArtifactoryTask extends DefaultTask {
                 defaultsAction.execute(this);
             }
         }
+        applyPublishArtifactsFlag();
 
         // Snapshot publication data and clear non-serializable objects. Copy the effective artifactSpecs
         // (which may include task-level customizations added by defaults{properties{...}} above) into a
@@ -412,6 +414,28 @@ public class ArtifactoryTask extends DefaultTask {
         artifactSpecsSnapshot.addAll(artifactSpecs);
         snapshotPublications();
         artifactSpecs = null;
+    }
+
+    /**
+     * Honor an explicit {@code publishArtifacts = false} set on this task (e.g. in {@code defaults {}}).
+     * The deploy step reads the publisher's {@code artifactory.publish.artifacts} value from {@link #configSnapshot},
+     * which is captured before the defaults action runs, so the task flag must be written into that snapshot.
+     * Only {@code false} is applied: {@code true} or unset keeps the existing value, so a property or CI
+     * setting that disables the deployment keeps working. The snapshot is rewritten instead of the live
+     * client config, because a sub-project may share its extension with other projects.
+     * The deprecated-prefixed key is also set, because the getter reads it before the current key and it can
+     * already be present in the snapshot (for example, written by JFrog CLI).
+     */
+    private void applyPublishArtifactsFlag() {
+        if (configSnapshot == null || !Boolean.FALSE.equals(getPublishArtifacts())) {
+            return;
+        }
+        ArtifactoryClientConfiguration clientConfig = ClientConfigHelper.restoreConfig(configSnapshot);
+        clientConfig.publisher.setPublishArtifacts(false);
+        // The getter reads the deprecated "artifactory.publish.artifacts" key before the current key. JFrog CLI
+        // writes that key (as "true"), so it must be overwritten in the task snapshot too.
+        clientConfig.publisher.setLegacyBooleanValue(ClientConfigurationFields.PUBLISH_ARTIFACTS, false);
+        configSnapshot = ClientConfigHelper.snapshotConfig(clientConfig);
     }
 
     /**
